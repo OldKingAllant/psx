@@ -163,7 +163,7 @@ Fortunately for us, instruction decoding for MIPS is thousands of times
 easier WRT that of the ARM instruction set (look my GBA emulator for reference)
 */
 
-int main(int argc, char* argv[]) {
+int main2(int argc, char* argv[]) {
 	SYSTEM_INFO inf{};
 
 	GetSystemInfo(&inf);
@@ -229,6 +229,20 @@ int main(int argc, char* argv[]) {
 
 	fn(); //SIGSEGV!!!
 	//Oh! Nothing happened
+
+	/*
+	* Now the "recompiled" instruction
+	* has been patched. No more
+	* SIGSEGV should happen,
+	* and for each call 
+	* "instruction 0x1" will be printed on the console
+	*/
+
+	for (int i = 0; i < 1000; i++) {
+		//Repeat a lot of times to prove
+		//that nothing bad happens
+		fn();
+	}
 
 	std::cout << (int)memory[0] << std::endl;
 

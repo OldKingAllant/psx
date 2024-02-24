@@ -129,7 +129,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\psxemu\platform\main.cpp" />
+    <ClCompile Include="..\psxemu\platform\fastmem.cpp" />
+    <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

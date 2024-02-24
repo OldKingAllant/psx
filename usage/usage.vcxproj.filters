@@ -15,7 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\psxemu\platform\main.cpp">
+    <ClCompile Include="..\psxemu\platform\fastmem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
