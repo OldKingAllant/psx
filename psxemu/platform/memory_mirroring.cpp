@@ -127,7 +127,7 @@ auto SplitRegion(uint64_t base, uint64_t size, std::list<Placeholder>& placehold
 
 
 
-int main(int argc, char* argv[]) {
+int main3(int argc, char* argv[]) {
 	SYSTEM_INFO sys_info{};
 
 	GetSystemInfo(&sys_info);

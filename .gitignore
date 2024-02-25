@@ -2,3 +2,5 @@ x64/*
 .vs/*
 usage/x64/*
 psxemu/x64/*
+tests/x64/*
+packages/*
