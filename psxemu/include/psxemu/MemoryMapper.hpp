@@ -82,7 +82,12 @@ namespace psx::memory {
 
 		/// <summary>
 		/// Unmaps an already mapped region. Fails if the region 
-		/// is not mapped in the guest address space
+		/// is not mapped in the guest address space.
+		/// 
+		/// Not that the unmap is not destructive, since
+		/// it is performed through UnmapViewOfFile2 with
+		/// flag MEM_PRESERVE_PLACEHOLDER, allowing the user
+		/// to remap the same region later
 		/// </summary>
 		/// <param name="host_ptr">Host pointer to base</param>
 		/// <returns>Whether or not the function succeded</returns>

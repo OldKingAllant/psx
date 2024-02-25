@@ -186,3 +186,65 @@ TEST(MemoryMapTest, TestRamRemap) {
 
 	ASSERT_NE(kseg0_ram, nullptr) << "KSEG0 Remap failed";
 }
+
+TEST(MemoryMapTest, TestMapUnder64K) {
+	//The Microsoft documentation states that MapViewOfFile3 requires
+	//offset and size of the mapping to be aligned to 64KB, unless
+	//MEM_REPLACE_PLACEHOLDER is specified.
+	//Since SCRATCHPAD has 1KB size and the remaining space
+	//until the next region is only 3KB, such alignment restriction
+	//would be catastrophic, so we test if the flag specified by
+	//the documentation produces the wanted behaviour
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_SCRATCHPAD_OFFSET, region_sizes::PSX_SCRATCHPAD_PADDED_SIZE)) << "SCRATCHPAD Reserve failed";
+
+	psx::u8* scratchpad = mapper.MapRegion(KUSEG_START + region_offsets::PSX_SCRATCHPAD_OFFSET,
+		region_sizes::PSX_SCRATCHPAD_PADDED_SIZE, region_mappings::PSX_SCRATCHPAD_MAPPING,
+		PageProtection::READ_WRITE);
+
+	ASSERT_NE(scratchpad, nullptr) << "SCRATCHPAD Map failed";
+
+	std::ptrdiff_t offset = scratchpad - mapper.GetGuestBase();
+
+	ASSERT_EQ(offset, region_offsets::PSX_SCRATCHPAD_OFFSET) << "SCRATCHPAD Offset has been rounded down";
+}
+
+TEST(MemoryMapTest, TestMultipleMapOffsets) {
+	//Test mapping from multiple offsets inside the memory
+	//file
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+	ASSERT_TRUE(mapper.ReserveRegion(KSEG0_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_BIOS_OFFSET, region_sizes::PSX_BIOS_SIZE));
+
+	psx::u8* kuseg_main_ram = mapper.MapRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET,
+		region_sizes::PSX_MAIN_RAM_SIZE, region_mappings::PSX_MAIN_RAM_MAPPING, PageProtection::READ_WRITE);
+
+	ASSERT_NE(kuseg_main_ram, nullptr);
+
+	psx::u8* kseg0_main_ram = mapper.MapRegion(KSEG0_START + region_offsets::PSX_MAIN_RAM_OFFSET,
+		region_sizes::PSX_MAIN_RAM_SIZE, region_mappings::PSX_MAIN_RAM_MAPPING, PageProtection::READ_WRITE);
+
+	ASSERT_NE(kseg0_main_ram, nullptr);
+
+	psx::u8* bios = mapper.MapRegion(KUSEG_START + region_offsets::PSX_BIOS_OFFSET,
+		region_sizes::PSX_BIOS_SIZE, region_mappings::PSX_BIOS_MAPPING, PageProtection::READ_WRITE);
+
+	ASSERT_NE(bios, nullptr);
+
+	//Test working mirror
+	psx::u8* guest_base = mapper.GetGuestBase();
+
+	guest_base[0x0] = 0xAA;
+
+	ASSERT_EQ(guest_base[KSEG0_START], 0xAA);
+
+	//Test BIOS is independent
+	ASSERT_NE(guest_base[KUSEG_START + region_offsets::PSX_BIOS_OFFSET], 0xAA);
+}
