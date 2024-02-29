@@ -8,7 +8,8 @@
 
 namespace psx::memory {
 	MemoryMapper::MemoryMapper(std::optional<u8*> base) :
-		m_guest_base(nullptr), m_free_regions{}, m_mapped_regions{},
+		m_guest_base(nullptr), m_free_regions{}, 
+		m_reserved_regions{}, m_mapped_regions{},
 		m_memory_file{}, m_page_granularity{} {
 		PVOID wanted_base_address = base.value_or(nullptr);
 
@@ -105,6 +106,8 @@ namespace psx::memory {
 			m_free_regions.push_back(MemoryRegion{ .guest_base = base_right, .extent = extent_right });
 		}
 
+		m_reserved_regions.push_back(MemoryRegion{ .guest_base = region_start, .extent = region_extent });
+
 		return VirtualFree(effective_host_address, region_extent, MEM_PRESERVE_PLACEHOLDER | MEM_RELEASE);
 	}
 
@@ -180,5 +183,50 @@ namespace psx::memory {
 		m_mapped_regions.erase(present);
 
 		return UnmapViewOfFile2(GetCurrentProcess(), host_ptr, MEM_PRESERVE_PLACEHOLDER);
+	}
+
+	bool MemoryMapper::FreeRegion(u64 region_start) noexcept {
+		auto pos = std::find_if(m_reserved_regions.cbegin(),
+			m_reserved_regions.cend(), [region_start](MemoryRegion const& region) {
+				return region.guest_base == region_start;
+			});
+
+		if (pos == m_reserved_regions.cend())
+			return false;
+
+		MemoryRegion reg = *pos;
+
+		m_reserved_regions.erase(pos);
+
+		auto region_left = std::find_if(m_free_regions.cbegin(),
+			m_free_regions.cend(), [region_start](MemoryRegion const& region) {
+				return region.guest_base + region.extent == region_start;
+			});
+
+		auto region_right = std::find_if(m_free_regions.cbegin(),
+			m_free_regions.cend(), [reg](MemoryRegion const& region) {
+				return reg.guest_base + reg.extent == region.guest_base;
+			});
+
+		u64 free_region_base = region_start;
+		u64 free_region_extent = reg.extent;
+
+		if (region_left != m_free_regions.cend()) {
+			free_region_base = region_left->guest_base;
+			free_region_extent += region_left->extent;
+			m_free_regions.erase(region_left);
+		}
+
+		if (region_right != m_free_regions.cend()) {
+			free_region_extent += region_right->extent;
+			m_free_regions.erase(region_right);
+		}
+
+		m_free_regions.push_back(MemoryRegion{ .guest_base = free_region_base, .extent = free_region_extent });
+
+		LPVOID effective_base = m_guest_base + free_region_base;
+
+		return VirtualFree(effective_base, free_region_extent,
+			MEM_COALESCE_PLACEHOLDERS | MEM_RELEASE);
 	}
 }

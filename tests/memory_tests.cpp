@@ -21,6 +21,15 @@ TEST(MemoryMapTest, TestSplitRight) {
 
 	ASSERT_EQ(reg1.guest_base, psx::memory::region_sizes::PSX_MAIN_RAM_SIZE);
 	ASSERT_EQ((uint32_t)(reg1.guest_base + reg1.extent), 0x0);
+
+	auto const& reserved_regions = mapper.GetReservedRegions();
+
+	ASSERT_EQ(reserved_regions.size(), 1);
+
+	auto const& reserved1 = *reserved_regions.cbegin();
+
+	ASSERT_EQ(reserved1.guest_base, 0x0);
+	ASSERT_EQ(reserved1.extent, psx::memory::region_sizes::PSX_MAIN_RAM_SIZE);
 }
 
 TEST(MemoryMapTest, TestSplitLeft) {
@@ -247,4 +256,53 @@ TEST(MemoryMapTest, TestMultipleMapOffsets) {
 
 	//Test BIOS is independent
 	ASSERT_NE(guest_base[KUSEG_START + region_offsets::PSX_BIOS_OFFSET], 0xAA);
+}
+
+TEST(MemoryMapTest, TestCoalesceRight) {
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+
+	ASSERT_TRUE(mapper.FreeRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET));
+}
+
+TEST(MemoryMapTest, TestCoalesceBoth) {
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KSEG0_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+
+	ASSERT_TRUE(mapper.FreeRegion(KSEG0_START + region_offsets::PSX_MAIN_RAM_OFFSET));
+}
+
+TEST(MemoryMapTest, TestCoalesceAndReserve) {
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+
+	ASSERT_TRUE(mapper.FreeRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET));
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+}
+
+TEST(MemoryMapTest, TestMapAndCoalesce) {
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+
+	psx::u8* main_ram = mapper.MapRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE,
+		region_mappings::PSX_MAIN_RAM_MAPPING, PageProtection::READ_WRITE);
+
+	ASSERT_NE(main_ram, nullptr);
+
+	ASSERT_TRUE(mapper.UnmapRegion(main_ram));
+
+	ASSERT_TRUE(mapper.FreeRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET));
 }

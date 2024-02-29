@@ -42,6 +42,7 @@ namespace psx::memory {
 		FORCE_INLINE u8* GuestToHost(u64 offset) const noexcept { return m_guest_base + offset; }
 
 		FORCE_INLINE auto GetFreeRegions() const noexcept -> std::list<MemoryRegion> const& { return m_free_regions; }
+		FORCE_INLINE auto GetReservedRegions() const noexcept -> std::list<MemoryRegion> const& { return m_reserved_regions; }
 
 		//This constructor will immediately allocate 4 GB of virtual memory
 		//If the allocation fails, an exception is thrown
@@ -52,14 +53,21 @@ namespace psx::memory {
 		/// Splits the allocated region at "region_start" with the
 		/// requested length. 
 		/// 
-		/// Once the function succeeds, it wont be possible to
-		/// coalesce the regions back together.
-		/// 
 		/// The function fails under these conditions:
 		/// - region_start and region_start + region_extent are not contained in a free region
 		/// - No free regions are present
 		/// - region_start and/or region_extent are not aligned to a page boundary
 		bool ReserveRegion(u64 region_start, u64 region_extent) noexcept;
+
+		/// <summary>
+		/// If region_start is found inside the reserved regions,
+		/// coalesce the region with adjacent free regions.
+		/// If no adjacent regions exist, simply put this region
+		/// in the list of free regions
+		/// </summary>
+		/// <param name="region_start">Start of the region to return to the pool</param>
+		/// <returns></returns>
+		bool FreeRegion(u64 region_start) noexcept;
 
 		/// <summary>
 		/// Maps an already reserved region inside the guest 
@@ -102,6 +110,7 @@ namespace psx::memory {
 	private :
 		u8* m_guest_base;
 		std::list<MemoryRegion> m_free_regions;
+		std::list<MemoryRegion> m_reserved_regions;
 		std::vector<u8*> m_mapped_regions;
 
 		HANDLE m_memory_file;
