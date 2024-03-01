@@ -133,9 +133,12 @@
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp" />
     <ClInclude Include="..\common\Macros.hpp" />
+    <ClInclude Include="include\psxemu\cop0.hpp" />
+    <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\psxemu\cop0.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -13,21 +13,42 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\memory">
+      <UniqueIdentifier>{1ca1e806-3301-4b66-9915-856b13dcf464}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\cpu">
+      <UniqueIdentifier>{fdd481e3-2e93-41dd-b741-37bfed6e7bbf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\memory">
+      <UniqueIdentifier>{5d1f84cc-eedc-4a83-b451-3de3f79d8da4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\cpu">
+      <UniqueIdentifier>{c108670c-1620-4afe-9998-5671a8d00fe0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\psxemu\MemoryMapper.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\common\Defs.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\common\Macros.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\MemoryMapper.hpp">
+      <Filter>Header Files\memory</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\cop0.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\cpu_instruction.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
-      <Filter>Resource Files</Filter>
+      <Filter>Resource Files\memory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\cop0.cpp">
+      <Filter>Resource Files\cpu</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
