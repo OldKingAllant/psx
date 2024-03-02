@@ -42,6 +42,9 @@
     <ClInclude Include="include\psxemu\cpu_instruction.hpp">
       <Filter>Header Files\cpu</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">

@@ -132,6 +132,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp" />
+    <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp" />
     <ClInclude Include="..\common\Macros.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
