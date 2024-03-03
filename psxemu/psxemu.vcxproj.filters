@@ -45,12 +45,21 @@
     <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\JitBlock.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\CodeCache.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
       <Filter>Resource Files\memory</Filter>
     </ClCompile>
     <ClCompile Include="source\psxemu\cop0.cpp">
+      <Filter>Resource Files\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\CodeCache.cpp">
       <Filter>Resource Files\cpu</Filter>
     </ClCompile>
   </ItemGroup>

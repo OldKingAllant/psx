@@ -29,6 +29,9 @@ namespace psx {
 		constexpr u64 KSEG0_START = 0x80000000;
 		constexpr u64 KSEG1_START = 0xA0000000;
 
+		constexpr u64 SEGMENT_SIZE = 0x20000000;
+		constexpr u64 SEGMENT_MASK = 0x1FFFFFFF;
+
 		namespace region_offsets {
 			constexpr u64 PSX_MAIN_RAM_OFFSET =    0x0;
 			constexpr u64 PSX_EXPANSIONS1_OFFSET = 0x0F000000;
