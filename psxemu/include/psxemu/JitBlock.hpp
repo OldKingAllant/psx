@@ -21,6 +21,19 @@ namespace psx::cpu {
 	/// </summary>
 	using HostCodeFn = u32(__cdecl *)();
 
+	/// <summary>
+	/// Maps guest address of an instruction
+	/// to the corresponding host address
+	/// of the recompiled instruction.
+	/// (Since each recompiled instruction
+	/// is likely longer than one single
+	/// host instruction, the host 
+	/// address is in fact the first
+	/// opcode that can be associated
+	/// with the original instruction)
+	/// </summary>
+	using GuestHostInstructionPair = std::pair<u64, u64>;
+
 	struct JitBlock {
 		u64 guest_base;
 		u64 guest_end;

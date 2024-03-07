@@ -25,6 +25,12 @@
     <Filter Include="Resource Files\cpu">
       <UniqueIdentifier>{c108670c-1620-4afe-9998-5671a8d00fe0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\gdbstub">
+      <UniqueIdentifier>{3981d776-bb53-448d-9542-c3d2518aabde}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\gdbstub">
+      <UniqueIdentifier>{31d019de-7bc4-49ad-9b1c-b79e8f1062f2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -51,6 +57,18 @@
     <ClInclude Include="include\psxemu\CodeCache.hpp">
       <Filter>Header Files\cpu</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\MIPS1.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\Recompiler.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\Server.hpp">
+      <Filter>Header Files\gdbstub</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\System.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -61,6 +79,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\CodeCache.cpp">
       <Filter>Resource Files\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\Server.cpp">
+      <Filter>Resource Files\gdbstub</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
