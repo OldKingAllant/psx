@@ -160,20 +160,8 @@ namespace psx {
 			if (node_base != m_pool) {
 				auto curr_next_free = m_pool->next_free;
 
-				if (curr_next_free == nullptr || 
-					node_base < curr_next_free) {
-					node_base->next_free = curr_next_free;
-					m_pool->next_free = node_base;
-				}
-				else {
-					while (curr_next_free->next_free != nullptr 
-						&& curr_next_free->next_free < node_base) {
-						curr_next_free = curr_next_free->next_free;
-					}
-
-					node_base->next_free = curr_next_free->next_free;
-					curr_next_free->next_free = node_base;
-				}
+				node_base->next_free = curr_next_free;
+				m_pool->next_free = node_base;
 			}
 
 			node_base->used = false;
