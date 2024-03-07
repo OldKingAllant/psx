@@ -4,6 +4,7 @@
 #include <common/Macros.hpp>
 
 #include <array>
+#include <tuple>
 
 namespace psx::cpu {
 	/// <summary>
@@ -91,6 +92,27 @@ namespace psx::cpu {
 	};
 
 	/// <summary>
+	/// More specific instruction type
+	/// </summary>
+	enum class InstructionSubtype : u8 {
+		SHIFT_IMM,
+		SHIFT_REG,
+		JUMP,
+		SYS_BRK,
+		MUL_DIV,
+		ALU_REG,
+		BRANCH,
+		ALU_IMM,
+		LUI_IMM,
+		LOAD,
+		STORE,
+		COP_CMD,
+		COP_LOAD,
+		COP_STORE,
+		NA
+	};
+
+	/// <summary>
 	/// Registers used by an instruction,
 	/// both for read and write.
 	/// If the register number is >= than 31,
@@ -112,11 +134,13 @@ namespace psx::cpu {
 	/// Upper bits are the primary opcode
 	/// </summary>
 	/// <returns>Static instruction lookup table</returns>
-	static constexpr std::array<std::pair<InstructionType, Opcode>, 4096> GetInstructionLut() {
-		std::array<std::pair<InstructionType, Opcode>, 4096> lut = {};
+	static constexpr std::array<std::tuple<InstructionType, Opcode, InstructionSubtype>, 4096> GetInstructionLut() {
+		std::array<std::tuple<InstructionType, Opcode, InstructionSubtype>, 4096> lut = {};
+
+		using tuple_ty = std::tuple<InstructionType, Opcode, InstructionSubtype>;
 
 		for (auto& value : lut) {
-			value = std::pair{ InstructionType::RESERVED, Opcode::NA };
+			value = tuple_ty{ InstructionType::RESERVED, Opcode::NA, InstructionSubtype::NA };
 		}
 
 		for (u32 index = 0; index < 4096; index++) {
@@ -130,88 +154,88 @@ namespace psx::cpu {
 				switch (secondary)
 				{
 				case 0x00:
-					ref = std::pair{ InstructionType::ALU, Opcode::SLL };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SLL, InstructionSubtype::SHIFT_IMM };
 					break;
 				case 0x02:
-					ref = std::pair{ InstructionType::ALU, Opcode::SRL };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SRL, InstructionSubtype::SHIFT_IMM };
 					break;
 				case 0x03:
-					ref = std::pair{ InstructionType::ALU, Opcode::SRA };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SRA, InstructionSubtype::SHIFT_IMM };
 					break;
 				case 0x04:
-					ref = std::pair{ InstructionType::ALU, Opcode::SLLV };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SLLV, InstructionSubtype::SHIFT_REG };
 					break;
 				case 0x06:
-					ref = std::pair{ InstructionType::ALU, Opcode::SRLV };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SRLV, InstructionSubtype::SHIFT_REG };
 					break;
 				case 0x07:
-					ref = std::pair{ InstructionType::ALU, Opcode::SRAV };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SRAV, InstructionSubtype::SHIFT_REG };
 					break;
 				case 0x08:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::JR };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::JR, InstructionSubtype::JUMP };
 					break;
 				case 0x09:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::JALR };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::JALR, InstructionSubtype::JUMP };
 					break;
 				case 0x0C:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::SYSCALL };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::SYSCALL, InstructionSubtype::SYS_BRK };
 					break;
 				case 0x0D:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::BREAK };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::BREAK, InstructionSubtype::SYS_BRK };
 					break;
 				case 0x10:
-					ref = std::pair{ InstructionType::ALU, Opcode::MFHI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::MFHI, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x11:
-					ref = std::pair{ InstructionType::ALU, Opcode::MTHI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::MTHI, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x12:
-					ref = std::pair{ InstructionType::ALU, Opcode::MFLO };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::MFLO, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x13:
-					ref = std::pair{ InstructionType::ALU, Opcode::MTLO };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::MTLO, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x18:
-					ref = std::pair{ InstructionType::ALU, Opcode::MULT };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::MULT, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x19:
-					ref = std::pair{ InstructionType::ALU, Opcode::MULTU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::MULTU, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x1A:
-					ref = std::pair{ InstructionType::ALU, Opcode::DIV };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::DIV, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x1B:
-					ref = std::pair{ InstructionType::ALU, Opcode::DIVU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::DIVU, InstructionSubtype::MUL_DIV };
 					break;
 				case 0x20:
-					ref = std::pair{ InstructionType::ALU, Opcode::ADD };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::ADD, InstructionSubtype::ALU_REG };
 					break;
 				case 0x21:
-					ref = std::pair{ InstructionType::ALU, Opcode::ADDU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::ADDU, InstructionSubtype::ALU_REG };
 					break;
 				case 0x22:
-					ref = std::pair{ InstructionType::ALU, Opcode::SUB };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SUB, InstructionSubtype::ALU_REG };
 					break;
 				case 0x23:
-					ref = std::pair{ InstructionType::ALU, Opcode::SUBU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SUBU, InstructionSubtype::ALU_REG };
 					break;
 				case 0x24:
-					ref = std::pair{ InstructionType::ALU, Opcode::AND };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::AND, InstructionSubtype::ALU_REG };
 					break;
 				case 0x25:
-					ref = std::pair{ InstructionType::ALU, Opcode::OR };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::OR, InstructionSubtype::ALU_REG };
 					break;
 				case 0x26:
-					ref = std::pair{ InstructionType::ALU, Opcode::XOR };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::XOR, InstructionSubtype::ALU_REG };
 					break;
 				case 0x27:
-					ref = std::pair{ InstructionType::ALU, Opcode::NOR };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::NOR, InstructionSubtype::ALU_REG };
 					break;
 				case 0x2A:
-					ref = std::pair{ InstructionType::ALU, Opcode::SLT };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SLT, InstructionSubtype::ALU_REG };
 					break;
 				case 0x2B:
-					ref = std::pair{ InstructionType::ALU, Opcode::SLTU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SLTU, InstructionSubtype::ALU_REG };
 					break;
 				default:
 					break;
@@ -223,121 +247,121 @@ namespace psx::cpu {
 				switch (primary)
 				{
 				case 0x1:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::BCONDZ };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::BCONDZ, InstructionSubtype::BRANCH };
 					break;
 				case 0x2:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::J };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::J, InstructionSubtype::JUMP };
 					break;
 				case 0x3:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::JAL };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::JAL, InstructionSubtype::JUMP };
 					break;
 				case 0x4:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::BEQ };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::BEQ, InstructionSubtype::BRANCH };
 					break;
 				case 0x5:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::BNE };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::BNE, InstructionSubtype::BRANCH };
 					break;
 				case 0x6:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::BLEZ };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::BLEZ, InstructionSubtype::BRANCH };
 					break;
 				case 0x7:
-					ref = std::pair{ InstructionType::BRANCH, Opcode::BGTZ };
+					ref = tuple_ty{ InstructionType::BRANCH, Opcode::BGTZ, InstructionSubtype::BRANCH };
 					break;
 				case 0x8:
-					ref = std::pair{ InstructionType::ALU, Opcode::ADDI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::ADDI, InstructionSubtype::ALU_IMM };
 					break;
 				case 0x9:
-					ref = std::pair{ InstructionType::ALU, Opcode::ADDIU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::ADDIU, InstructionSubtype::ALU_IMM };
 					break;
 				case 0xA:
-					ref = std::pair{ InstructionType::ALU, Opcode::SLTI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SLTI, InstructionSubtype::ALU_IMM };
 					break;
 				case 0xB:
-					ref = std::pair{ InstructionType::ALU, Opcode::SLTIU };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::SLTIU, InstructionSubtype::ALU_IMM };
 					break;
 				case 0xC:
-					ref = std::pair{ InstructionType::ALU, Opcode::ANDI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::ANDI, InstructionSubtype::ALU_IMM };
 					break;
 				case 0xD:
-					ref = std::pair{ InstructionType::ALU, Opcode::ORI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::ORI, InstructionSubtype::ALU_IMM };
 					break;
 				case 0xE:
-					ref = std::pair{ InstructionType::ALU, Opcode::XORI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::XORI, InstructionSubtype::ALU_IMM };
 					break;
 				case 0xF:
-					ref = std::pair{ InstructionType::ALU, Opcode::LUI };
+					ref = tuple_ty{ InstructionType::ALU, Opcode::LUI, InstructionSubtype::LUI_IMM };
 					break;
 				case 0x10:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::COP0 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::COP0, InstructionSubtype::COP_CMD };
 					break;
 				case 0x11:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::COP1 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::COP1, InstructionSubtype::COP_CMD };
 					break;
 				case 0x12:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::COP2 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::COP2, InstructionSubtype::COP_CMD };
 					break;
 				case 0x13:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::COP3 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::COP3, InstructionSubtype::COP_CMD };
 					break;
 				case 0x20:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LB };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LB, InstructionSubtype::LOAD };
 					break;
 				case 0x21:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LH };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LH, InstructionSubtype::LOAD };
 					break;
 				case 0x22:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LWL };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LWL, InstructionSubtype::LOAD };
 					break;
 				case 0x23:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LW };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LW, InstructionSubtype::LOAD };
 					break;
 				case 0x24:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LBU };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LBU, InstructionSubtype::LOAD };
 					break;
 				case 0x25:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LHU };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LHU, InstructionSubtype::LOAD };
 					break;
 				case 0x26:
-					ref = std::pair{ InstructionType::LOAD, Opcode::LWR };
+					ref = tuple_ty{ InstructionType::LOAD, Opcode::LWR, InstructionSubtype::LOAD };
 					break;
 				case 0x28:
-					ref = std::pair{ InstructionType::STORE, Opcode::SB };
+					ref = tuple_ty{ InstructionType::STORE, Opcode::SB, InstructionSubtype::STORE };
 					break;
 				case 0x29:
-					ref = std::pair{ InstructionType::STORE, Opcode::SH };
+					ref = tuple_ty{ InstructionType::STORE, Opcode::SH, InstructionSubtype::STORE };
 					break;
 				case 0x2A:
-					ref = std::pair{ InstructionType::STORE, Opcode::SWL };
+					ref = tuple_ty{ InstructionType::STORE, Opcode::SWL, InstructionSubtype::STORE };
 					break;
 				case 0x2B:
-					ref = std::pair{ InstructionType::STORE, Opcode::SW };
+					ref = tuple_ty{ InstructionType::STORE, Opcode::SW, InstructionSubtype::STORE };
 					break;
 				case 0x2E:
-					ref = std::pair{ InstructionType::STORE, Opcode::SWR };
+					ref = tuple_ty{ InstructionType::STORE, Opcode::SWR, InstructionSubtype::STORE };
 					break;
 				case 0x30:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::LWC0 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::LWC0, InstructionSubtype::COP_LOAD };
 					break;
 				case 0x31:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::LWC1 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::LWC1, InstructionSubtype::COP_LOAD };
 					break;
 				case 0x32:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::LWC2 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::LWC2, InstructionSubtype::COP_LOAD };
 					break;
 				case 0x33:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::LWC3 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::LWC3, InstructionSubtype::COP_LOAD };
 					break;
 				case 0x38:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::SWC0 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::SWC0, InstructionSubtype::COP_STORE };
 					break;
 				case 0x39:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::SWC1 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::SWC1, InstructionSubtype::COP_STORE };
 					break;
 				case 0x3A:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::SWC2 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::SWC2, InstructionSubtype::COP_STORE };
 					break;
 				case 0x3B:
-					ref = std::pair{ InstructionType::COPROCESSOR, Opcode::SWC3 };
+					ref = tuple_ty{ InstructionType::COPROCESSOR, Opcode::SWC3, InstructionSubtype::COP_STORE };
 					break;
 				default:
 					break;
@@ -348,5 +372,5 @@ namespace psx::cpu {
 		return lut;
 	}
 
-	static constexpr std::array<std::pair<InstructionType, Opcode>, 4096> INSTRUCTION_TYPE_LUT = GetInstructionLut();
+	static constexpr std::array<std::tuple<InstructionType, Opcode, InstructionSubtype>, 4096> INSTRUCTION_TYPE_LUT = GetInstructionLut();
 }
