@@ -306,3 +306,16 @@ TEST(MemoryMapTest, TestMapAndCoalesce) {
 
 	ASSERT_TRUE(mapper.FreeRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET));
 }
+
+TEST(MemoryMapTest, TestCoalesceNone) {
+	//Test mapping from multiple offsets inside the memory
+	//file
+	using namespace psx::memory;
+
+	MemoryMapper mapper{ std::nullopt };
+
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET, region_sizes::PSX_MAIN_RAM_SIZE));
+	ASSERT_TRUE(mapper.ReserveRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET + region_sizes::PSX_MAIN_RAM_SIZE, region_sizes::PSX_MAIN_RAM_SIZE));
+
+	ASSERT_TRUE(mapper.FreeRegion(KUSEG_START + region_offsets::PSX_MAIN_RAM_OFFSET));
+}

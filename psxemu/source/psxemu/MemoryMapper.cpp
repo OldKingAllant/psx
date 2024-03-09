@@ -211,18 +211,30 @@ namespace psx::memory {
 		u64 free_region_base = region_start;
 		u64 free_region_extent = reg.extent;
 
+		bool adjacent_exists = false;
+
 		if (region_left != m_free_regions.cend()) {
 			free_region_base = region_left->guest_base;
 			free_region_extent += region_left->extent;
 			m_free_regions.erase(region_left);
+			adjacent_exists = true;
 		}
 
 		if (region_right != m_free_regions.cend()) {
 			free_region_extent += region_right->extent;
 			m_free_regions.erase(region_right);
+			adjacent_exists = true;
 		}
 
 		m_free_regions.push_back(MemoryRegion{ .guest_base = free_region_base, .extent = free_region_extent });
+
+		//Nothing to coalesce
+		//This check is necessary, since if no
+		//adjacent regions exist, VirtualFree
+		//fails and this function returns false
+		if(!adjacent_exists) {
+			return true;
+		}
 
 		LPVOID effective_base = m_guest_base + free_region_base;
 
