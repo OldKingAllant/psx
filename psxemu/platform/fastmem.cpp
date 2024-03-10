@@ -186,9 +186,9 @@ int main2(int argc, char* argv[]) {
 		std::abort();
 	}
 
-	std::cout << fmt::vformat("Protected region start : 0x{:x}\n", fmt::make_format_args(
+	/*std::cout << fmt::vformat("Protected region start : 0x{:x}\n", fmt::make_format_args(
 		(uint64_t)(memory + inf.dwPageSize)
-	));
+	));*/
 
 	AddVectoredExceptionHandler(1, ExceptionFilter);
 

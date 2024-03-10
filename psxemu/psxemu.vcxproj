@@ -141,15 +141,21 @@
     <ClInclude Include="include\psxemu\JitBlock.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
+    <ClInclude Include="include\psxemu\psxexe.hpp" />
     <ClInclude Include="include\psxemu\Recompiler.hpp" />
     <ClInclude Include="include\psxemu\Server.hpp" />
     <ClInclude Include="include\psxemu\System.hpp" />
+    <ClInclude Include="include\psxemu\SystemBus.hpp" />
+    <ClInclude Include="include\psxemu\SystemStatus.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
+    <ClCompile Include="source\psxemu\psxexe.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />
+    <ClCompile Include="source\psxemu\System.cpp" />
+    <ClCompile Include="source\psxemu\SystemBus.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

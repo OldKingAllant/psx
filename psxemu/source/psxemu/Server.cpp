@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include <psxemu/include/psxemu/System.hpp>
+#include <psxemu/include/psxemu/SystemBus.hpp>
 
 namespace psx::gdbstub {
 	Server::Server(int16_t port, System* sys) :
@@ -32,6 +33,7 @@ namespace psx::gdbstub {
 		m_cmd_handlers.insert(std::pair{ std::string("G"), &Server::HandleBigG });
 		m_cmd_handlers.insert(std::pair{ std::string("D"), &Server::HandleDetach });
 		m_cmd_handlers.insert(std::pair{ std::string("P"), &Server::HandleP });
+		m_cmd_handlers.insert(std::pair{ std::string("m"), &Server::HandleM });
 	}
 
 	void Server::Start() {
@@ -119,42 +121,41 @@ namespace psx::gdbstub {
 						SendNAck(); //Request retransmission
 					}
 					else {
+						std::optional<std::pair<std::string, std::size_t>> command = std::nullopt;
+
 						//Hope that the command is split 
 						//from its data in a way that
 						//makes sense.
 						//If you look at the GDB docs, this
 						//is often not true
-						auto command = SeparateStr(data);
+						//auto command = SeparateStr(data);
+						//No clear separation
+						auto payload_cmd = std::string(payload);
 
-						if (!command.has_value()) {
-							//No clear separation
-							auto payload_cmd = std::string(payload);
+						//First try to match the entire payload
+						if (m_cmd_handlers.contains(payload_cmd)) {
+							command = std::pair{ payload_cmd, end };
+						}
+						else {
+							//Try to match commands one char
+							//at a time
+							std::string cmd_builder = "";
 
-							//First try to match the entire payload
-							if (m_cmd_handlers.contains(payload_cmd)) {
-								command = std::pair{ payload_cmd, end };
-							}
-							else {
-								//Try to match commands one char
-								//at a time
-								std::string cmd_builder = "";
+							cmd_builder.push_back(data[0]);
 
-								cmd_builder.push_back(data[0]);
+							bool match = false;
 
-								bool match = false;
-
-								for (std::size_t pos = 1; pos < end && !match; pos++) {
-									if (m_cmd_handlers.contains(cmd_builder)) {
-										match = true;
-										command = std::pair{ cmd_builder, pos - 1 };
-									}
-									else
-										cmd_builder.push_back(data[pos]);
+							for (std::size_t pos = 1; pos < end && !match; pos++) {
+								if (m_cmd_handlers.contains(cmd_builder)) {
+									match = true;
+									command = std::pair{ cmd_builder, pos - 1 };
 								}
-
-								if (!match)
-									command = std::pair{ cmd_builder, 0 };
+								else
+									cmd_builder.push_back(data[pos]);
 							}
+
+							if (!match)
+								command = std::pair{ cmd_builder, 0 };
 						}
 
 						//Command itself + start of data
@@ -543,6 +544,45 @@ namespace psx::gdbstub {
 		SetRegValueFromIndex(reg_index.value(), reg_value.value());
 
 		SendPayload("OK");
+	}
+
+	void Server::HandleM(std::string& data) {
+		auto colon_pos = data.find_first_of(',');
+		auto addr_str = data.substr(0, colon_pos);
+		auto size_str = data.substr(colon_pos + 1);
+
+		auto addr = HexStringToUint(addr_str, false);
+
+		if (!addr.has_value()) {
+			SendPayload("E00");
+			return;
+		}
+
+		auto size = HexStringToUint(size_str, false);
+
+		if (!size.has_value()) {
+			SendPayload("E00");
+			return;
+		}
+		
+		auto effective_addr = addr.value();
+		auto effective_sz = size.value();
+
+		std::string out = "";
+
+		out.reserve((std::size_t)effective_sz * 2);
+
+		while (effective_sz) {
+			psx::u8 value = m_sys->GetStatus().sysbus->Read<u8, false>(effective_addr);
+			auto hex_str = UintToHexString(value, 2, false);
+
+			out.append(hex_str);
+
+			effective_sz--;
+			effective_addr++;
+		}
+
+		SendPayload(out);
 	}
 
 	Server::~Server() {

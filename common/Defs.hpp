@@ -28,6 +28,7 @@ namespace psx {
 		constexpr u64 KUSEG_START = 0x00000000;
 		constexpr u64 KSEG0_START = 0x80000000;
 		constexpr u64 KSEG1_START = 0xA0000000;
+		constexpr u64 KSEG2_START = 0xFFFE0000;
 
 		constexpr u64 SEGMENT_SIZE = 0x20000000;
 		constexpr u64 SEGMENT_MASK = 0x1FFFFFFF;

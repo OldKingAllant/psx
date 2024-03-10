@@ -23,6 +23,10 @@ namespace psx::cpu {
 		OV //Arithmetic overflow
 	};
 
+	constexpr u64 RESET_VECTOR = 0xBFC00000;
+	constexpr u64 BREAK_VECTORS[] = { 0x80000040, 0xBFC00140 };
+	constexpr u64 GENERAL_VECTORS[] = { 0x80000080, 0xBFC00180 };
+
 	/// <summary>
 	/// The CAUSE register bit 
 	/// layout

@@ -4,3 +4,5 @@ usage/x64/*
 psxemu/x64/*
 tests/x64/*
 packages/*
+sdk/*
+programs/*

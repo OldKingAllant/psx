@@ -69,6 +69,15 @@
     <ClInclude Include="include\psxemu\System.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\psxexe.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SystemBus.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SystemStatus.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -82,6 +91,15 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\Server.cpp">
       <Filter>Resource Files\gdbstub</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\psxexe.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\SystemBus.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\System.cpp">
+      <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
