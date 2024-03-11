@@ -169,6 +169,7 @@ namespace psx::gdbstub {
 		void HandleDetach(std::string& data);
 		void HandleP(std::string& data);
 		void HandleM(std::string& data);
+		void HandleBigM(std::string& data);
 
 		/// <summary>
 		/// Handles unknown/unsopprted command 

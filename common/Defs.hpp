@@ -28,19 +28,19 @@ namespace psx {
 		constexpr u64 KUSEG_START = 0x00000000;
 		constexpr u64 KSEG0_START = 0x80000000;
 		constexpr u64 KSEG1_START = 0xA0000000;
-		constexpr u64 KSEG2_START = 0xFFFE0000;
+		constexpr u64 KSEG2_START = 0xC0000000;
 
 		constexpr u64 SEGMENT_SIZE = 0x20000000;
 		constexpr u64 SEGMENT_MASK = 0x1FFFFFFF;
 
 		namespace region_offsets {
 			constexpr u64 PSX_MAIN_RAM_OFFSET =    0x0;
-			constexpr u64 PSX_EXPANSIONS1_OFFSET = 0x0F000000;
-			constexpr u64 PSX_SCRATCHPAD_OFFSET =  0x0F800000;
-			constexpr u64 PSX_IO_OFFSET =          0x0F801000;
-			constexpr u64 PSX_EXPANSION2_OFFSET =  0x0F802000;
-			constexpr u64 PSX_EXPANSION3_OFFSET =  0x0FA00000;
-			constexpr u64 PSX_BIOS_OFFSET =		   0x0FC00000;
+			constexpr u64 PSX_EXPANSIONS1_OFFSET = 0x1F000000;
+			constexpr u64 PSX_SCRATCHPAD_OFFSET =  0x1F800000;
+			constexpr u64 PSX_IO_OFFSET =          0x1F801000;
+			constexpr u64 PSX_EXPANSION2_OFFSET =  0x1F802000;
+			constexpr u64 PSX_EXPANSION3_OFFSET =  0x1FA00000;
+			constexpr u64 PSX_BIOS_OFFSET =		   0x1FC00000;
 			constexpr u64 PSX_CACHECNT_POSITION =  0xFFFE0000;
 		}
 

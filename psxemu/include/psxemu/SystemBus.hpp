@@ -130,6 +130,24 @@ namespace psx {
 		/// <returns>The bytes at "address"</returns>
 		template <typename Ty, bool Except>
 		Ty Read(u32 address) {
+			if constexpr (sizeof(Ty) != 1) {
+				if (address & (sizeof(Ty) - 1) != 0) {
+					//Unaligned access!
+#ifdef DEBUG
+					fmt::print("Unaligned access at 0x{:x}\n", address);
+#endif // DEBUG
+
+					if constexpr (Except) {
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::ADEL;
+						m_sys_status->badvaddr = address;
+					}
+
+					return 0x0;
+				}
+			}
+
 			bool curr_mode = m_sys_status->curr_mode;
 
 			if (address >= KUSEG_VOID_START && address < KUSEG_VOID_END) {
@@ -146,8 +164,13 @@ namespace psx {
 				return 0x0;
 			}
 
+			if (address >= memory::KSEG2_START) {
+				fmt::print("KSEG2 access at 0x{:x}\n", address);
+				return 0x0;
+			}
+
 			u32 segment = (address >> 29) & 7;
-			u32 lower = address & 0xFFFFFFF;
+			u32 lower = address & 0x1FFFFFFF;
 
 			if (curr_mode && segment != 0) {
 				//Reading KSEG in user mode
@@ -165,7 +188,7 @@ namespace psx {
 			}
 
 			if (lower < m_ram_end) {
-				return *reinterpret_cast<Ty*>(m_guest_base + lower);
+				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
 			if (lower >= memory::KSEG2_START) {
@@ -191,7 +214,7 @@ namespace psx {
 			}
 
 			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
-				return *reinterpret_cast<Ty*>(m_guest_base + lower);
+				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
 			if (lower >= memory::region_offsets::PSX_SCRATCHPAD_OFFSET
@@ -210,7 +233,7 @@ namespace psx {
 					return 0x0;
 				}
 
-				return *reinterpret_cast<Ty*>(m_guest_base + lower);
+				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
 			if (lower >= memory::region_offsets::PSX_IO_OFFSET

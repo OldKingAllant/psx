@@ -34,6 +34,7 @@ namespace psx::gdbstub {
 		m_cmd_handlers.insert(std::pair{ std::string("D"), &Server::HandleDetach });
 		m_cmd_handlers.insert(std::pair{ std::string("P"), &Server::HandleP });
 		m_cmd_handlers.insert(std::pair{ std::string("m"), &Server::HandleM });
+		m_cmd_handlers.insert(std::pair{ std::string("M"), &Server::HandleBigM });
 	}
 
 	void Server::Start() {
@@ -583,6 +584,61 @@ namespace psx::gdbstub {
 		}
 
 		SendPayload(out);
+	}
+
+	void Server::HandleBigM(std::string& data) {
+		auto colon_pos = data.find_first_of(',');
+		auto value_pos = data.find_first_of(':');
+
+		if (colon_pos == std::string::npos || value_pos == std::string::npos ||
+			colon_pos > value_pos) {
+			SendPayload("E00");
+			return;
+		}
+
+		auto addr_str = data.substr(0, colon_pos);
+		auto size_str = data.substr(colon_pos + 1, value_pos - colon_pos - 1);
+
+		auto addr = HexStringToUint(addr_str, false);
+
+		if (!addr.has_value()) {
+			SendPayload("E00");
+			return;
+		}
+
+		auto size = HexStringToUint(size_str, false);
+
+		if (!size.has_value()) {
+			SendPayload("E00");
+			return;
+		}
+
+		auto effective_addr = addr.value();
+		auto effective_sz = size.value();
+
+		auto bytes_to_write_str = data.substr(value_pos + 1);
+
+		while (effective_sz) {
+			auto curr_byte = std::string_view(
+				bytes_to_write_str.begin(),
+				bytes_to_write_str.begin() + 2);
+
+			auto maybe_value = HexStringToUint(curr_byte, true);
+
+			if (!maybe_value) {
+				SendPayload("E00");
+				return;
+			}
+
+			std::cout << std::hex << maybe_value.value() << std::endl;
+
+			bytes_to_write_str.erase(0, 2);
+
+			effective_addr++;
+			effective_sz--;
+		}
+
+		SendPayload("OK");
 	}
 
 	Server::~Server() {
