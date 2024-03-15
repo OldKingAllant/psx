@@ -133,6 +133,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp" />
+    <ClInclude Include="..\common\Errors.hpp" />
     <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp" />
     <ClInclude Include="..\common\Macros.hpp" />
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
@@ -149,6 +150,7 @@
     <ClInclude Include="include\psxemu\SystemStatus.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\Errors.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />

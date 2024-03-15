@@ -20,8 +20,8 @@ namespace psx {
 		u32 dest_address;
 		//N*0x800 without header
 		u32 filesize; 
-		u32 unused1;
-		u32 unused2;
+		u32 data_section_start;
+		u32 data_section_size;
 		u32 memfill_start;
 		u32 memfill_size;
 		//Set SP (R29) and FP (R30) to this value

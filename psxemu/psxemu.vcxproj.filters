@@ -78,6 +78,9 @@
     <ClInclude Include="include\psxemu\SystemStatus.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\Errors.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -99,6 +102,9 @@
       <Filter>Resource Files</Filter>
     </ClCompile>
     <ClCompile Include="source\psxemu\System.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common\Errors.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -2,6 +2,7 @@
 
 #include <common/Macros.hpp>
 #include <common/Defs.hpp>
+#include <common/Errors.hpp>
 
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 
@@ -106,6 +107,10 @@ namespace psx {
 		/// <param name="size">Read size</param>
 		void ReadRaw(u8* dst, u32 src, u32 size);
 
+		FORCE_INLINE u8* GetGuestBase() const {
+			return m_guest_base;
+		}
+
 		//512 KB, 8 bit bus
 		static constexpr u64 BIOS_CONFIG_INIT = 0x013243F;
 
@@ -130,6 +135,8 @@ namespace psx {
 		/// <returns>The bytes at "address"</returns>
 		template <typename Ty, bool Except>
 		Ty Read(u32 address) {
+			using namespace error;
+
 			if constexpr (sizeof(Ty) != 1) {
 				if (address & (sizeof(Ty) - 1) != 0) {
 					//Unaligned access!
@@ -191,10 +198,6 @@ namespace psx {
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
-			if (lower >= memory::KSEG2_START) {
-				return 0x0;
-			}
-
 			/*
 			Test access to expansion regions
 			and bios
@@ -202,14 +205,17 @@ namespace psx {
 
 			if (m_exp2_enable && lower >=
 				m_exp2_config.base && lower < m_exp2_config.end) {
+				DebugBreak();
 				return 0x0;
 			}
 
 			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
+				DebugBreak();
 				return 0x0;
 			}
 
 			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
+				DebugBreak();
 				return 0x0;
 			}
 
@@ -239,6 +245,7 @@ namespace psx {
 			if (lower >= memory::region_offsets::PSX_IO_OFFSET
 				&& lower < memory::region_offsets::PSX_IO_OFFSET +
 				memory::region_sizes::PSX_IO_SIZE) {
+				DebugBreak();
 				return 0x0;
 			}
 
@@ -253,6 +260,142 @@ namespace psx {
 
 			return 0x0;
 		}
+
+		/// <summary>
+		/// Emulate write (unless fastmem is applicable)
+		/// </summary>
+		/// <typeparam name="Ty">"Type" that corresponds to the size of the write</typeparam>
+		/// <typeparam name="Except">Throw exceptions on invalid writes</typeparam>
+		/// <param name="address">Write location</param>
+		/// <param name="value">Value to write</param>
+		template <typename Ty, bool Except>
+		void Write(u32 address, Ty value) {
+			using namespace error;
+
+			if constexpr (sizeof(Ty) != 1) {
+				if (address & (sizeof(Ty) - 1) != 0) {
+					//Unaligned access!
+#ifdef DEBUG
+					fmt::print("Unaligned access at 0x{:x}\n", address);
+#endif // DEBUG
+
+					if constexpr (Except) {
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::ADES;
+						m_sys_status->badvaddr = address;
+					}
+
+					return;
+				}
+			}
+
+			bool curr_mode = m_sys_status->curr_mode;
+
+			if (address >= KUSEG_VOID_START && address < KUSEG_VOID_END) {
+#ifdef DEBUG
+				fmt::print("Writing unused upper 1.5 GB of KUSEG at 0x{:x}\n", address);
+#endif // DEBUG
+				if constexpr (Except) {
+					m_sys_status->exception = true;
+					m_sys_status->exception_number =
+						cpu::Excode::DBE;
+					//Do not set BADVADDR
+				}
+
+				return;
+			}
+
+			if (address >= memory::KSEG2_START) {
+				fmt::print("KSEG2 access at 0x{:x}\n", address);
+				return;
+			}
+
+			u32 segment = (address >> 29) & 7;
+			u32 lower = address & 0x1FFFFFFF;
+
+			if (curr_mode && segment != 0) {
+#ifdef DEBUG
+				fmt::print("Writing KSEG in USER mode at 0x{:x}\n", address);
+#endif // DEBUG
+				if constexpr (Except) {
+					m_sys_status->exception = true;
+					m_sys_status->exception_number =
+						cpu::Excode::ADES;
+					m_sys_status->badvaddr = address;
+				}
+
+				return;
+			}
+
+			if (lower < m_ram_end) {
+				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
+				return;
+			}
+
+			/*
+			Test access to expansion regions
+			and bios
+			*/
+
+			if (m_exp2_enable && lower >=
+				m_exp2_config.base && lower < m_exp2_config.end) {
+				DebugBreak();
+				return;
+			}
+
+			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
+				DebugBreak();
+				return;
+			}
+
+			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
+				DebugBreak();
+				return;
+			}
+
+			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
+				return;
+			}
+
+			if (lower >= memory::region_offsets::PSX_SCRATCHPAD_OFFSET
+				&& lower < memory::region_offsets::PSX_SCRATCHPAD_OFFSET +
+				memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE) {
+				if (segment == 0x5) {
+#ifdef DEBUG
+					fmt::print("Writing scratchpad in KSEG1 at 0x{:x}\n", address);
+#endif // DEBUG
+					if constexpr (Except) {
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::DBE;
+					}
+
+					return;
+				}
+
+				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
+				return;
+			}
+
+			if (lower >= memory::region_offsets::PSX_IO_OFFSET
+				&& lower < memory::region_offsets::PSX_IO_OFFSET +
+				memory::region_sizes::PSX_IO_SIZE) {
+				DebugBreak();
+				return;
+			}
+
+			if constexpr (Except) {
+#ifdef DEBUG
+				fmt::print("Writing unused memory at 0x{:x}\n", address);
+#endif // DEBUG
+				m_sys_status->exception = true;
+				m_sys_status->exception_number =
+					cpu::Excode::DBE;
+			}
+		}
+
+		void LoadBios(u8* data, u32 size);
 
 	private :
 		/// <summary>
@@ -293,7 +436,7 @@ namespace psx {
 		bool ScratchpadEnable();
 		bool ScratchpadDisable();
 
-		bool SetBiosMap(u32 new_size);
+		bool SetBiosMap(u32 new_size, bool read_only);
 		bool ResetBiosMap();
 
 	private :

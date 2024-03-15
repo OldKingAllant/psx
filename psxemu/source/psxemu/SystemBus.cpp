@@ -239,7 +239,7 @@ namespace psx {
 		return true;
 	}
 
-	bool SystemBus::SetBiosMap(u32 new_size) {
+	bool SystemBus::SetBiosMap(u32 new_size, bool read_only) {
 		u32 curr_segment = 0;
 
 		u32 real_bios_sz = memory::region_sizes::PSX_BIOS_SIZE;
@@ -257,6 +257,9 @@ namespace psx {
 			memory::KSEG1_START
 		};
 
+		auto protect = read_only ? memory::PageProtection::READ :
+			memory::PageProtection::READ_WRITE;
+
 		while (curr_segment < 3) {
 			u64 curr_offset = segment_offs[curr_segment] +
 				memory::region_offsets::PSX_BIOS_OFFSET;
@@ -266,7 +269,7 @@ namespace psx {
 			while (remaining_maps) {
 				RETURN_IF_FALSE(m_mapper->ReserveRegion(curr_offset, real_bios_sz), false);
 				RETURN_IF_EQ(m_mapper->MapRegion(curr_offset, real_bios_sz,
-					file_off, memory::PageProtection::READ_WRITE), nullptr, false);
+					file_off, protect), nullptr, false);
 				remaining_maps--;
 				curr_offset += real_bios_sz;
 			}
@@ -337,10 +340,10 @@ namespace psx {
 		THROW_IF_FALSE(ScratchpadEnable(), std::exception("SCRATCHPAD map failed"));
 
 #ifdef DEBUG
-		fmt::print("Mapping BIOS to 521KB\n");
+		fmt::print("Mapping BIOS to 512KB\n");
 #endif // DEBUG
 
-		THROW_IF_FALSE(SetBiosMap(NORMAL_BIOS_SIZE), std::exception("BIOS map failed"));
+		THROW_IF_FALSE(SetBiosMap(NORMAL_BIOS_SIZE, false), std::exception("BIOS map failed"));
 	}
 
 	void SystemBus::CopyRaw(u8 const* ptr, u32 dest, u32 size) {
@@ -350,6 +353,18 @@ namespace psx {
 
 	void SystemBus::ReadRaw(u8* dst, u32 src, u32 size) {
 		std::memcpy(dst, m_guest_base + src, size);
+	}
+
+	void SystemBus::LoadBios(u8* data, u32 size) {
+		constexpr u64 NORMAL_BIOS_SIZE = (u64)512 * 1024;
+
+		ResetBiosMap();
+		THROW_IF_FALSE(SetBiosMap(NORMAL_BIOS_SIZE, false), std::exception("BIOS map failed"));
+
+		CopyRaw(data, memory::region_offsets::PSX_BIOS_OFFSET, size);
+
+		THROW_IF_FALSE(ResetBiosMap(), std::exception("BIOS map failed"));
+		THROW_IF_FALSE(SetBiosMap(NORMAL_BIOS_SIZE, true), std::exception("BIOS map failed"));
 	}
 
 	SystemBus::~SystemBus() {

@@ -630,7 +630,7 @@ namespace psx::gdbstub {
 				return;
 			}
 
-			std::cout << std::hex << maybe_value.value() << std::endl;
+			m_sys->GetStatus().sysbus->Write<u8, false>(effective_addr, (u8)maybe_value.value());
 
 			bytes_to_write_str.erase(0, 2);
 
