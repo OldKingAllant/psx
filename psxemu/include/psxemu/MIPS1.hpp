@@ -4,6 +4,10 @@
 #include "CodeCache.hpp"
 #include "cop0.hpp"
 
+namespace psx {
+	struct system_status;
+}
+
 namespace psx::cpu {
 	union Registers {
 #pragma pack(push, 4)
@@ -48,11 +52,15 @@ namespace psx::cpu {
 
 	class MIPS1 {
 	public :
+		MIPS1(system_status* sys_status);
+
 		FORCE_INLINE Registers& GetRegs() { return m_regs; }
 		FORCE_INLINE u32& GetPc() { return m_pc; }
 		FORCE_INLINE u32& GetHI() { return m_hi; }
 		FORCE_INLINE u32& GetLO() { return m_lo; }
 		FORCE_INLINE cop0& GetCOP0() { return m_coprocessor0; }
+
+		void StepInstruction();
 
 	private :
 		Registers m_regs;
@@ -61,5 +69,7 @@ namespace psx::cpu {
 		u32 m_lo;
 
 		cop0 m_coprocessor0;
+
+		system_status* m_sys_status;
 	};
 }

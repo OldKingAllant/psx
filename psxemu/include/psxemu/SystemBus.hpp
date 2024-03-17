@@ -48,15 +48,22 @@ namespace psx {
 	union DelaySizeConfig {
 #pragma pack(push, 1)
 		struct {
-			u8 : 4;
-			u8 access_time : 4;
+			u8 write_delay : 4;
+			u8 read_delay : 4;
 			bool use_com0 : 1;
 			bool use_com1 : 1;
 			bool use_com2 : 1;
 			bool use_com3 : 1;
 			bool bus_width : 1;
-			u8 : 3;
+			bool auto_inc : 1;
+			u8 : 2;
 			u8 size_shift : 5;
+			u8 : 3;
+			u8 dma_timing_override : 4;
+			bool address_error : 1;
+			bool dma_timing_select : 1;
+			bool wide_dma : 1;
+			bool wait : 1;
 		};
 #pragma pack(pop)
 
@@ -67,7 +74,29 @@ namespace psx {
 		DelaySizeConfig delay_size;
 		u32 base;
 		u32 end;
+		u32 read_nonseq;
+		u32 read_seq;
+		u32 write_nonseq;
+		u32 write_seq;
 	};
+
+	/// <summary>
+	/// Common delays for regions
+	/// </summary>
+	union ComDelay {
+#pragma pack(push, 1)
+		struct {
+			u8 com0 : 4;
+			u8 com1 : 4;
+			u8 com2 : 4;
+			u8 com3 : 4;
+		};
+#pragma pack(pop)
+
+		u32 raw;
+	};
+
+	static constexpr u32 RAM_DELAY = 6;
 
 	/// <summary>
 	/// Align to the next alignment 
@@ -131,14 +160,15 @@ namespace psx {
 		/// </summary>
 		/// <typeparam name="Ty">"Type" that corresponds to the size of the read</typeparam>
 		/// <typeparam name="Except">Throw exceptions on invalid reads</typeparam>
+		/// <typeparam name="AddCycles">Add access time</typeparam>
 		/// <param name="address">Read location</param>
 		/// <returns>The bytes at "address"</returns>
-		template <typename Ty, bool Except>
+		template <typename Ty, bool Except, bool AddCycles = false>
 		Ty Read(u32 address) {
 			using namespace error;
 
 			if constexpr (sizeof(Ty) != 1) {
-				if (address & (sizeof(Ty) - 1) != 0) {
+				if ((address & (sizeof(Ty) - 1)) != 0) {
 					//Unaligned access!
 #ifdef DEBUG
 					fmt::print("Unaligned access at 0x{:x}\n", address);
@@ -173,6 +203,7 @@ namespace psx {
 
 			if (address >= memory::KSEG2_START) {
 				fmt::print("KSEG2 access at 0x{:x}\n", address);
+				DebugBreak();
 				return 0x0;
 			}
 
@@ -195,6 +226,8 @@ namespace psx {
 			}
 
 			if (lower < m_ram_end) {
+				if constexpr (AddCycles)
+					m_curr_cycles += RAM_DELAY;
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
@@ -203,23 +236,42 @@ namespace psx {
 			and bios
 			*/
 
+			auto compute_access_time = [this](RegionConfig const& reg) {
+				auto bus_width_byes = (u32)reg.delay_size.bus_width + 1;
+				auto seq_access_count = sizeof(Ty) / bus_width_byes - 1;
+
+				//Add first access
+				m_curr_cycles += reg.read_nonseq;
+
+				//Add as many seq. accesses as needed
+				m_curr_cycles += reg.read_seq * seq_access_count;
+			};
+
 			if (m_exp2_enable && lower >=
 				m_exp2_config.base && lower < m_exp2_config.end) {
 				DebugBreak();
+				if constexpr (AddCycles)
+					compute_access_time(m_exp2_config);
 				return 0x0;
 			}
 
 			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
 				DebugBreak();
+				if constexpr (AddCycles)
+					compute_access_time(m_exp1_config);
 				return 0x0;
 			}
 
 			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
 				DebugBreak();
+				if constexpr (AddCycles)
+					compute_access_time(m_exp3_config);
 				return 0x0;
 			}
 
 			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
+				if constexpr (AddCycles)
+					compute_access_time(m_bios_config);
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
@@ -239,12 +291,18 @@ namespace psx {
 					return 0x0;
 				}
 
+				if constexpr (AddCycles)
+					m_curr_cycles += 1;
+
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
 			if (lower >= memory::region_offsets::PSX_IO_OFFSET
 				&& lower < memory::region_offsets::PSX_IO_OFFSET +
 				memory::region_sizes::PSX_IO_SIZE) {
+				if constexpr (AddCycles)
+					m_curr_cycles += 1;
+
 				DebugBreak();
 				return 0x0;
 			}
@@ -266,14 +324,15 @@ namespace psx {
 		/// </summary>
 		/// <typeparam name="Ty">"Type" that corresponds to the size of the write</typeparam>
 		/// <typeparam name="Except">Throw exceptions on invalid writes</typeparam>
+		/// <typeparam name="AddCycles">Add cycles to count</typeparam>
 		/// <param name="address">Write location</param>
 		/// <param name="value">Value to write</param>
-		template <typename Ty, bool Except>
+		template <typename Ty, bool Except, bool AddCycles = false>
 		void Write(u32 address, Ty value) {
 			using namespace error;
 
 			if constexpr (sizeof(Ty) != 1) {
-				if (address & (sizeof(Ty) - 1) != 0) {
+				if ((address & (sizeof(Ty) - 1)) != 0) {
 					//Unaligned access!
 #ifdef DEBUG
 					fmt::print("Unaligned access at 0x{:x}\n", address);
@@ -308,6 +367,7 @@ namespace psx {
 
 			if (address >= memory::KSEG2_START) {
 				fmt::print("KSEG2 access at 0x{:x}\n", address);
+				DebugBreak();
 				return;
 			}
 
@@ -329,6 +389,8 @@ namespace psx {
 			}
 
 			if (lower < m_ram_end) {
+				if constexpr (AddCycles)
+					m_curr_cycles += RAM_DELAY;
 				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
 				return;
 			}
@@ -338,23 +400,42 @@ namespace psx {
 			and bios
 			*/
 
+			auto compute_access_time = [this](RegionConfig const& reg) {
+				auto bus_width_byes = (u32)reg.delay_size.bus_width + 1;
+				auto seq_access_count = sizeof(Ty) / bus_width_byes - 1;
+
+				//Add first access
+				m_curr_cycles += reg.write_nonseq;
+
+				//Add as many seq. accesses as needed
+				m_curr_cycles += reg.write_seq * seq_access_count;
+			};
+
 			if (m_exp2_enable && lower >=
 				m_exp2_config.base && lower < m_exp2_config.end) {
 				DebugBreak();
+				if constexpr (AddCycles)
+					compute_access_time(m_exp2_config);
 				return;
 			}
 
 			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
 				DebugBreak();
+				if constexpr (AddCycles)
+					compute_access_time(m_exp1_config);
 				return;
 			}
 
 			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
 				DebugBreak();
+				if constexpr (AddCycles)
+					compute_access_time(m_exp3_config);
 				return;
 			}
 
 			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
+				if constexpr (AddCycles)
+					compute_access_time(m_bios_config);
 				return;
 			}
 
@@ -374,6 +455,9 @@ namespace psx {
 					return;
 				}
 
+				if constexpr (AddCycles)
+					m_curr_cycles += 1;
+
 				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
 				return;
 			}
@@ -381,7 +465,9 @@ namespace psx {
 			if (lower >= memory::region_offsets::PSX_IO_OFFSET
 				&& lower < memory::region_offsets::PSX_IO_OFFSET +
 				memory::region_sizes::PSX_IO_SIZE) {
-				DebugBreak();
+				WriteIO(address, value);
+				if constexpr (AddCycles)
+					m_curr_cycles += 1;
 				return;
 			}
 
@@ -395,7 +481,34 @@ namespace psx {
 			}
 		}
 
+		/// <summary>
+		/// Write to the IO region
+		/// </summary>
+		/// <typeparam name="Ty">Type with size of write</typeparam>
+		/// <param name="address">Full address (not offset in IO)</param>
+		/// <param name="value">Value to write</param>
+		template <typename Ty>
+		void WriteIO(u32 address, Ty value) {
+			address &= 0xFFF;
+
+			if (address == memory::IO::BIOS_CONFIG_CONTROL) {
+				ReconfigureBIOS(value);
+				return;
+			}
+
+#ifdef DEBUG_IO
+			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
+#endif // DEBUG_IO
+
+		}
+
 		void LoadBios(u8* data, u32 size);
+
+		/// <summary>
+		/// Cycles in the accumulated during
+		/// the current instruction
+		/// </summary>
+		u64 m_curr_cycles;
 
 	private :
 		/// <summary>
@@ -439,6 +552,10 @@ namespace psx {
 		bool SetBiosMap(u32 new_size, bool read_only);
 		bool ResetBiosMap();
 
+		void ComputeDelays(RegionConfig& conf);
+
+		void ReconfigureBIOS(u32 new_config);
+
 	private :
 		system_status* m_sys_status;
 
@@ -454,5 +571,7 @@ namespace psx {
 		RegionConfig m_exp3_config;
 
 		bool m_exp2_enable;
+
+		ComDelay m_com_delays;
 	};
 }

@@ -63,5 +63,9 @@ namespace psx {
 			constexpr u64 PSX_EXPANSION3_MAPPING = PSX_SCRATCHPAD_MAPPING + region_sizes::PSX_SCRATCHPAD_PADDED_SIZE;
 			constexpr u64 PSX_BIOS_MAPPING = PSX_EXPANSION3_MAPPING + region_sizes::PSX_EXPANSION3_SIZE;
 		}
+
+		namespace IO {
+			constexpr u64 BIOS_CONFIG_CONTROL = 0x010;
+		}
 	}
 }

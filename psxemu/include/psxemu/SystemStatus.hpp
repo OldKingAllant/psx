@@ -28,13 +28,14 @@ namespace psx {
 		bool branch_delay;
 		bool load_delay;
 		u8 load_delay_dest;
-		u32 delayed_regs[32];
+		u32 delay_value;
 		bool curr_mode;
 		u32 jit_pc; //Use with JIT
 		u32 badvaddr;
 		ExitCause exit_cause;
 		cpu::Excode exception_number;
 		bool exception;
+		bool branch;
 
 		u32 interrupt_mask;
 		u32 interrupt_request;

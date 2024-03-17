@@ -35,6 +35,8 @@ namespace psx::gdbstub {
 		m_cmd_handlers.insert(std::pair{ std::string("P"), &Server::HandleP });
 		m_cmd_handlers.insert(std::pair{ std::string("m"), &Server::HandleM });
 		m_cmd_handlers.insert(std::pair{ std::string("M"), &Server::HandleBigM });
+		m_cmd_handlers.insert(std::pair{ std::string("vCont?"), &Server::HandleVContQuestionMark });
+		m_cmd_handlers.insert(std::pair{ std::string("vCont"), &Server::HandleVCont });
 	}
 
 	void Server::Start() {
@@ -71,6 +73,11 @@ namespace psx::gdbstub {
 	bool Server::HandlePackets() {
 		//The packet format is specified at https://sourceware.org/gdb/current/onlinedocs/gdb.html/Overview.html#Overview
 		try {
+			//Ignore accumulated packets since they are usually
+			//duplicates of old packets
+			if (m_conn.available())
+				m_conn.receiveBytes(m_recv_buffer, BUFFER_SIZE);
+
 			auto effective_len = m_conn.receiveBytes(m_recv_buffer, BUFFER_SIZE);
 
 			if (effective_len == 0) //Returned with no data, probably closed connection?
@@ -639,6 +646,62 @@ namespace psx::gdbstub {
 		}
 
 		SendPayload("OK");
+	}
+
+	void Server::HandleVContQuestionMark(std::string& data) {
+		SendPayload("OK");
+	}
+
+	void Server::HandleVCont(std::string& data) {
+		if (data[0] == ';')
+			data.erase(0, 1);
+
+		auto division_pos = data.find_first_of(';');
+
+		if (division_pos != std::string::npos && division_pos != data.size() - 1) {
+			auto second_part = data.substr(division_pos + 1);
+			auto first_part = data.substr(0, division_pos);
+
+			char cmd = first_part[0];
+
+			if (first_part.find_first_of(':') == std::string::npos) {
+				if (second_part.find_first_of(':') == std::string::npos) {
+					SendPayload("E00");
+					return;
+				}
+				else {
+					cmd = second_part[0];
+				}
+			}
+
+			if (cmd == 's') {
+				m_sys->RunInterpreter(1);
+				SendPayload("S05");
+			}
+			else if (cmd == 'c') {
+				SendPayload("E00");
+			}
+			else {
+				SendPayload("E00");
+			}
+		}
+		else {
+			if (data.find_first_of(':') == std::string::npos) {
+				SendPayload("E00");
+				return;
+			}
+
+			if (data[0] == 's') {
+				m_sys->RunInterpreter(1);
+				SendPayload("S05");
+			}
+			else if (data[0] == 'c') {
+				SendPayload("E00");
+			}
+			else {
+				SendPayload("E00");
+			}
+		}
 	}
 
 	Server::~Server() {

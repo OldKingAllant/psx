@@ -14,3 +14,5 @@
 #define RETURN_IF_EQ(OPERATION, RES, RET) if((OPERATION) == (RES)) { return (RET); }
 
 #define DEBUG
+#define DEBUG_CPU_ERRORS
+#define DEBUG_IO

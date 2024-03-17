@@ -1,6 +1,7 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/psxexe.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
+#include <psxemu/include/psxemu/cop0.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -9,7 +10,7 @@
 
 namespace psx {
 	System::System() :
-		m_cpu{}, m_sysbus{&m_status},
+		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}
 	{
 		m_status.cpu = &m_cpu;
@@ -113,5 +114,17 @@ namespace psx {
 		m_sysbus.LoadBios(buf, (u32)size);
 
 		delete[] buf;
+	}
+
+	void System::RunInterpreter(u32 num_instruction) {
+		while (num_instruction--) {
+			m_cpu.StepInstruction();
+		}
+	}
+
+	void System::ResetVector() {
+		fmt::println("Resetting system to the reset vector");
+
+		m_cpu.GetPc() = cpu::RESET_VECTOR;
 	}
 }

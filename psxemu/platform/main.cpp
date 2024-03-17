@@ -7,7 +7,7 @@ int main(int argc, char* argv[]) {
 	psx::System sys{};
 
 	sys.LoadBios(std::string("../programs/SCPH1001.BIN"));
-	sys.LoadExe(std::string("../programs/tests1/test1.exe"), std::nullopt);
+	sys.ResetVector();
 
 	psx::gdbstub::Server server(5000, &sys);
 

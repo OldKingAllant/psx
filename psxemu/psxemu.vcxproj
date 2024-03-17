@@ -139,6 +139,8 @@
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
+    <ClInclude Include="include\psxemu\InstructionHandlers.hpp" />
+    <ClInclude Include="include\psxemu\Interpreter.hpp" />
     <ClInclude Include="include\psxemu\JitBlock.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
@@ -151,8 +153,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\Errors.cpp" />
+    <ClCompile Include="source\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
+    <ClCompile Include="source\psxemu\Interpreter.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\psxexe.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />

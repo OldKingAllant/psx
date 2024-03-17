@@ -12,7 +12,7 @@ namespace psx {
 		m_guest_base{ nullptr }, m_curr_ram_sz{}, m_ram_end{},
 		m_cache_control{}, m_bios_config{},
 		m_exp1_config{}, m_exp2_config{}, m_exp3_config{},
-		m_exp2_enable{true} {
+		m_exp2_enable{ true }, m_com_delays{}, m_curr_cycles{} {
 		m_bios_config.base = memory::region_offsets::PSX_BIOS_OFFSET;
 		m_exp1_config.base = memory::region_offsets::PSX_EXPANSIONS1_OFFSET;
 		m_exp2_config.base = memory::region_offsets::PSX_EXPANSION2_OFFSET;
@@ -34,6 +34,8 @@ namespace psx {
 
 		InitMapRegions();
 		m_guest_base = m_mapper->GetGuestBase();
+
+		ComputeDelays(m_bios_config);
 
 #ifdef DEBUG
 		fmt::print("Guest base = 0x{:x}\n", std::bit_cast<u64>(m_guest_base));
@@ -365,6 +367,75 @@ namespace psx {
 
 		THROW_IF_FALSE(ResetBiosMap(), std::exception("BIOS map failed"));
 		THROW_IF_FALSE(SetBiosMap(NORMAL_BIOS_SIZE, true), std::exception("BIOS map failed"));
+	}
+
+	void SystemBus::ComputeDelays(RegionConfig& conf) {
+		u32 load_delay = conf.delay_size.read_delay;
+		u32 store_delay = conf.delay_size.write_delay;
+
+		//Compute base delay
+		u32 nonseq = 0, seq = 0, min = 0;
+
+		if (conf.delay_size.use_com0) {
+			nonseq = m_com_delays.com0 - 1;
+			seq = m_com_delays.com0 - 1;
+		}
+
+		if (conf.delay_size.use_com2) {
+			nonseq += m_com_delays.com2;
+			seq += m_com_delays.com2;
+		}
+
+		if (conf.delay_size.use_com3)
+			min = m_com_delays.com3;
+
+		if (nonseq < 6)
+			nonseq += 1;
+		///////
+
+		u32 nonseq_temp = nonseq + load_delay + 2;
+		u32 seq_temp = seq + load_delay + 2;
+
+		if (nonseq_temp < min + 6)
+			nonseq_temp = min + 6;
+
+		if (seq_temp < min + 2)
+			seq_temp = min + 2;
+
+		conf.read_nonseq = nonseq_temp;
+		conf.read_seq = seq_temp;
+
+		////////////////
+
+		nonseq_temp = nonseq + store_delay + 2;
+		seq_temp = seq + store_delay + 2;
+
+		if (nonseq_temp < min + 6)
+			nonseq_temp = min + 6;
+
+		if (seq_temp < min + 2)
+			seq_temp = min + 2;
+
+		conf.write_nonseq = nonseq_temp;
+		conf.write_seq = seq_temp;
+	}
+
+	void SystemBus::ReconfigureBIOS(u32 new_config) {
+		//if (m_bios_config.delay_size.raw == new_config)
+			//return;
+
+		ResetBiosMap();
+		m_bios_config.delay_size.raw = new_config;
+		ComputeDelays(m_bios_config);
+
+		u32 size = (1 << m_bios_config.delay_size.size_shift);
+
+		if (!SetBiosMap(size, true))
+			fmt::println("Failed BIOS remapping with size 0x{:x}, better shut down the emulator...", size);
+		else
+			fmt::print("BIOS reconfigured - Base = 0x{:x}, End = 0x{:x}, Size = {}, Read delay = {}, Write delay = {}\n",
+				m_bios_config.base, m_bios_config.end, m_bios_config.end - m_bios_config.base, 
+				m_bios_config.read_nonseq, m_bios_config.write_nonseq);
 	}
 
 	SystemBus::~SystemBus() {

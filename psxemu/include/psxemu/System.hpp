@@ -31,6 +31,17 @@ namespace psx {
 		/// <param name="path">BIOS path</param>
 		void LoadBios(std::string const& path);
 
+		/// <summary>
+		/// Run with the interpreter
+		/// </summary>
+		/// <param name="num_instructions">Number of instructions to execute</param>
+		void RunInterpreter(u32 num_instructions);
+
+		/// <summary>
+		/// Reset status to the reset vector
+		/// </summary>
+		void ResetVector();
+
 	private :
 		cpu::MIPS1 m_cpu;
 		SystemBus m_sysbus;

@@ -81,6 +81,12 @@
     <ClInclude Include="..\common\Errors.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\Interpreter.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\InstructionHandlers.hpp">
+      <Filter>Header Files\cpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -106,6 +112,12 @@
     </ClCompile>
     <ClCompile Include="..\common\Errors.cpp">
       <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\Interpreter.cpp">
+      <Filter>Resource Files\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MIPS1.cpp">
+      <Filter>Resource Files\cpu</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
