@@ -11,7 +11,7 @@
 namespace psx {
 	System::System() :
 		m_cpu{&m_status}, m_sysbus{&m_status},
-		m_status{}
+		m_status{}, m_hbreaks{}, m_break_enable{false}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
@@ -116,9 +116,29 @@ namespace psx {
 		delete[] buf;
 	}
 
+	void System::InterpreterSingleStep() {
+		m_cpu.StepInstruction();
+	}
+
 	void System::RunInterpreter(u32 num_instruction) {
 		while (num_instruction--) {
-			m_cpu.StepInstruction();
+			InterpreterSingleStep();
+		}
+	}
+
+	void System::RunInterpreterUntilBreakpoint() {
+		if (!m_break_enable)
+			return;
+
+		bool exit = false;
+
+		while (!exit) {
+			InterpreterSingleStep();
+
+			u32 curr_pc = m_cpu.GetPc();
+
+			exit = std::find(m_hbreaks.begin(), m_hbreaks.end(), curr_pc) !=
+				m_hbreaks.end();
 		}
 	}
 
@@ -126,5 +146,21 @@ namespace psx {
 		fmt::println("Resetting system to the reset vector");
 
 		m_cpu.GetPc() = cpu::RESET_VECTOR;
+	}
+
+	void System::AddHardwareBreak(u32 address) {
+		auto pos = std::find(m_hbreaks.begin(),
+			m_hbreaks.end(), address);
+
+		if (pos == m_hbreaks.end())
+			m_hbreaks.push_back(address);
+	}
+
+	void System::RemoveHardwareBreak(u32 address) {
+		auto pos = std::find(m_hbreaks.begin(),
+			m_hbreaks.end(), address);
+
+		if (pos != m_hbreaks.end())
+			m_hbreaks.erase(pos);
 	}
 }

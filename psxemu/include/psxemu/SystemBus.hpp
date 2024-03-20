@@ -152,6 +152,8 @@ namespace psx {
 		//1 Byte
 		static constexpr u64 EXP3_CONFIG_INIT = 0x0003022;
 
+		static constexpr u64 RAM_SIZE_INIT = 0xB88;
+
 		static constexpr u64 KUSEG_VOID_START = (u64)512 * 1024 * 1024;
 		static constexpr u64 KUSEG_VOID_END = (u64)2 * 1024 * 1024 * 1024;
 
@@ -465,7 +467,7 @@ namespace psx {
 			if (lower >= memory::region_offsets::PSX_IO_OFFSET
 				&& lower < memory::region_offsets::PSX_IO_OFFSET +
 				memory::region_sizes::PSX_IO_SIZE) {
-				WriteIO(address, value);
+				WriteIO<Ty>(address, value);
 				if constexpr (AddCycles)
 					m_curr_cycles += 1;
 				return;
@@ -491,8 +493,28 @@ namespace psx {
 		void WriteIO(u32 address, Ty value) {
 			address &= 0xFFF;
 
-			if (address == memory::IO::BIOS_CONFIG_CONTROL) {
-				ReconfigureBIOS(value);
+			if (address >= memory::IO::MEM_CONTROL_START && address < memory::IO::MEM_CONTROL_END) {
+				u32 to_write = value;
+				
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & ~3) * 8;
+					to_write <<= shift;
+				}
+
+				WriteMemControl(address, to_write);
+				return;
+			}
+
+			if (address >= memory::IO::RAM_SIZE &&
+				address < memory::IO::RAM_SIZE + 4) {
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & ~3) * 8;
+					to_write <<= shift;
+				}
+
+				ReconfigureRAM(to_write);
 				return;
 			}
 
@@ -555,6 +577,9 @@ namespace psx {
 		void ComputeDelays(RegionConfig& conf);
 
 		void ReconfigureBIOS(u32 new_config);
+		void ReconfigureRAM(u32 ram_conf);
+
+		void WriteMemControl(u32 address, u32 value);
 
 	private :
 		system_status* m_sys_status;
@@ -564,6 +589,7 @@ namespace psx {
 
 		RamSize m_curr_ram_sz;
 		u32 m_ram_end;
+		u32 m_ram_config;
 		CacheControl m_cache_control;
 		RegionConfig m_bios_config;
 		RegionConfig m_exp1_config;

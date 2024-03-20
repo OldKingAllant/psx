@@ -8,9 +8,9 @@ namespace psx::cpu {
 		//and set current mode and int enable
 		//to false
 		registers.sr.old_mode = registers.sr.prev_mode;
-		registers.sr.old_int_disable = registers.sr.prev_int_disable;
+		registers.sr.old_int_enable = registers.sr.prev_int_enable;
 		registers.sr.prev_mode = registers.sr.current_mode;
-		registers.sr.prev_int_disable = registers.sr.curr_int_enable;
+		registers.sr.prev_int_enable = registers.sr.curr_int_enable;
 
 		//Set current mode to kernel and disable interrupts
 		registers.sr.current_mode = false;
@@ -21,8 +21,8 @@ namespace psx::cpu {
 		//Perform the "opposite" operations
 		//wrt the other procedure
 		registers.sr.current_mode = registers.sr.prev_mode;
-		registers.sr.curr_int_enable = registers.sr.prev_int_disable;
+		registers.sr.curr_int_enable = registers.sr.prev_int_enable;
 		registers.sr.prev_mode = registers.sr.old_mode;
-		registers.sr.prev_int_disable = registers.sr.old_int_disable;
+		registers.sr.prev_int_enable = registers.sr.old_int_enable;
 	}
 }

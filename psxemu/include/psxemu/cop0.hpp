@@ -38,14 +38,8 @@ namespace psx::cpu {
 			Excode exception_code : 5;
 			bool : 1;
 			/// <summary>
-			/// Only bit number 10 is used for
-			/// hardware exceptions.
-			/// One can, instead, request
-			/// software exceptions manually
-			/// by using bits 8/9.
-			/// 
-			/// Bit 10 is not a latch, it is automatically
-			/// reset when I_STAT & I_MASK == 0
+			/// Bit 8/9 are for manual int requests
+			/// and bit 10 is a latch
 			/// </summary>
 			u8 interrupt_pending : 8;
 			u8 : 8;
@@ -68,9 +62,9 @@ namespace psx::cpu {
 		struct {
 			bool curr_int_enable : 1;
 			bool current_mode : 1;
-			bool prev_int_disable : 1;
+			bool prev_int_enable : 1;
 			bool prev_mode : 1;
-			bool old_int_disable : 1;
+			bool old_int_enable : 1;
 			bool old_mode : 1;
 			u8 : 2;
 
@@ -232,6 +226,9 @@ namespace psx::cpu {
 
 		cop0() : registers{} {
 			registers.prid = 0x2;
+			registers.sr.current_mode = false;
+			registers.sr.curr_int_enable = false;
+			registers.sr.boot_exception_vectors_location = true;
 		}
 
 		/// <summary>

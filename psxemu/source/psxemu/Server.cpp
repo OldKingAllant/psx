@@ -37,6 +37,8 @@ namespace psx::gdbstub {
 		m_cmd_handlers.insert(std::pair{ std::string("M"), &Server::HandleBigM });
 		m_cmd_handlers.insert(std::pair{ std::string("vCont?"), &Server::HandleVContQuestionMark });
 		m_cmd_handlers.insert(std::pair{ std::string("vCont"), &Server::HandleVCont });
+		m_cmd_handlers.insert(std::pair{ std::string("Z1"), &Server::HandleZ1 });
+		m_cmd_handlers.insert(std::pair{ std::string("z1"), &Server::HandleSmallZ1 });
 	}
 
 	void Server::Start() {
@@ -73,11 +75,6 @@ namespace psx::gdbstub {
 	bool Server::HandlePackets() {
 		//The packet format is specified at https://sourceware.org/gdb/current/onlinedocs/gdb.html/Overview.html#Overview
 		try {
-			//Ignore accumulated packets since they are usually
-			//duplicates of old packets
-			if (m_conn.available())
-				m_conn.receiveBytes(m_recv_buffer, BUFFER_SIZE);
-
 			auto effective_len = m_conn.receiveBytes(m_recv_buffer, BUFFER_SIZE);
 
 			if (effective_len == 0) //Returned with no data, probably closed connection?
@@ -129,6 +126,8 @@ namespace psx::gdbstub {
 						SendNAck(); //Request retransmission
 					}
 					else {
+						SendAck();
+
 						std::optional<std::pair<std::string, std::size_t>> command = std::nullopt;
 
 						//Hope that the command is split 
@@ -217,6 +216,12 @@ namespace psx::gdbstub {
 		return std::pair{ part, offset };
 	}
 
+	void Server::SendAck() {
+		constexpr const char ACK[] = "+";
+
+		m_conn.sendBytes(ACK, (int)sizeof(ACK));
+	}
+
 	void Server::SendPayload(std::string_view payload) {
 		//Directly encode payload
 		m_out = payload;
@@ -225,7 +230,7 @@ namespace psx::gdbstub {
 
 		std::ostringstream stream{};
 
-		stream << "+"; //Ack
+		//stream << "+";
 		stream << "$";
 		stream << payload;
 		stream << "#";
@@ -679,29 +684,76 @@ namespace psx::gdbstub {
 				SendPayload("S05");
 			}
 			else if (cmd == 'c') {
-				SendPayload("E00");
+				m_sys->RunInterpreterUntilBreakpoint();
+				SendPayload("S05");
 			}
 			else {
 				SendPayload("E00");
 			}
 		}
 		else {
-			if (data.find_first_of(':') == std::string::npos) {
-				SendPayload("E00");
-				return;
-			}
-
 			if (data[0] == 's') {
 				m_sys->RunInterpreter(1);
 				SendPayload("S05");
 			}
 			else if (data[0] == 'c') {
-				SendPayload("E00");
+				m_sys->RunInterpreterUntilBreakpoint();
+				SendPayload("S05");
 			}
 			else {
 				SendPayload("E00");
 			}
 		}
+	}
+
+	void Server::HandleZ1(std::string& data) {
+		if (data[0] == ',')
+			data.erase(0, 1);
+
+		auto colon_pos = data.find_first_of(',');
+
+		if (colon_pos == std::string::npos) {
+			SendPayload("E00");
+			return;
+		}
+
+		auto address_str = data.substr(0, colon_pos);
+
+		auto address = HexStringToUint(address_str, false);
+
+		if (!address.has_value()) {
+			SendPayload("E00");
+			return;
+		}
+
+		m_sys->AddHardwareBreak(address.value());
+
+		SendPayload("OK");
+	}
+
+	void Server::HandleSmallZ1(std::string& data) {
+		if (data[0] == ',')
+			data.erase(0, 1);
+
+		auto colon_pos = data.find_first_of(',');
+
+		if (colon_pos == std::string::npos) {
+			SendPayload("E00");
+			return;
+		}
+
+		auto address_str = data.substr(0, colon_pos);
+
+		auto address = HexStringToUint(address_str, false);
+
+		if (!address.has_value()) {
+			SendPayload("E00");
+			return;
+		}
+
+		m_sys->RemoveHardwareBreak(address.value());
+
+		SendPayload("OK");
 	}
 
 	Server::~Server() {

@@ -10,7 +10,7 @@ namespace psx {
 		m_sys_status(sys_status),
 		m_mapper(new memory::MemoryMapper(std::nullopt)),
 		m_guest_base{ nullptr }, m_curr_ram_sz{}, m_ram_end{},
-		m_cache_control{}, m_bios_config{},
+		m_ram_config{}, m_cache_control{}, m_bios_config{},
 		m_exp1_config{}, m_exp2_config{}, m_exp3_config{},
 		m_exp2_enable{ true }, m_com_delays{}, m_curr_cycles{} {
 		m_bios_config.base = memory::region_offsets::PSX_BIOS_OFFSET;
@@ -31,6 +31,8 @@ namespace psx {
 			(1 << m_exp2_config.delay_size.size_shift);
 		m_exp3_config.end = m_exp3_config.base +
 			(1 << m_exp3_config.delay_size.size_shift);
+
+		m_ram_config = RAM_SIZE_INIT;
 
 		InitMapRegions();
 		m_guest_base = m_mapper->GetGuestBase();
@@ -421,8 +423,10 @@ namespace psx {
 	}
 
 	void SystemBus::ReconfigureBIOS(u32 new_config) {
-		//if (m_bios_config.delay_size.raw == new_config)
-			//return;
+		if (m_bios_config.delay_size.raw == new_config) {
+			fmt::println("BIOS already configured with value 0x{:x}", new_config);
+			return;
+		}
 
 		ResetBiosMap();
 		m_bios_config.delay_size.raw = new_config;
@@ -436,6 +440,24 @@ namespace psx {
 			fmt::print("BIOS reconfigured - Base = 0x{:x}, End = 0x{:x}, Size = {}, Read delay = {}, Write delay = {}\n",
 				m_bios_config.base, m_bios_config.end, m_bios_config.end - m_bios_config.base, 
 				m_bios_config.read_nonseq, m_bios_config.write_nonseq);
+	}
+
+	void SystemBus::ReconfigureRAM(u32 ram_conf) {
+		if (ram_conf == m_ram_config) {
+			fmt::println("RAM already configured with value 0x{:x}", ram_conf);
+			return;
+		}
+
+		m_ram_config = ram_conf;
+
+		u8 new_size = (ram_conf >> 9) & 0x7;
+
+		ResetRamMap();
+
+		if (!SetRamMap((RamSize)new_size))
+			fmt::println("RAM reconfiguration failed, this is a fatal error");
+		else
+			fmt::println("RAM reconfigured with value 0x{:x}", ram_conf);
 	}
 
 	SystemBus::~SystemBus() {

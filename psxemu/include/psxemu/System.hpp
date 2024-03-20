@@ -7,6 +7,7 @@
 #include <string>
 #include <span>
 #include <optional>
+#include <vector>
 
 namespace psx {
 	class System {
@@ -38,13 +39,48 @@ namespace psx {
 		void RunInterpreter(u32 num_instructions);
 
 		/// <summary>
+		/// Run with the interpreter until some
+		/// kind of breakpoint has been hit
+		/// </summary>
+		void RunInterpreterUntilBreakpoint();
+
+		/// <summary>
 		/// Reset status to the reset vector
 		/// </summary>
 		void ResetVector();
+
+		/// <summary>
+		/// Add an hardware breakpoint (no memory
+		/// is modified)
+		/// </summary>
+		/// <param name="address">PC value of the breakpoint</param>
+		void AddHardwareBreak(u32 address);
+
+		/// <summary>
+		/// Undo what AddHardwareBreak did.
+		/// No errors are returned if no 
+		/// breakpoint at address is found
+		/// </summary>
+		/// <param name="address"></param>
+		void RemoveHardwareBreak(u32 address);
+
+		/// <summary>
+		/// Enables or disables breakpoints
+		/// (all types)
+		/// </summary>
+		/// <param name="enable"></param>
+		FORCE_INLINE void ToggleBreakpoints(bool enable) {
+			m_break_enable = enable;
+		}
+
+	private :
+		void InterpreterSingleStep();
 
 	private :
 		cpu::MIPS1 m_cpu;
 		SystemBus m_sysbus;
 		system_status m_status;
+		std::vector<u32> m_hbreaks;
+		bool m_break_enable;
 	};
 }

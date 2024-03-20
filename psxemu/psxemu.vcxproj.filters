@@ -119,5 +119,8 @@
     <ClCompile Include="source\MIPS1.cpp">
       <Filter>Resource Files\cpu</Filter>
     </ClCompile>
+    <ClCompile Include="source\psxemu\MemoryControl.cpp">
+      <Filter>Resource Files\memory</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

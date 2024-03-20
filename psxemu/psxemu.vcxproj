@@ -157,6 +157,7 @@
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
     <ClCompile Include="source\psxemu\Interpreter.cpp" />
+    <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\psxexe.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />

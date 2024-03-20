@@ -8,6 +8,11 @@ namespace psx {
 	using u16 = uint16_t;
 	using u8 = uint8_t;
 
+	using i64 = int64_t;
+	using i32 = int32_t;
+	using i16 = int16_t;
+	using i8 = int8_t;
+
 	namespace memory {
 		namespace region_sizes {
 			constexpr u64 PSX_MAIN_RAM_SIZE = 2048 * 1024;
@@ -66,6 +71,9 @@ namespace psx {
 
 		namespace IO {
 			constexpr u64 BIOS_CONFIG_CONTROL = 0x010;
+			constexpr u64 RAM_SIZE = 0x060;
+			constexpr u64 MEM_CONTROL_START = 0x0;
+			constexpr u64 MEM_CONTROL_END = 0x24;
 		}
 	}
 }

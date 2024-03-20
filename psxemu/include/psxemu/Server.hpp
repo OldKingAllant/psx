@@ -172,6 +172,8 @@ namespace psx::gdbstub {
 		void HandleBigM(std::string& data);
 		void HandleVContQuestionMark(std::string& data);
 		void HandleVCont(std::string& data);
+		void HandleZ1(std::string& data);
+		void HandleSmallZ1(std::string& data);
 
 		/// <summary>
 		/// Handles unknown/unsopprted command 
@@ -197,6 +199,13 @@ namespace psx::gdbstub {
 		/// request retransmission of last packet
 		/// </summary>
 		void SendNAck();
+
+		/// <summary>
+		/// Immediately send ACK when recvd
+		/// valid packet, before packet 
+		/// processing
+		/// </summary>
+		void SendAck();
 
 	private :
 		/// <summary>

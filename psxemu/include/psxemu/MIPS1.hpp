@@ -62,6 +62,11 @@ namespace psx::cpu {
 
 		void StepInstruction();
 
+	private:
+		bool CheckInterrupts();
+		
+		void FlushLoadDelay();
+
 	private :
 		Registers m_regs;
 		u32 m_pc;

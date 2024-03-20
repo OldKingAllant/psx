@@ -26,7 +26,8 @@ namespace psx {
 		SystemBus* sysbus;
 		cpu::MIPS1* cpu;
 		bool branch_delay;
-		bool load_delay;
+		u32 branch_dest;
+		u8 load_delay_countdown;
 		u8 load_delay_dest;
 		u32 delay_value;
 		bool curr_mode;
@@ -67,6 +68,11 @@ namespace psx {
 
 			cop0.Rfe();
 			curr_mode = cop0.registers.sr.current_mode;
+		}
+
+		void Jump(u32 destination) {
+			branch_dest = destination;
+			branch_delay = true;
 		}
 	};
 }
