@@ -62,10 +62,15 @@ namespace psx::cpu {
 
 		void StepInstruction();
 
+		void WriteCOP0(u32 value, u8 cop0_reg);
+		void ReadCOP0(u8 cop0_reg, u8 dest_reg);
+
+		void FlushLoadDelay();
+
 	private:
 		bool CheckInterrupts();
-		
-		void FlushLoadDelay();
+
+		bool CheckInstructionGTE();
 
 	private :
 		Registers m_regs;

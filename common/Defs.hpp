@@ -18,7 +18,7 @@ namespace psx {
 			constexpr u64 PSX_MAIN_RAM_SIZE = 2048 * 1024;
 			constexpr u64 PSX_EXPANSION1_SIZE = 8912 * 1024;
 			constexpr u64 PSX_SCRATCHPAD_PADDED_SIZE = 4096;
-			constexpr u64 PSX_IO_SIZE = 8 * 1024;
+			constexpr u64 PSX_IO_SIZE = 4 * 1024;
 			constexpr u64 PSX_EXPANSION2_SIZE = 8 * 1024;
 			constexpr u64 PSX_EXPANSION3_SIZE = 2048 * 1024;
 			constexpr u64 PSX_BIOS_SIZE = 512 * 1024;
@@ -72,8 +72,15 @@ namespace psx {
 		namespace IO {
 			constexpr u64 BIOS_CONFIG_CONTROL = 0x010;
 			constexpr u64 RAM_SIZE = 0x060;
+			constexpr u64 COM_DELAY = 0x020;
+			constexpr u64 EXP1_BASE = 0x0;
+			constexpr u64 EXP2_BASE = 0x4;
+			constexpr u64 EXP1_CONFIG = 0x8;
+			constexpr u64 EXP2_CONFIG = 0x1C;
+			constexpr u64 EXP3_CONFIG = 0xC;
 			constexpr u64 MEM_CONTROL_START = 0x0;
 			constexpr u64 MEM_CONTROL_END = 0x24;
+			constexpr u64 CACHE_CONTROL = 0xFFFE0130;
 		}
 	}
 }

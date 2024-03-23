@@ -5,6 +5,7 @@
 #include <common/Errors.hpp>
 
 #include <psxemu/include/psxemu/SystemStatus.hpp>
+#include <psxemu/include/psxemu/IOGaps.hpp>
 
 #include <fmt/format.h>
 
@@ -251,24 +252,21 @@ namespace psx {
 
 			if (m_exp2_enable && lower >=
 				m_exp2_config.base && lower < m_exp2_config.end) {
-				DebugBreak();
 				if constexpr (AddCycles)
 					compute_access_time(m_exp2_config);
-				return 0x0;
+				return (Ty)ReadEXP2(lower - m_exp2_config.base);
 			}
 
 			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
-				DebugBreak();
 				if constexpr (AddCycles)
 					compute_access_time(m_exp1_config);
-				return 0x0;
+				return (Ty)ReadEXP1(lower - m_exp1_config.base);
 			}
 
 			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
-				DebugBreak();
 				if constexpr (AddCycles)
 					compute_access_time(m_exp3_config);
-				return 0x0;
+				return (Ty)ReadEXP3(lower - m_exp3_config.base);
 			}
 
 			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
@@ -368,9 +366,10 @@ namespace psx {
 			}
 
 			if (address >= memory::KSEG2_START) {
-				fmt::print("KSEG2 access at 0x{:x}\n", address);
-				DebugBreak();
-				return;
+				if (address == memory::IO::CACHE_CONTROL) {
+					WriteCacheControl(value);
+					return;
+				}
 			}
 
 			u32 segment = (address >> 29) & 7;
@@ -415,21 +414,21 @@ namespace psx {
 
 			if (m_exp2_enable && lower >=
 				m_exp2_config.base && lower < m_exp2_config.end) {
-				DebugBreak();
+				WriteEXP2(value, lower - m_exp2_config.base);
 				if constexpr (AddCycles)
 					compute_access_time(m_exp2_config);
 				return;
 			}
 
 			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
-				DebugBreak();
+				WriteEXP1(value, lower - m_exp1_config.base);
 				if constexpr (AddCycles)
 					compute_access_time(m_exp1_config);
 				return;
 			}
 
 			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
-				DebugBreak();
+				WriteEXP3(value, lower - m_exp3_config.base);
 				if constexpr (AddCycles)
 					compute_access_time(m_exp3_config);
 				return;
@@ -467,7 +466,17 @@ namespace psx {
 			if (lower >= memory::region_offsets::PSX_IO_OFFSET
 				&& lower < memory::region_offsets::PSX_IO_OFFSET +
 				memory::region_sizes::PSX_IO_SIZE) {
-				WriteIO<Ty>(address, value);
+				if (!memory::IO::LOCKED[address & (memory::region_sizes::PSX_IO_SIZE - 1)]) {
+					WriteIO<Ty>(address, value);
+				}
+				else {
+					if constexpr (Except) {
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::DBE;
+					}
+				}
+				
 				if constexpr (AddCycles)
 					m_curr_cycles += 1;
 				return;
@@ -532,6 +541,10 @@ namespace psx {
 		/// </summary>
 		u64 m_curr_cycles;
 
+		FORCE_INLINE bool CacheEnabled() const {
+			return m_cache_control.cache_en;
+		}
+
 	private :
 		/// <summary>
 		/// Called only once at the beginning,
@@ -579,7 +592,20 @@ namespace psx {
 		void ReconfigureBIOS(u32 new_config);
 		void ReconfigureRAM(u32 ram_conf);
 
+		void WriteCOMDelay(u32 value);
+		void WriteConf(RegionConfig& conf, u32 value);
+
 		void WriteMemControl(u32 address, u32 value);
+
+		void WriteCacheControl(u32 value);
+
+		void WriteEXP1(u32 value, u32 address);
+		void WriteEXP2(u32 value, u32 address);
+		void WriteEXP3(u32 value, u32 address);
+
+		u32 ReadEXP1(u32 address);
+		u32 ReadEXP2(u32 address);
+		u32 ReadEXP3(u32 address);
 
 	private :
 		system_status* m_sys_status;

@@ -7,6 +7,77 @@
 #include <fmt/format.h>
 
 namespace psx::cpu {
+	template <u16 Instruction>
+	struct InstructionDecoder {
+		static constexpr auto TYPE = INSTRUCTION_TYPE_LUT[Instruction];
+
+		static constexpr InstructionHandler GetHandler() {
+			switch (std::get<2>(TYPE)) {
+			case InstructionSubtype::LUI_IMM:
+				return LoadUpperImmediate;
+			case InstructionSubtype::ALU_IMM: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return AluImmediate<opcode>;
+			}
+			break;
+			case InstructionSubtype::STORE: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return Store<opcode>;
+			}
+			break;
+			case InstructionSubtype::SHIFT_IMM: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return ShiftImmediate<opcode>;
+			}
+			break;
+			case InstructionSubtype::JUMP: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return Jump<opcode>;
+			}
+			break;
+			case InstructionSubtype::ALU_REG: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return AluReg<opcode>;
+			}
+			break;
+			case InstructionSubtype::COP_CMD: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return CopCmd<opcode>;
+			}
+			break;
+			case InstructionSubtype::BRANCH: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return Branch<opcode>;
+			}
+			break;
+			case InstructionSubtype::LOAD: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return Load<opcode>;
+			}
+			break;
+			default:
+				break;
+			}
+			return ReservedInstruction;
+		}
+	};
+
 	struct DecodeHelper {
 		template <std::size_t... Seq>
 		static constexpr std::array<InstructionHandler, 4096> GetHandlersImpl(std::index_sequence<Seq...>) {

@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
 		std::cout << std::endl;
 	});
-	server.SetTracing(true);
+	server.SetTracing(false);
 
 	server.Start();
 

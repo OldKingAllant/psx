@@ -45,6 +45,10 @@ namespace psx::cpu {
 			u8 : 8;
 			u8 : 0;
 			u8 : 4;
+			// If an exception occurs on an instruction
+			// which accesses a disabled coprocessor,
+			// set this to the unaccessible coprocessor
+			// number 
 			u8 cop_number : 2;
 			bool : 1;
 			bool branch_delay : 1; //Set if exception happens in BD
@@ -180,43 +184,9 @@ namespace psx::cpu {
 	};
 
 
-	constexpr bool READABLE_COP0_REGS[16] = {
-		false,
-		false, 
-		false,
-		true,
-		false,
-		true,
-		true,
-		true,
-		true,
-		true,
-		false,
-		true,
-		true,
-		true,
-		true,
-		true
-	};
-
-	constexpr bool WRITEABLE_COP0_REGS[16] = {
-		false,
-		false,
-		false,
-		true,
-		false,
-		true,
-		false,
-		true,
-		false,
-		true,
-		false,
-		true,
-		true,
-		true,
-		false,
-		false
-	};
+	constexpr u32 DCIC_WRITE_MASK = 0b11111111100000001111000000111111;
+	constexpr u32 SR_WRITE_MASK =   0b11110010011111111111111100111111;
+	constexpr u32 CAUSE_WRITE_MASK = 3 << 8;
 
 	/// <summary>
 	/// Coprocessor number 0 (System Status)

@@ -1,4 +1,5 @@
 #include <psxemu/include/psxemu/cop0.hpp>
+#include <psxemu/include/psxemu/MIPS1.hpp>
 
 namespace psx::cpu {
 	void cop0::Exception(Excode exception_code) {

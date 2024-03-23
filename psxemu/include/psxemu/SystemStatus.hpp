@@ -36,10 +36,15 @@ namespace psx {
 		ExitCause exit_cause;
 		cpu::Excode exception_number;
 		bool exception;
-		bool branch;
+		bool branch_taken;
 
 		u32 interrupt_mask;
 		u32 interrupt_request;
+
+		void CoprocessorUnusableException(u8 cop_number) {
+			cpu->GetCOP0().registers.cause.cop_number = cop_number;
+			Exception(cpu::Excode::COU, false);
+		}
 
 		void Exception(cpu::Excode excode, bool cop0_break) {
 			auto& cop0 = cpu->GetCOP0();
@@ -72,7 +77,13 @@ namespace psx {
 
 		void Jump(u32 destination) {
 			branch_dest = destination;
-			branch_delay = true;
+			branch_taken = true;
+		}
+
+		void AddLoadDelay(u32 value, u8 dest_reg) {
+			load_delay_countdown = 2;
+			load_delay_dest = dest_reg;
+			delay_value = value;
 		}
 	};
 }

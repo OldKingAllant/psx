@@ -434,6 +434,9 @@ namespace psx {
 
 		u32 size = (1 << m_bios_config.delay_size.size_shift);
 
+		m_bios_config.end = m_bios_config.base +
+			(1 << m_bios_config.delay_size.size_shift);
+
 		if (!SetBiosMap(size, true))
 			fmt::println("Failed BIOS remapping with size 0x{:x}, better shut down the emulator...", size);
 		else
@@ -458,6 +461,30 @@ namespace psx {
 			fmt::println("RAM reconfiguration failed, this is a fatal error");
 		else
 			fmt::println("RAM reconfigured with value 0x{:x}", ram_conf);
+	}
+
+	void SystemBus::WriteEXP1(u32 value, u32 address) {
+		fmt::println("EXP1 write at 0x{:x} = 0x{:x}", address, value);
+	}
+
+	void SystemBus::WriteEXP2(u32 value, u32 address) {
+		fmt::println("EXP2 write at 0x{:x} = 0x{:x}", address, value);
+	}
+
+	void SystemBus::WriteEXP3(u32 value, u32 address) {
+		fmt::println("EXP3 write at 0x{:x} = 0x{:x}", address, value);
+	}
+
+	u32 SystemBus::ReadEXP1(u32 address) {
+		return 0x0;
+	}
+
+	u32 SystemBus::ReadEXP2(u32 address) {
+		return 0x0;
+	}
+
+	u32 SystemBus::ReadEXP3(u32 address) {
+		return 0x0;
 	}
 
 	SystemBus::~SystemBus() {
