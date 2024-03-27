@@ -4,6 +4,8 @@
 #include "CodeCache.hpp"
 #include "cop0.hpp"
 
+#include <functional>
+
 namespace psx {
 	struct system_status;
 }
@@ -47,8 +49,10 @@ namespace psx::cpu {
 		};
 #pragma pack(pop)
 
-		u32 array[32];
+		u32 array[33];
 	};
+
+	static constexpr u8 InvalidReg = 32;
 
 	class MIPS1 {
 	public :
@@ -67,10 +71,20 @@ namespace psx::cpu {
 
 		void FlushLoadDelay();
 
+		bool HLE_Bios(u32 address);
+
+		void SetHLEHandler(std::function<bool(u32)>&& handler) {
+			m_hle_bios_handler = handler;
+		}
+
+		void InterlockHiLo();
+
 	private:
 		bool CheckInterrupts();
-
 		bool CheckInstructionGTE();
+
+		void UpdateLoadDelay();
+		void UpdateRegWriteback();
 
 	private :
 		Registers m_regs;
@@ -81,5 +95,7 @@ namespace psx::cpu {
 		cop0 m_coprocessor0;
 
 		system_status* m_sys_status;
+
+		std::function<bool(u32)> m_hle_bios_handler;
 	};
 }

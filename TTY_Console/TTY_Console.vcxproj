@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{40f22c01-ac4e-4150-affe-65f0b70bb752}</ProjectGuid>
-    <RootNamespace>psxemu</RootNamespace>
+    <ProjectGuid>{ad48ada9-868f-4fdd-b0c2-140c4b8c4631}</ProjectGuid>
+    <RootNamespace>TTYConsole</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,11 +40,10 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -71,9 +70,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir);</IncludePath>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -108,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,39 +128,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\common\Defs.hpp" />
-    <ClInclude Include="..\common\Errors.hpp" />
-    <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp" />
-    <ClInclude Include="..\common\Macros.hpp" />
-    <ClInclude Include="include\psxemu\CodeCache.hpp" />
-    <ClInclude Include="include\psxemu\cop0.hpp" />
-    <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
-    <ClInclude Include="include\psxemu\InstructionHandlers.hpp" />
-    <ClInclude Include="include\psxemu\Interpreter.hpp" />
-    <ClInclude Include="include\psxemu\IOGaps.hpp" />
-    <ClInclude Include="include\psxemu\JitBlock.hpp" />
-    <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
-    <ClInclude Include="include\psxemu\MIPS1.hpp" />
-    <ClInclude Include="include\psxemu\psxexe.hpp" />
-    <ClInclude Include="include\psxemu\Recompiler.hpp" />
-    <ClInclude Include="include\psxemu\Server.hpp" />
-    <ClInclude Include="include\psxemu\System.hpp" />
-    <ClInclude Include="include\psxemu\SystemBus.hpp" />
-    <ClInclude Include="include\psxemu\SystemStatus.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\common\Errors.cpp" />
-    <ClCompile Include="source\MIPS1.cpp" />
-    <ClCompile Include="source\psxemu\CodeCache.cpp" />
-    <ClCompile Include="source\psxemu\cop0.cpp" />
-    <ClCompile Include="source\psxemu\HLE_Bios.cpp" />
-    <ClCompile Include="source\psxemu\Interpreter.cpp" />
-    <ClCompile Include="source\psxemu\MemoryControl.cpp" />
-    <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
-    <ClCompile Include="source\psxemu\psxexe.cpp" />
-    <ClCompile Include="source\psxemu\Server.cpp" />
-    <ClCompile Include="source\psxemu\System.cpp" />
-    <ClCompile Include="source\psxemu\SystemBus.cpp" />
+    <ClCompile Include="tty_main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

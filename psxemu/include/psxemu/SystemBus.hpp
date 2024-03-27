@@ -303,7 +303,17 @@ namespace psx {
 				if constexpr (AddCycles)
 					m_curr_cycles += 1;
 
-				DebugBreak();
+				if (!memory::IO::LOCKED[address & (memory::region_sizes::PSX_IO_SIZE - 1)]) {
+					return ReadIO<Ty>(address);
+				}
+				else {
+					if constexpr (Except) {
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::IBE;
+					}
+				}
+
 				return 0x0;
 			}
 
@@ -527,10 +537,107 @@ namespace psx {
 				return;
 			}
 
+			if (address >= memory::IO::INTERRUPT_STAT &&
+				address < memory::IO::INTERRUPT_STAT + 4) {
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & ~3) * 8;
+					to_write <<= shift;
+				}
+
+				for (u32 bit_index = 0; bit_index < 10; bit_index++) {
+					bool ack_bit = !!((to_write >> bit_index) & 1);
+					//bool req_bit = !!((m_sys_status->interrupt_request >> bit_index) & 1);
+
+					if (!ack_bit)
+						m_sys_status->interrupt_request &= ~((u32)ack_bit << bit_index);
+				}
+				
+				fmt::println("Write to I_STAT = 0x{:x}", m_sys_status->interrupt_request);
+				return;
+			}
+
+			if (address >= memory::IO::INTERRUPT_MASK &&
+				address < memory::IO::INTERRUPT_MASK + 4) {
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & ~3) * 8;
+					to_write <<= shift;
+				}
+
+				m_sys_status->interrupt_mask = to_write;
+				fmt::println("Write to I_MASK = 0x{:x}", to_write);
+				return;
+			}
+
+			if ((address & 0xFF0) == memory::IO::TIMER_1) {
+				//
+			}
+
+			if ((address & 0xFF0) == memory::IO::TIMER_2) {
+				//
+			}
+
+			if ((address & 0xFF0) == memory::IO::TIMER_3) {
+				//
+			}
+
 #ifdef DEBUG_IO
 			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
 #endif // DEBUG_IO
 
+		}
+
+		template <typename Ty>
+		Ty ReadIO(u32 address) {
+			address &= 0xFFF;
+
+			if (address >= memory::IO::MEM_CONTROL_START && address < memory::IO::MEM_CONTROL_END) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(ReadMemControl(address & ~3) >> shift);
+			}
+
+			if (address >= memory::IO::RAM_SIZE &&
+				address < memory::IO::RAM_SIZE + 4) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_ram_config >> shift);
+			}
+
+			if (address >= memory::IO::INTERRUPT_MASK &&
+				address < memory::IO::INTERRUPT_MASK + 4) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_sys_status->interrupt_mask >> shift);
+			}
+
+			if (address >= memory::IO::INTERRUPT_STAT &&
+				address < memory::IO::INTERRUPT_STAT + 4) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_sys_status->interrupt_request >> shift);
+			}
+
+			if ((address & 0xFF0) == memory::IO::TIMER_1) {
+				//
+			}
+
+			if ((address & 0xFF0) == memory::IO::TIMER_2) {
+				//
+			}
+
+			if ((address & 0xFF0) == memory::IO::TIMER_3) {
+				//
+			}
+
+#ifdef DEBUG_IO
+			fmt::println("Reading invalid/unused/unimplemented register 0x{:x}", address);
+#endif // DEBUG_IO
+
+			return 0x0;
 		}
 
 		void LoadBios(u8* data, u32 size);
@@ -606,6 +713,9 @@ namespace psx {
 		u32 ReadEXP1(u32 address);
 		u32 ReadEXP2(u32 address);
 		u32 ReadEXP3(u32 address);
+
+		u32 ReadMemControl(u32 address) const;
+		u32 ReadCacheControl() const;
 
 	private :
 		system_status* m_sys_status;

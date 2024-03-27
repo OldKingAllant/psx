@@ -136,6 +136,10 @@
     <ClCompile Include="..\psxemu\platform\fastmem.cpp" />
     <ClCompile Include="..\psxemu\platform\main.cpp" />
     <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp" />
+    <ClCompile Include="tty\TTY_Console.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="tty\TTY_Console.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

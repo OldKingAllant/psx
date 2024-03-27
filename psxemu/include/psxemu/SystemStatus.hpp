@@ -17,6 +17,26 @@ namespace psx {
 
 	class SystemBus;
 
+	struct LoadDelay {
+		LoadDelay() : 
+			dest{}, value{} {
+			dest = psx::cpu::InvalidReg;
+		}
+
+		u8 dest;
+		u32 value;
+	};
+
+	struct Writeback {
+		Writeback() :
+			dest{}, value{} {
+			dest = psx::cpu::InvalidReg;
+		}
+
+		u8 dest;
+		u32 value;
+	};
+
 	/// <summary>
 	/// This structure contains redunant data,
 	/// which is necessary to keep the interpreter
@@ -27,9 +47,7 @@ namespace psx {
 		cpu::MIPS1* cpu;
 		bool branch_delay;
 		u32 branch_dest;
-		u8 load_delay_countdown;
-		u8 load_delay_dest;
-		u32 delay_value;
+
 		bool curr_mode;
 		u32 jit_pc; //Use with JIT
 		u32 badvaddr;
@@ -38,8 +56,15 @@ namespace psx {
 		bool exception;
 		bool branch_taken;
 
+		LoadDelay curr_delay;
+		LoadDelay next_delay;
+
+		Writeback reg_writeback;
+
 		u32 interrupt_mask;
 		u32 interrupt_request;
+
+		u64 hi_lo_ready_timestamp;
 
 		void CoprocessorUnusableException(u8 cop_number) {
 			cpu->GetCOP0().registers.cause.cop_number = cop_number;
@@ -81,9 +106,13 @@ namespace psx {
 		}
 
 		void AddLoadDelay(u32 value, u8 dest_reg) {
-			load_delay_countdown = 2;
-			load_delay_dest = dest_reg;
-			delay_value = value;
+			next_delay.dest = dest_reg;
+			next_delay.value = value;
+		}
+
+		void AddWriteback(u32 value, u8 dest_reg) {
+			reg_writeback.dest = dest_reg;
+			reg_writeback.value = value;
 		}
 	};
 }

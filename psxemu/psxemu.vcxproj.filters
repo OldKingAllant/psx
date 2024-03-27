@@ -31,6 +31,9 @@
     <Filter Include="Resource Files\gdbstub">
       <UniqueIdentifier>{31d019de-7bc4-49ad-9b1c-b79e8f1062f2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\bios">
+      <UniqueIdentifier>{40c42228-c46c-46ad-8254-52632ad21a94}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -124,6 +127,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\MemoryControl.cpp">
       <Filter>Resource Files\memory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\HLE_Bios.cpp">
+      <Filter>Resource Files\bios</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

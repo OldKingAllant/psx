@@ -11,10 +11,38 @@
 namespace psx {
 	System::System() :
 		m_cpu{&m_status}, m_sysbus{&m_status},
-		m_status{}, m_hbreaks{}, m_break_enable{false}
+		m_status{}, m_hbreaks{}, m_break_enable{false},
+		m_hle_enable{false}, m_hle_functions{}, 
+		m_putchar{}, m_puts{}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
+
+		m_cpu.SetHLEHandler([this](u32 address) {
+			if (!m_hle_enable)
+				return false;
+
+			u32 r9 = m_cpu.GetRegs().array[9];
+
+			u32 function_id = (address << 4) | r9;
+
+			if (m_hle_functions.contains(function_id)) {
+				m_cpu.FlushLoadDelay(); //Necessary since kernel calls
+										//would receive the NEW values
+				auto hanlder = m_hle_functions[function_id];
+				std::invoke(hanlder, this);
+				return true;
+			}
+
+			return false;
+		});
+
+		InitHLEHandlers();
+	}
+
+	void System::InitHLEHandlers() {
+		m_hle_functions.insert(std::pair{ 0xA3C, &System::HLE_Putchar });
+		m_hle_functions.insert(std::pair{ 0xB3D, &System::HLE_Putchar });
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {

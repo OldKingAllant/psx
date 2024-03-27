@@ -16,6 +16,8 @@ namespace psx {
 
 		if (address >= memory::IO::EXP1_BASE && address <
 			memory::IO::EXP1_BASE + 4) {
+			value &= 0x00FFFFFF;
+			value |= 0x1F000000;
 			u32 sz = (1 << m_exp1_config.delay_size.size_shift);
 			m_exp1_config.base = value & ~(sz - 1);
 			m_exp1_config.end = m_exp1_config.base + sz;
@@ -117,5 +119,53 @@ namespace psx {
 		if (m_cache_control.cache_en) {
 			fmt::println("Instruction cache enabled");
 		}
+	}
+
+	u32 SystemBus::ReadMemControl(u32 address) const {
+		if (address >= memory::IO::BIOS_CONFIG_CONTROL && address <
+			memory::IO::BIOS_CONFIG_CONTROL + 4) {
+			return m_bios_config.delay_size.raw;
+		}
+
+		if (address >= memory::IO::COM_DELAY && address <
+			memory::IO::COM_DELAY + 4) {
+			return m_com_delays.raw;
+		}
+
+		if (address >= memory::IO::EXP1_BASE && address <
+			memory::IO::EXP1_BASE + 4) {
+			return m_exp1_config.base;
+		}
+
+
+		if (address >= memory::IO::EXP2_BASE && address <
+			memory::IO::EXP2_BASE + 4) {
+			return m_exp2_config.base;
+		}
+
+		if (address >= memory::IO::EXP1_CONFIG && address <
+			memory::IO::EXP1_CONFIG + 4) {
+			return m_exp1_config.delay_size.raw;
+		}
+
+		if (address >= memory::IO::EXP2_CONFIG && address <
+			memory::IO::EXP2_CONFIG + 4) {
+			return m_exp2_config.delay_size.raw;
+		}
+
+		if (address >= memory::IO::EXP3_CONFIG && address <
+			memory::IO::EXP3_CONFIG + 4) {
+			return m_exp3_config.delay_size.raw;
+		}
+
+#ifdef DEBUG_IO
+		fmt::println("Reading invalid/unused/unimplemented mem control 0x{:x}", address);
+#endif // DEBUG_IO
+
+		return 0x0;
+	}
+
+	u32 SystemBus::ReadCacheControl() const {
+		return m_cache_control.raw;
 	}
 }

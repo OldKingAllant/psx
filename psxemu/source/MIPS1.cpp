@@ -9,7 +9,11 @@ namespace psx::cpu {
 		m_regs{}, m_pc{},
 		m_hi{}, m_lo{},
 		m_coprocessor0{}, 
-		m_sys_status{sys_status} {}
+		m_sys_status{sys_status} {
+		m_sys_status->curr_delay.dest = InvalidReg;
+		m_sys_status->next_delay.dest = InvalidReg;
+		m_sys_status->reg_writeback.dest = InvalidReg;
+	}
 
 	bool MIPS1::CheckInterrupts() {
 		bool bit10 = !!((m_coprocessor0.registers.sr.int_mask >> 2) & 1);
@@ -28,16 +32,23 @@ namespace psx::cpu {
 		return true;
 	}
 
+	void MIPS1::UpdateLoadDelay() {
+		m_regs.array[m_sys_status->curr_delay.dest] = m_sys_status->curr_delay.value;
+		m_sys_status->curr_delay = m_sys_status->next_delay;
+		m_sys_status->next_delay.dest = InvalidReg;
+	}
+
+	void MIPS1::UpdateRegWriteback() {
+		m_regs.array[m_sys_status->reg_writeback.dest] = m_sys_status->reg_writeback.value;
+		m_sys_status->reg_writeback.dest = InvalidReg;
+	}
+
 	void MIPS1::FlushLoadDelay() {
-		if (m_sys_status->load_delay_countdown == 0)
-			return;
-
-		m_sys_status->load_delay_countdown = 0;
-
-		u32 load_delay_val = m_sys_status->delay_value;
-		u8 load_delay_dest = m_sys_status->load_delay_dest;
-
-		m_regs.array[load_delay_dest] = load_delay_val;
+		m_regs.array[m_sys_status->curr_delay.dest] = m_sys_status->curr_delay.value;
+		m_sys_status->curr_delay.dest = InvalidReg;
+		UpdateRegWriteback();
+		m_regs.array[m_sys_status->next_delay.dest] = m_sys_status->next_delay.value;
+		m_sys_status->next_delay.dest = InvalidReg;
 	}
 
 	bool MIPS1::CheckInstructionGTE() {
@@ -59,8 +70,15 @@ namespace psx::cpu {
 	void MIPS1::StepInstruction() {
 		auto bus = m_sys_status->sysbus;
 
+		if (m_pc & 3) [[unlikely]] {
+			m_sys_status->Exception(Excode::ADEL, false);
+			m_sys_status->branch_delay = false;
+			m_sys_status->branch_taken = false;
+		}
+
 		if (CheckInterrupts()) {
 			if (!CheckInstructionGTE()) {
+				FlushLoadDelay();
 				m_sys_status->Exception(Excode::INT, false);
 				m_sys_status->branch_delay = false;
 				m_sys_status->branch_taken = false;
@@ -87,23 +105,29 @@ namespace psx::cpu {
 		bus->m_curr_cycles += 1;
 
 		if (m_sys_status->exception) {
+			FlushLoadDelay();
+			m_sys_status->Exception(m_sys_status->exception_number, false);
 			m_sys_status->exception = false;
 			m_sys_status->branch_delay = false;
 			m_sys_status->branch_taken = false;
-			FlushLoadDelay();
-			m_sys_status->Exception(m_sys_status->exception_number, false);
 		}
 		else if (branch_taken) {
 			m_sys_status->branch_delay = false;
 			m_sys_status->branch_taken = false;
-			FlushLoadDelay();
-			m_pc = m_sys_status->branch_dest;
+
+			//FlushLoadDelay();
+
+			UpdateLoadDelay();
+			UpdateRegWriteback();
+
+			if (!HLE_Bios(m_sys_status->branch_dest))
+				m_pc = m_sys_status->branch_dest;
+			else
+				m_pc = m_regs.ra;
 		}
 		else {
-			if (m_sys_status->load_delay_countdown == 2)
-				m_sys_status->load_delay_countdown -= 1;
-			else if (m_sys_status->load_delay_countdown == 1)
-				FlushLoadDelay();
+			UpdateLoadDelay();
+			UpdateRegWriteback();
 
 			if (in_bd)
 				m_sys_status->branch_delay = false;
@@ -116,8 +140,6 @@ namespace psx::cpu {
 	}
 
 	void MIPS1::ReadCOP0(u8 cop0_reg, u8 dest_reg) {
-		FlushLoadDelay();
-
 		u32 value = 0;
 
 		if (cop0_reg >= 16 && cop0_reg < 32)
@@ -221,5 +243,30 @@ namespace psx::cpu {
 			m_sys_status->Exception(Excode::RI, false);
 			return;
 		}
+	}
+
+	bool MIPS1::HLE_Bios(u32 address) {
+		switch (address)
+		{
+		case 0xA0:
+		case 0xB0:
+		case 0xC0:
+			return m_hle_bios_handler(address);
+			break;
+		default:
+			break;
+		}
+
+		return false;
+	}
+
+	void MIPS1::InterlockHiLo() {
+		auto& sysbus = m_sys_status->sysbus;
+
+		auto hi_lo_ready_timestamp = m_sys_status->hi_lo_ready_timestamp;
+
+		if (sysbus->m_curr_cycles < hi_lo_ready_timestamp)
+			sysbus->m_curr_cycles += hi_lo_ready_timestamp -
+			sysbus->m_curr_cycles;
 	}
 }

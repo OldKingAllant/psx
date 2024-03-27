@@ -80,6 +80,11 @@ namespace psx {
 			constexpr u64 EXP3_CONFIG = 0xC;
 			constexpr u64 MEM_CONTROL_START = 0x0;
 			constexpr u64 MEM_CONTROL_END = 0x24;
+			constexpr u64 INTERRUPT_STAT = 0x70;
+			constexpr u64 INTERRUPT_MASK = 0x74;
+			constexpr u64 TIMER_1 = 0x100;
+			constexpr u64 TIMER_2 = 0x110;
+			constexpr u64 TIMER_3 = 0x120;
 			constexpr u64 CACHE_CONTROL = 0xFFFE0130;
 		}
 	}

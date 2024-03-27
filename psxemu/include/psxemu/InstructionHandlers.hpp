@@ -18,15 +18,11 @@ namespace psx::cpu {
 	void LoadUpperImmediate(system_status* status, u32 instruction) {
 		u32 dest_reg = (instruction >> 16) & 0x1F;
 
-		status->cpu->FlushLoadDelay();
-
 		if (dest_reg != 0) {
 			u32 imm = (u16)instruction;
 
-			u32& reg = status->cpu->GetRegs().array[dest_reg];
-
 			//Zeroes lower bits
-			reg = (imm << 16);
+			status->AddWriteback(imm << 16, (u8)dest_reg);
 		}
 	}
 
@@ -65,30 +61,44 @@ namespace psx::cpu {
 
 		u32 rs_val = regs.array[rs];
 
-		status->cpu->FlushLoadDelay();
-
 		if constexpr (AluOpcode == Opcode::ORI) {
-			regs.array[rt] = rs_val | imm;
+			status->AddWriteback(rs_val | imm, rt);
 		}
 		else if constexpr (AluOpcode == Opcode::ADDIU) {
 			i32 imm_sign_extend = (i16)imm;
-			regs.array[rt] = (u32)( rs_val + imm_sign_extend);
+			status->AddWriteback((u32)(rs_val + imm_sign_extend), rt);
 		}
 		else if constexpr (AluOpcode == Opcode::ADDI) {
 			i32 imm_sign_extend = (i16)imm;
 
 			if (AddOverflow(rs_val, imm)) {
 				status->Exception(Excode::OV, false);
+				return;
 			}
-			else {
-				regs.array[rt] = rs_val + imm_sign_extend;
-			}
+			
+			status->AddWriteback((u32)(rs_val + imm_sign_extend), rt);
 		}
 		else if constexpr (AluOpcode == Opcode::ANDI) {
-			regs.array[rt] = rs_val & imm;
+			status->AddWriteback(rs_val & imm, rt);
 		}
 		else if constexpr (AluOpcode == Opcode::XORI) {
-			regs.array[rt] = rs_val ^ imm;
+			status->AddWriteback(rs_val ^ imm, rt);
+		}
+		else if constexpr (AluOpcode == Opcode::SLTI) {
+			i32 se_imm = (i16)imm;
+
+			if ((i32)rs_val < se_imm)
+				status->AddWriteback(1, rt);
+			else
+				status->AddWriteback(0, rt);
+		}
+		else if constexpr (AluOpcode == Opcode::SLTIU) {
+			i32 se_imm = (i16)imm;
+
+			if(rs_val < (u32)se_imm)
+				status->AddWriteback(1, rt);
+			else
+				status->AddWriteback(0, rt);
 		}
 		else {
 			fmt::println("Invalid/Unimplemented ALU Immediate Opcode 0x{:x}", (u8)AluOpcode);
@@ -106,10 +116,19 @@ namespace psx::cpu {
 
 		u32 rt_val = regs.array[rt];
 
-		status->cpu->FlushLoadDelay();
-
 		if (ShiftOpcode == Opcode::SLL) {
-			regs.array[rd] = rt_val << imm;
+			status->AddWriteback(rt_val << imm, rd);
+		}
+		else if constexpr (ShiftOpcode == Opcode::SRA) {
+			i32 rt_se = (i32)rt_val;
+			rt_se >>= imm;
+
+			status->AddWriteback(rt_se, rd);
+		}
+		else if constexpr (ShiftOpcode == Opcode::SRL) {
+			rt_val >>= imm;
+
+			status->AddWriteback(rt_val, rd);
 		}
 		else {
 			error::DebugBreak();
@@ -130,8 +149,6 @@ namespace psx::cpu {
 
 		u32 base = (rs == 0) ? 0 : regs.array[rs];
 		u32 value = (rt == 0) ? 0 : regs.array[rt];
-
-		status->cpu->FlushLoadDelay();
 
 		if constexpr (StoreOpcode == Opcode::SW) {
 			//Perform direct write, do not emulate store
@@ -155,12 +172,11 @@ namespace psx::cpu {
 		status->branch_delay = true;
 
 		u32 rs = (instruction >> 21) & 0x1F;
+		u32 rd = (instruction >> 11) & 0x1F;
 
 		u32 rs_val = status->cpu->GetRegs().array[rs];
 
 		u32 curr_pc = status->cpu->GetPc();
-
-		status->cpu->FlushLoadDelay();
 
 		if constexpr (JumpOpcode == Opcode::J) {
 			u32 offset = (instruction & 0x3FFFFFF) << 2;
@@ -170,10 +186,15 @@ namespace psx::cpu {
 		else if constexpr (JumpOpcode == Opcode::JAL) {
 			u32 offset = (instruction & 0x3FFFFFF) << 2;
 			u32 base = curr_pc & 0xF0000000;
-			status->cpu->GetRegs().ra = curr_pc + 8;
+
+			status->AddWriteback(curr_pc + 8, 31);
 			status->Jump(base + offset);
 		}
 		else if constexpr (JumpOpcode == Opcode::JR) {
+			status->Jump(rs_val);
+		}
+		else if constexpr (JumpOpcode == Opcode::JALR) {
+			status->AddWriteback(curr_pc + 8, rd);
 			status->Jump(rs_val);
 		}
 		else {
@@ -192,13 +213,14 @@ namespace psx::cpu {
 		u32 rs_val = regs.array[rs];
 		u32 rt_val = regs.array[rt];
 
-		status->cpu->FlushLoadDelay();
-
 		if constexpr (AluOpcode == Opcode::OR) {
-			regs.array[rd] = rs_val | rt_val;
+			status->AddWriteback(rs_val | rt_val, rd);
+		}
+		else if constexpr (AluOpcode == Opcode::AND) {
+			status->AddWriteback(rs_val & rt_val, rd);
 		}
 		else if constexpr (AluOpcode == Opcode::ADDU) {
-			regs.array[rd] = rs_val + (i32)rt_val;
+			status->AddWriteback(rs_val + (i32)rt_val, rd);
 		}
 		else if constexpr (AluOpcode == Opcode::ADD) {
 			if (AddOverflow(rs_val, rt_val)) {
@@ -206,16 +228,16 @@ namespace psx::cpu {
 				return;
 			}
 
-			regs.array[rd] = rs_val + (i32)rt_val;
+			status->AddWriteback(rs_val + (i32)rt_val, rd);
 		}
 		else if constexpr (AluOpcode == Opcode::SLTU) {
 			u32 l = rs_val;
 			u32 r = rt_val;
 
 			if (l < r)
-				regs.array[rd] = 1;
+				status->AddWriteback(1, rd);
 			else
-				regs.array[rd] = 0;
+				status->AddWriteback(0, rd);
 		}
 		else if constexpr (AluOpcode == Opcode::SLT) {
 			//Signed comparison
@@ -223,9 +245,12 @@ namespace psx::cpu {
 			i32 r = rt_val;
 
 			if (l < r)
-				regs.array[rd] = 1;
+				status->AddWriteback(1, rd);
 			else
-				regs.array[rd] = 0;
+				status->AddWriteback(0, rd);
+		}
+		else if constexpr (AluOpcode == Opcode::SUBU) {
+			status->AddWriteback(rs_val - rt_val, rd);
 		}
 		else {
 			error::DebugBreak();
@@ -239,8 +264,6 @@ namespace psx::cpu {
 		u8 rd = (instruction >> 11) & 0x1F;
 
 		u32 value = status->cpu->GetRegs().array[rt];
-
-		status->cpu->FlushLoadDelay();
 
 		switch (action)
 		{
@@ -311,8 +334,6 @@ namespace psx::cpu {
 		u32 rs_val = regs.array[rs];
 		u32 rt_val = regs.array[rt];
 
-		status->cpu->FlushLoadDelay();
-
 		if constexpr (BranchOpcode == Opcode::BNE) {
 			u32 dest = (u32)(pc_val + imm);
 			if (rs_val != rt_val)
@@ -322,6 +343,47 @@ namespace psx::cpu {
 			u32 dest = (u32)(pc_val + imm);
 			if (rs_val == rt_val)
 				status->Jump(dest);
+		}
+		else if constexpr (BranchOpcode == Opcode::BLEZ) {
+			u32 dest = (u32)(pc_val + imm);
+			if ((i32)rs_val <= 0)
+				status->Jump(dest);
+		}
+		else if constexpr (BranchOpcode == Opcode::BGTZ) {
+			u32 dest = (u32)(pc_val + imm);
+			if ((i32)rs_val > 0)
+				status->Jump(dest);
+		}
+		else if constexpr (BranchOpcode == Opcode::BCONDZ) {
+			u32 type = (instruction >> 16) & 0x1F;
+			u32 dest = (u32)(pc_val + imm);
+
+			switch (type)
+			{
+			case 0x0: //BLTZ
+				if ((i32)rs_val < 0)
+					status->Jump(dest);
+				break;
+			case 0x1: //BGEZ
+				if ((i32)rs_val >= 0)
+					status->Jump(dest);
+				break;
+			case 0x10: //BLTZAL
+				if ((i32)rs_val < 0) {
+					status->Jump(dest);
+				}
+				status->AddWriteback(pc_val + 4, 31);
+				break;
+			case 0x11: //BGEZAL
+				if ((i32)rs_val >= 0) {
+					status->Jump(dest);
+				}
+				status->AddWriteback(pc_val + 4, 31);
+				break;
+			default:
+				fmt::println("Invalid BCONDZ 0x{:x}, ignore", type);
+				break;
+			}
 		}
 		else {
 			error::DebugBreak();
@@ -346,8 +408,6 @@ namespace psx::cpu {
 		u32 address = (u32)(cpu.GetRegs().array[rs] + imm);
 		u32 value = 0;
 
-		cpu.FlushLoadDelay();
-
 		if constexpr (LoadOpcode == Opcode::LW) {
 			value = status->sysbus->Read<u32, true, true>(address);
 		}
@@ -371,5 +431,78 @@ namespace psx::cpu {
 			return;
 
 		status->AddLoadDelay(value, rt);
+	}
+
+	template <Opcode MulDivOpcode>
+	void MulDiv(system_status* status, u32 instruction) {
+		if constexpr (MulDivOpcode == Opcode::NA) {
+			error::DebugBreak();
+		}
+
+		u32 rs = (instruction >> 21) & 0x1F;
+		u32 rt = (instruction >> 16) & 0x1F;
+		u32 rd = (instruction >> 11) & 0x1F;
+
+		auto& regs = status->cpu->GetRegs();
+
+		u32 rs_val = regs.array[rs];
+		u32 rt_val = regs.array[rt];
+		u32 rd_val = regs.array[rd];
+
+		if constexpr (MulDivOpcode == Opcode::DIV) {
+			status->hi_lo_ready_timestamp = status->sysbus->m_curr_cycles
+				+ 36;
+
+			if (rt_val == 0x0) [[unlikely]] {
+				if (rs_val >= 0) {
+					status->cpu->GetHI() = rs_val;
+					status->cpu->GetLO() = -1;
+				}
+				else {
+					status->cpu->GetHI() = rs_val;
+					status->cpu->GetLO() = 1;
+				}
+			} else if((i32)rt_val == -1 &&
+				(i32)rs_val == -(i32)0x80000000) [[unlikely]] {
+					status->cpu->GetHI() = 0x0;
+					status->cpu->GetLO() = -(i32)0x80000000;
+			}
+			else {
+				status->cpu->GetHI() = (i32)rs_val % (i32)rt_val;
+				status->cpu->GetLO() = (i32)rs_val / (i32)rt_val;
+			}
+		}
+		else if constexpr (MulDivOpcode == Opcode::MFHI) {
+			status->cpu->InterlockHiLo();
+			status->AddWriteback(status->cpu->GetHI(), rd);
+		}
+		else if constexpr (MulDivOpcode == Opcode::MFLO) {
+			status->cpu->InterlockHiLo();
+			status->AddWriteback(status->cpu->GetLO(), rd);
+		} 
+		else if constexpr (MulDivOpcode == Opcode::MTHI) {
+			status->cpu->InterlockHiLo();
+			status->cpu->GetHI() = rd_val;
+		}
+		else if constexpr (MulDivOpcode == Opcode::MTLO) {
+			status->cpu->InterlockHiLo();
+			status->cpu->GetLO() = rd_val;
+		}
+		else if constexpr (MulDivOpcode == Opcode::DIVU) {
+			status->hi_lo_ready_timestamp = status->sysbus->m_curr_cycles
+				+ 36;
+
+			if (rt_val == 0) {
+				status->cpu->GetLO() = 0xFFFFFFFF;
+				status->cpu->GetHI() = rs_val;
+			}
+			else {
+				status->cpu->GetHI() = rs_val % rt_val;
+				status->cpu->GetLO() = rs_val / rt_val;
+			}
+		}
+		else {
+			error::DebugBreak();
+		}
 	}
 }

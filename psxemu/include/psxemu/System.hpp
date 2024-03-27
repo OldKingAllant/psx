@@ -8,8 +8,11 @@
 #include <span>
 #include <optional>
 #include <vector>
+#include <map>
+#include <functional>
 
 namespace psx {
+
 	class System {
 	public :
 		System();
@@ -73,8 +76,33 @@ namespace psx {
 			m_break_enable = enable;
 		}
 
+		/// <summary>
+		/// Enable or disable HLE BIOS emulation
+		/// </summary>
+		void EnableHLE(bool enable) {
+			m_hle_enable = enable;
+		}
+
+		using HLE_Function = void(System::*)();
+
+		using PutcharFun = std::function<void(char)>;
+		using PutsFun = std::function<void(char*)>;
+
+		void SetPutchar(PutcharFun fun) {
+			m_putchar = fun;
+		}
+
+		void SetPuts(PutsFun fun) {
+			m_puts = fun;
+		}
+
 	private :
 		void InterpreterSingleStep();
+
+		void InitHLEHandlers();
+
+		void HLE_Getchar();
+		void HLE_Putchar();
 
 	private :
 		cpu::MIPS1 m_cpu;
@@ -82,5 +110,11 @@ namespace psx {
 		system_status m_status;
 		std::vector<u32> m_hbreaks;
 		bool m_break_enable;
+		bool m_hle_enable;
+
+		std::map<u32, HLE_Function> m_hle_functions;
+		
+		PutcharFun m_putchar;
+		PutsFun m_puts;
 	};
 }
