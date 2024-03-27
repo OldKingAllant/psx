@@ -6,3 +6,4 @@ tests/x64/*
 packages/*
 sdk/*
 programs/*
+TTY_Console/x64/*
