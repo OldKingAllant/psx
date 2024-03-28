@@ -108,12 +108,12 @@ namespace psx {
 			&& m_cache_control.scratch_en2;
 
 		if (old_scratchpad_en && !new_scratchpad_en) {
-			fmt::println("SCRATCHPAD Disabled");
-			ScratchpadDisable();
+			bool umap_res = ScratchpadDisable();
+			fmt::println("SCRATCHPAD Disabled, Unmap successfull : {}", umap_res);
 		}
 		else if (!old_scratchpad_en && new_scratchpad_en) {
-			fmt::println("SCRATCHPAD Enabled");
-			ScratchpadEnable();
+			bool map_res = ScratchpadEnable();
+			fmt::println("SCRATCHPAD Enabled, Map successfull : {}", map_res);
 		}
 
 		if (m_cache_control.cache_en) {

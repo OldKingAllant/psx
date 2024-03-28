@@ -468,6 +468,11 @@ namespace psx {
 	}
 
 	void SystemBus::WriteEXP2(u32 value, u32 address) {
+		if (address == 0x41) {
+			fmt::println("[POST] Kernel trace 0x{:x}", value);
+			return;
+		}
+
 		fmt::println("EXP2 write at 0x{:x} = 0x{:x}", address, value);
 	}
 
