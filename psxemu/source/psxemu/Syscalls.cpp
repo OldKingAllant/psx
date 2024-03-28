@@ -196,6 +196,70 @@ namespace psx {
 			} }
 		});
 
+		the_table.insert(std::pair{ 0xC1C,
+			std::pair{ "AdjustA0Table", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xC07,
+			std::pair{ "InstallExceptionHandlers", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xA44,
+			std::pair{ "FlushCache", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xB18,
+			std::pair{ "ResetEntryInt", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xC12,
+			std::pair{ "InstallDevices", ParamList{
+				std::pair{ "ttyflag", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xA99,
+			std::pair{ "add_nullcon_driver", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xB47,
+			std::pair{ "AddDrv", ParamList{
+				std::pair{ "dev_info", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xA96,
+			std::pair{ "AddCDROMDevice", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xA97,
+			std::pair{ "AddMemcardDevice", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xB00,
+			std::pair{ "alloc_kernel_memory", ParamList{
+				std::pair{ "size", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xC00,
+			std::pair{ "EnqueueTimerAndBlankIrqs", ParamList{
+				std::pair{ "priority", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xC01,
+			std::pair{ "EnqueueSyscallHandler", ParamList{
+				std::pair{ "priority", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xC0C,
+			std::pair{ "InitDefInt", ParamList{
+				std::pair{ "priority", SyscallParamType::UINT },
+			} }
+		});
+
 		return the_table;
 	}
 
