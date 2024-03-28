@@ -34,6 +34,15 @@
     <Filter Include="Resource Files\bios">
       <UniqueIdentifier>{40c42228-c46c-46ad-8254-52632ad21a94}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev">
+      <UniqueIdentifier>{7d3dba06-8556-41fd-bbc5-cc570c9b7205}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev">
+      <UniqueIdentifier>{c93f05de-14a5-41d5-9d28-0ee9cdef0fbe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\bios">
+      <UniqueIdentifier>{be478d92-b5ac-4d9c-9ef7-6af01f2d3fb1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -93,6 +102,12 @@
     <ClInclude Include="include\psxemu\IOGaps.hpp">
       <Filter>Header Files\memory</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\RootCounters.hpp">
+      <Filter>Header Files\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SyscallTables.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -129,6 +144,12 @@
       <Filter>Resource Files\memory</Filter>
     </ClCompile>
     <ClCompile Include="source\psxemu\HLE_Bios.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\RootCounters.cpp">
+      <Filter>Resource Files\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\Syscalls.cpp">
       <Filter>Resource Files\bios</Filter>
     </ClCompile>
   </ItemGroup>

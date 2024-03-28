@@ -2,6 +2,7 @@
 #include <psxemu/include/psxemu/psxexe.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/cop0.hpp>
+#include <psxemu/include/psxemu/SyscallTables.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -25,6 +26,8 @@ namespace psx {
 			u32 r9 = m_cpu.GetRegs().array[9];
 
 			u32 function_id = (address << 4) | r9;
+
+			LogSyscall(function_id, SyscallLogMode::PARAMETERS, &m_status);
 
 			if (m_hle_functions.contains(function_id)) {
 				m_cpu.FlushLoadDelay(); //Necessary since kernel calls

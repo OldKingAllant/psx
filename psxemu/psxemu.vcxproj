@@ -147,7 +147,9 @@
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
     <ClInclude Include="include\psxemu\psxexe.hpp" />
     <ClInclude Include="include\psxemu\Recompiler.hpp" />
+    <ClInclude Include="include\psxemu\RootCounters.hpp" />
     <ClInclude Include="include\psxemu\Server.hpp" />
+    <ClInclude Include="include\psxemu\SyscallTables.hpp" />
     <ClInclude Include="include\psxemu\System.hpp" />
     <ClInclude Include="include\psxemu\SystemBus.hpp" />
     <ClInclude Include="include\psxemu\SystemStatus.hpp" />
@@ -162,7 +164,9 @@
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\psxexe.cpp" />
+    <ClCompile Include="source\psxemu\RootCounters.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />
+    <ClCompile Include="source\psxemu\Syscalls.cpp" />
     <ClCompile Include="source\psxemu\System.cpp" />
     <ClCompile Include="source\psxemu\SystemBus.cpp" />
   </ItemGroup>

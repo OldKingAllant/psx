@@ -1,9 +1,10 @@
 #pragma once
 
 #include <psxemu/include/psxemu/MIPS1.hpp>
-#include <psxemu/include/psxemu/SystemBus.hpp>
+//#include <psxemu/include/psxemu/SystemBus.hpp>
 
 namespace psx {
+	class SystemBus;
 	/// <summary>
 	/// Describes the cause of a JIT block
 	/// exit
@@ -14,8 +15,6 @@ namespace psx {
 		EXCEPTION,
 		EVENT
 	};
-
-	class SystemBus;
 
 	struct LoadDelay {
 		LoadDelay() : 
