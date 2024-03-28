@@ -108,6 +108,9 @@
     <ClInclude Include="include\psxemu\SyscallTables.hpp">
       <Filter>Header Files\bios</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\Scheduler.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -151,6 +154,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\Syscalls.cpp">
       <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\Scheduler.cpp">
+      <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
