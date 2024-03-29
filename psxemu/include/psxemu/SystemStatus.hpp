@@ -1,7 +1,7 @@
 #pragma once
 
 #include <psxemu/include/psxemu/MIPS1.hpp>
-//#include <psxemu/include/psxemu/SystemBus.hpp>
+#include <psxemu/include/psxemu/Scheduler.hpp>
 
 namespace psx {
 	class SystemBus;
@@ -64,6 +64,8 @@ namespace psx {
 		u32 interrupt_request;
 
 		u64 hi_lo_ready_timestamp;
+
+		Scheduler scheduler;
 
 		void CoprocessorUnusableException(u8 cop_number) {
 			cpu->GetCOP0().registers.cause.cop_number = cop_number;

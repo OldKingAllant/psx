@@ -6,6 +6,7 @@
 
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/IOGaps.hpp>
+#include <psxemu/include/psxemu/RootCounters.hpp>
 
 #include <fmt/format.h>
 
@@ -516,11 +517,11 @@ namespace psx {
 				u32 to_write = value;
 				
 				if constexpr (sizeof(Ty) != 4) {
-					u32 shift = (address & ~3) * 8;
+					u32 shift = (address & 3) * 8;
 					to_write <<= shift;
 				}
 
-				WriteMemControl(address, to_write);
+				WriteMemControl(address & ~3, to_write);
 				return;
 			}
 
@@ -529,7 +530,7 @@ namespace psx {
 				u32 to_write = value;
 
 				if constexpr (sizeof(Ty) != 4) {
-					u32 shift = (address & ~3) * 8;
+					u32 shift = (address & 3) * 8;
 					to_write <<= shift;
 				}
 
@@ -542,7 +543,7 @@ namespace psx {
 				u32 to_write = value;
 
 				if constexpr (sizeof(Ty) != 4) {
-					u32 shift = (address & ~3) * 8;
+					u32 shift = (address & 3) * 8;
 					to_write <<= shift;
 				}
 
@@ -563,7 +564,7 @@ namespace psx {
 				u32 to_write = value;
 
 				if constexpr (sizeof(Ty) != 4) {
-					u32 shift = (address & ~3) * 8;
+					u32 shift = (address & 3) * 8;
 					to_write <<= shift;
 				}
 
@@ -573,15 +574,42 @@ namespace psx {
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_1) {
-				//
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & 3) * 8;
+					to_write <<= shift;
+				}
+
+				m_count1.Write(address & ~3, to_write);
+
+				return;
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_2) {
-				//
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & 3) * 8;
+					to_write <<= shift;
+				}
+
+				m_count2.Write(address & ~3, to_write);
+
+				return;
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_3) {
-				//
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & 3) * 8;
+					to_write <<= shift;
+				}
+
+				m_count3.Write(address & ~3, to_write);
+
+				return;
 			}
 
 #ifdef DEBUG_IO
@@ -622,15 +650,21 @@ namespace psx {
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_1) {
-				//
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_count1.Read(address & ~3) >> shift);
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_2) {
-				//
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_count2.Read(address & ~3) >> shift);
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_3) {
-				//
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_count3.Read(address & ~3) >> shift);
 			}
 
 #ifdef DEBUG_IO
@@ -735,5 +769,9 @@ namespace psx {
 		bool m_exp2_enable;
 
 		ComDelay m_com_delays;
+
+		RootCounter m_count1;
+		RootCounter m_count2;
+		RootCounter m_count3;
 	};
 }

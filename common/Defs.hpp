@@ -13,6 +13,29 @@ namespace psx {
 	using i16 = int16_t;
 	using i8 = int8_t;
 
+	/*
+	All timings based on no$psx ntsc 
+	consoles
+	*/
+	static constexpr u64 SYSTEM_CLOCK = 33'868'800;
+	static constexpr u64 VIDEO_CLOCK = 53'222'400;
+	static constexpr double VIDEO_TO_SYSTEM_CLOCK = (double)SYSTEM_CLOCK / VIDEO_CLOCK;
+	static constexpr u64 SCANLINES_FRAME = 263;
+	static constexpr u64 CLOCKS_SCANLINE = (u64)(3413 * VIDEO_TO_SYSTEM_CLOCK);
+
+	//Based on Vertical resolution
+	static constexpr u64 DOTCLOCKS[] = {
+		5'322'240, 6'652'800, 7'603'200,
+		10'644'480, 13'305'600
+	};
+
+	static constexpr u64 DOT_CYCLES[] = {
+		SYSTEM_CLOCK / DOTCLOCKS[0], SYSTEM_CLOCK / DOTCLOCKS[1],
+		SYSTEM_CLOCK / DOTCLOCKS[2], SYSTEM_CLOCK / DOTCLOCKS[3],
+		SYSTEM_CLOCK / DOTCLOCKS[4]
+	};
+
+
 	namespace memory {
 		namespace region_sizes {
 			constexpr u64 PSX_MAIN_RAM_SIZE = 2048 * 1024;
