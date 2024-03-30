@@ -505,4 +505,45 @@ namespace psx::cpu {
 			error::DebugBreak();
 		}
 	}
+
+	template <Opcode SysBreakOpcode>
+	void SysBreak(system_status* status, u32 instruction) {
+		if constexpr (SysBreakOpcode == Opcode::SYSCALL) {
+			fmt::println("[EXCEPTION] SYSCALL Opcode at 0x{:x}",
+				status->cpu->GetPc());
+
+			u32 comment = status->cpu->GetRegs().a0;
+
+			switch (comment)
+			{
+			case 0x0:
+				fmt::println("[EXCEPTION] SYSCALL::NoFunction()");
+				break;
+			case 0x1:
+				fmt::println("[EXCEPTION] SYSCALL::EnterCriticalSection()");
+				break;
+			case 0x2:
+				fmt::println("[EXCEPTION] SYSCALL::ExitCriticalSection()");
+				break;
+			case 0x3: {
+				u32 addr = status->cpu->GetRegs().a1;
+				fmt::println("[EXCEPTION] SYSCALL::ChangeThreadSubFunction(addr=0x{:x})", 
+					addr);
+			}
+				break;
+			default:
+				fmt::println("[EXCEPTION] SYSCALL::DeliverEvent(0xF0000010,0x4000)");
+				break;
+			}
+
+			status->exception = true;
+			status->exception_number = Excode::SYSCALL;
+		}
+		else if constexpr (SysBreakOpcode == Opcode::BREAK) {
+			fmt::println("[EXCEPTION] BREAK Opcode at 0x{:x}",
+				status->cpu->GetPc());
+			status->exception = true;
+			status->exception_number = Excode::BP;
+		}
+	}
 }
