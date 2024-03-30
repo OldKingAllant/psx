@@ -346,13 +346,17 @@ namespace psx {
 
 			u32 depth = 256;
 
+			out << "\"";
+
 			while ((the_char = (char)bus->Read<u8, false, false>(address)) && depth--) {
 				if (MustEscapeChar(the_char))
-					out << '\'' << the_char << '\'';
+					out << EscapeChar( the_char );
 				else
-					out << '\'' << the_char << '\'';
+					out << the_char;
 				address++;
 			}
+
+			out << "\"";
 		}
 		break;
 		case SyscallParamType::ACCESS_MODE: {
