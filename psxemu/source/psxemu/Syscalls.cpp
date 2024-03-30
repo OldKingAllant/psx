@@ -154,7 +154,7 @@ namespace psx {
 			} }
 		});
 
-		the_table.insert(std::pair{ 0xA09,
+		the_table.insert(std::pair{ 0xA39,
 			std::pair{ "InitHeap", ParamList{
 				std::pair{ "addr", SyscallParamType::VOID_PTR },
 				std::pair{ "size", SyscallParamType::UINT }
@@ -257,6 +257,23 @@ namespace psx {
 		the_table.insert(std::pair{ 0xC0C,
 			std::pair{ "InitDefInt", ParamList{
 				std::pair{ "priority", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xB09,
+			std::pair{ "CloseEvent", ParamList{
+				std::pair{ "event", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xAA3,
+			std::pair{ "DequeueCdIntr", ParamList{} }
+		});
+
+		the_table.insert(std::pair{ 0xC03,
+			std::pair{ "SysDeqIntRP", ParamList{
+				std::pair{ "priority", SyscallParamType::UINT },
+				std::pair{ "struc", SyscallParamType::VOID_PTR }
 			} }
 		});
 

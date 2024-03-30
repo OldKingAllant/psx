@@ -450,7 +450,7 @@ namespace psx::cpu {
 		u32 rd_val = regs.array[rd];
 
 		if constexpr (MulDivOpcode == Opcode::DIV) {
-			status->hi_lo_ready_timestamp = status->sysbus->m_curr_cycles
+			status->hi_lo_ready_timestamp = status->scheduler.GetTimestamp()
 				+ 36;
 
 			if (rt_val == 0x0) [[unlikely]] {
@@ -489,7 +489,7 @@ namespace psx::cpu {
 			status->cpu->GetLO() = rd_val;
 		}
 		else if constexpr (MulDivOpcode == Opcode::DIVU) {
-			status->hi_lo_ready_timestamp = status->sysbus->m_curr_cycles
+			status->hi_lo_ready_timestamp = status->scheduler.GetTimestamp()
 				+ 36;
 
 			if (rt_val == 0) {

@@ -263,10 +263,11 @@ namespace psx::cpu {
 	void MIPS1::InterlockHiLo() {
 		auto& sysbus = m_sys_status->sysbus;
 
+		auto curr_timestamp = m_sys_status->scheduler.GetTimestamp();
 		auto hi_lo_ready_timestamp = m_sys_status->hi_lo_ready_timestamp;
 
-		if (sysbus->m_curr_cycles < hi_lo_ready_timestamp)
+		if (curr_timestamp < hi_lo_ready_timestamp)
 			sysbus->m_curr_cycles += hi_lo_ready_timestamp -
-			sysbus->m_curr_cycles;
+			curr_timestamp;
 	}
 }
