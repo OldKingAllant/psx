@@ -78,6 +78,13 @@ namespace psx::cpu {
 					return MulDiv<opcode>;
 			}
 			break;
+			case InstructionSubtype::SYS_BRK: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return SysBreak<opcode>;
+			}
+			break;
 			default:
 				break;
 			}

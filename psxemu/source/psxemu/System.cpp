@@ -149,6 +149,11 @@ namespace psx {
 
 	void System::InterpreterSingleStep() {
 		m_cpu.StepInstruction();
+
+		auto num_cycles = m_sysbus.m_curr_cycles;
+		m_sysbus.m_curr_cycles = 0;
+
+		m_status.scheduler.Advance(num_cycles);
 	}
 
 	void System::RunInterpreter(u32 num_instruction) {

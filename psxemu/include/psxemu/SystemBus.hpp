@@ -581,7 +581,7 @@ namespace psx {
 					to_write <<= shift;
 				}
 
-				m_count1.Write(address & ~3, to_write);
+				m_count1.Write(address - memory::IO::TIMER_1, to_write);
 
 				return;
 			}
@@ -594,7 +594,7 @@ namespace psx {
 					to_write <<= shift;
 				}
 
-				m_count2.Write(address & ~3, to_write);
+				m_count2.Write(address - memory::IO::TIMER_2, to_write);
 
 				return;
 			}
@@ -607,7 +607,7 @@ namespace psx {
 					to_write <<= shift;
 				}
 
-				m_count3.Write(address & ~3, to_write);
+				m_count3.Write(address - memory::IO::TIMER_3, to_write);
 
 				return;
 			}
@@ -652,19 +652,19 @@ namespace psx {
 			if ((address & 0xFF0) == memory::IO::TIMER_1) {
 				u32 shift = (address & 3) * 8;
 
-				return (Ty)(m_count1.Read(address & ~3) >> shift);
+				return (Ty)(m_count1.Read(address - memory::IO::TIMER_1) >> shift);
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_2) {
 				u32 shift = (address & 3) * 8;
 
-				return (Ty)(m_count2.Read(address & ~3) >> shift);
+				return (Ty)(m_count2.Read(address - memory::IO::TIMER_2) >> shift);
 			}
 
 			if ((address & 0xFF0) == memory::IO::TIMER_3) {
 				u32 shift = (address & 3) * 8;
 
-				return (Ty)(m_count3.Read(address & ~3) >> shift);
+				return (Ty)(m_count3.Read(address - memory::IO::TIMER_3) >> shift);
 			}
 
 #ifdef DEBUG_IO

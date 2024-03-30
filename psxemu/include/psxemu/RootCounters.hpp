@@ -17,6 +17,13 @@ namespace psx {
 		PAUSE_AND_SWITCH
 	};
 
+	enum class SyncMode1 : u8 {
+		PAUSE,
+		RESET,
+		RESET_AND_PAUSE,
+		PAUSE_AND_SWITCH
+	};
+
 	enum class SyncMode2 : u8 {
 		STOP1,
 		FREE_RUN1,
@@ -86,6 +93,19 @@ namespace psx {
 		/// </summary>
 		void VBlank();
 
+		/// <summary>
+		/// Signal an HBLANK (for counter 0)
+		/// </summary>
+		void HBlankEnd();
+
+		/// <summary>
+		/// Signal a VBLANK (counter 1)
+		/// </summary>
+		void VBlankEnd();
+
+		friend void overflow_callback(void* counter, u64 cycles_late);
+		friend void target_callback(void* counter, u64 cycles_late);
+
 	private :
 		/// <summary>
 		/// Since we are updating the counter
@@ -95,7 +115,7 @@ namespace psx {
 		/// register
 		/// </summary>
 		/// <param name="cycles">Advance by this number of cycles</param>
-		void UpdateCounter(u32 cycles);
+		void UpdateCounter(u64 cycles);
 
 		/// <summary>
 		/// Precompute the number of cycles required
@@ -117,6 +137,16 @@ namespace psx {
 		/// <param name="source">IRQ source</param>
 		void FireIRQ(IrqSource source);
 
+		/// <summary>
+		/// Computes the number of cycles until
+		/// the next interrupt would occur 
+		/// min(cycles_till_target, cycles_till_overflow)
+		/// </summary>
+		u64 CyclesTillIRQ() const;
+
+		u64 CyclesTillOverflow() const;
+		u64 CyclesTillTarget(bool& neg) const;
+
 	private :
 		system_status* m_sys_status;
 		u32 m_counter_id;
@@ -127,8 +157,11 @@ namespace psx {
 		u16 m_dotclock_sel;
 		u16 m_cycles_per_inc;
 
-		u64 m_target_event_id;
-		u64 m_ov_event_id;
+		u64 m_curr_event_id;
+
+		u64 m_last_update_timestamp;
+
+		bool m_stopped;
 
 		union {
 			struct {
@@ -147,5 +180,8 @@ namespace psx {
 
 			u16 raw;
 		} m_mode;
+
+		bool m_hblank;
+		bool m_vblank;
 	};
 }
