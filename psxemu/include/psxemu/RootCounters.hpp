@@ -153,7 +153,7 @@ namespace psx {
 		u16 m_count_value;
 		u16 m_count_target;
 		bool m_oneshot_flag;
-		u16 m_count_partial;
+		u64 m_count_partial;
 		u16 m_dotclock_sel;
 		u16 m_cycles_per_inc;
 

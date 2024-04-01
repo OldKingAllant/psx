@@ -364,8 +364,10 @@ namespace psx {
 
 		auto old_count_value = m_count_value;
 
-		m_count_partial += (u16)cycles;
-		m_count_value += m_count_partial / m_cycles_per_inc;
+		m_count_partial += cycles;
+		u64 tot = m_count_partial / m_cycles_per_inc;
+
+		m_count_value = (u16)(m_count_value + tot);
 		m_count_partial %= m_cycles_per_inc;
 
 		m_last_update_timestamp = m_sys_status->scheduler.GetTimestamp();
@@ -390,7 +392,7 @@ namespace psx {
 		bool neg = false;
 		u64 till_target = counter->CyclesTillTarget(neg) - cycles_late;
 
-		if (neg || till_ov <= till_target) {
+		if (neg || till_ov <= till_target || till_target == 0) {
 			if ((u64)counter->m_count_target * counter->m_cycles_per_inc < cycles_late) {
 				counter->FireIRQ(IrqSource::TARGET);
 			}
@@ -415,16 +417,28 @@ namespace psx {
 			counter->m_count_value = counter->m_count_target + 1; //Do not reset
 
 		u64 till_ov = counter->CyclesTillOverflow() - cycles_late;
+
+		if ((int)till_ov < 0) {
+			//Overflow and target are VERY near
+			counter->FireIRQ(IrqSource::OV);
+			counter->m_count_value = 0;
+			till_ov = counter->CyclesTillOverflow();
+		}
+
 		bool neg = false;
 		u64 till_target = counter->CyclesTillTarget(neg) - cycles_late;
 
-		if (neg || till_ov <= till_target)
+		if (neg || till_ov <= till_target || till_target == 0)
 			counter->m_curr_event_id = counter->m_sys_status->scheduler.Schedule(till_ov, overflow_callback, counter_ptr);
 		else
 			counter->m_curr_event_id = counter->m_sys_status->scheduler.Schedule(till_target, target_callback, counter_ptr);
 	}
 
 	void RootCounter::UpdateEvents() {
+		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
+		u64 diff = curr_time - m_last_update_timestamp;
+		UpdateCounter(diff);
+
 		//First, remove the event (even if it might still be valid)
 		m_sys_status->scheduler.Deschedule(m_curr_event_id);
 
