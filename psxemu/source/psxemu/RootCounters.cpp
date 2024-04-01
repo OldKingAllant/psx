@@ -390,23 +390,16 @@ namespace psx {
 		bool neg = false;
 		u64 till_target = counter->CyclesTillTarget(neg) - cycles_late;
 
-		//This condition might become true when
-		//the application sets a target very 
-		//low target value with a fast clock source
-		//(the fact that the value is negative for the overflow
-		//should be impossible, still, you never know)
-		//In a case like this, we hope that nothing breaks 
-		//One way to avoid this problem could be
-		//not using an event system at all and rely
-		//on cycle granularity emulation of every
-		//component of the system (but that is very VERY slow)
-		if ((int)till_ov < 0 || (int)till_target < 0)
-			fmt::println("[COUNTER{}] Very fast IRQ burst", counter->m_counter_id);
+		if (neg || till_ov <= till_target) {
+			if ((u64)counter->m_count_target * counter->m_cycles_per_inc < cycles_late) {
+				counter->FireIRQ(IrqSource::TARGET);
+			}
 
-		if (neg || till_ov <= till_target)
 			counter->m_curr_event_id = counter->m_sys_status->scheduler.Schedule(till_ov, overflow_callback, counter_ptr);
-		else
+		}
+		else {
 			counter->m_curr_event_id = counter->m_sys_status->scheduler.Schedule(till_target, target_callback, counter_ptr);
+		}
 	}
 
 	void target_callback(void* counter_ptr, u64 cycles_late) {
@@ -416,15 +409,14 @@ namespace psx {
 
 		//For eventual problems, look at the overflow callback
 
-		if(counter->m_mode.reset_on_target)
+		if (counter->m_mode.reset_on_target)
 			counter->m_count_value = 0;
+		else
+			counter->m_count_value = counter->m_count_target + 1; //Do not reset
 
 		u64 till_ov = counter->CyclesTillOverflow() - cycles_late;
 		bool neg = false;
 		u64 till_target = counter->CyclesTillTarget(neg) - cycles_late;
-
-		if ((int)till_ov < 0 || (int)till_target < 0)
-			fmt::println("[COUNTER{}] Very fast IRQ burst", counter->m_counter_id);
 
 		if (neg || till_ov <= till_target)
 			counter->m_curr_event_id = counter->m_sys_status->scheduler.Schedule(till_ov, overflow_callback, counter_ptr);
@@ -468,12 +460,6 @@ namespace psx {
 		//Be sure that this variable is false
 		m_stopped = false;
 
-		//No events will influence the rest of the system
-		//if all of this flags are zero
-		if (!m_mode.reset_on_target && !m_mode.irq_on_target &&
-			!m_mode.irq_on_ov)
-			return;
-
 		//Register a single event (the nearest one)
 		//We could register both the ov and the target,
 		//but that should not be necessary
@@ -484,10 +470,16 @@ namespace psx {
 
 		u64 till_target = CyclesTillTarget(neg);
 
-		if (neg || till_ov <= till_target)
+		if (m_count_target == m_count_value || m_count_target == 0) {
+			m_mode.target_reached = true;
 			m_curr_event_id = m_sys_status->scheduler.Schedule(till_ov, overflow_callback, this);
-		else
-			m_curr_event_id = m_sys_status->scheduler.Schedule(till_target, target_callback, this);
+		}
+		else {
+			if (neg || till_ov <= till_target)
+				m_curr_event_id = m_sys_status->scheduler.Schedule(till_ov, overflow_callback, this);
+			else
+				m_curr_event_id = m_sys_status->scheduler.Schedule(till_target, target_callback, this);
+		}
 	}
 
 	void RootCounter::FireIRQ(IrqSource source) {
