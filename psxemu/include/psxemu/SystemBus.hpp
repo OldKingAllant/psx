@@ -8,6 +8,7 @@
 #include <psxemu/include/psxemu/IOGaps.hpp>
 #include <psxemu/include/psxemu/RootCounters.hpp>
 #include <psxemu/include/psxemu/DmaController.hpp>
+#include <psxemu/include/psxemu/GPU.hpp>
 
 #include <fmt/format.h>
 
@@ -638,6 +639,32 @@ namespace psx {
 				address < memory::IO::SPU_END)
 				return;
 
+			if (address >= GP0_ADD && address < GP0_ADD + 4) {
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & 3) * 8;
+					to_write <<= shift;
+				}
+
+				m_gpu.WriteGP0(to_write);
+
+				return;
+			}
+
+			if (address >= GP1_ADD && address < GP1_ADD + 4) {
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & 3) * 8;
+					to_write <<= shift;
+				}
+
+				m_gpu.WriteGP1(to_write);
+
+				return;
+			}
+
 #ifdef DEBUG_IO
 			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
 #endif // DEBUG_IO
@@ -703,6 +730,18 @@ namespace psx {
 			if (address >= memory::IO::SPU_START &&
 				address < memory::IO::SPU_END)
 				return 0;
+
+			if (address >= GP0_ADD && address < GP0_ADD + 4) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_gpu.ReadData() >> shift);
+			}
+
+			if (address >= GP1_ADD && address < GP1_ADD + 4) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_gpu.ReadStat() >> shift);
+			}
 
 #ifdef DEBUG_IO
 			fmt::println("Reading invalid/unused/unimplemented register 0x{:x}", address);
@@ -812,5 +851,7 @@ namespace psx {
 		RootCounter m_count3;
 
 		DmaController m_dma_controller;
+
+		Gpu m_gpu;
 	};
 }

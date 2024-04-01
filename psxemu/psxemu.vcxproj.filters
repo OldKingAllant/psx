@@ -49,6 +49,12 @@
     <Filter Include="Resource Files\dev\dma">
       <UniqueIdentifier>{fbc09a70-ef7f-44af-9fe6-f3294cb73344}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev\gpu">
+      <UniqueIdentifier>{94d746da-4212-47bf-ad3b-a13f7e0cc31e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\gpu">
+      <UniqueIdentifier>{1ad44365-706a-471b-a9bc-b750d46b31bc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -123,6 +129,15 @@
     <ClInclude Include="include\psxemu\DmaController.hpp">
       <Filter>Header Files\dev\dma</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\Queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\GPU.hpp">
+      <Filter>Header Files\dev\gpu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\GPUCommands.hpp">
+      <Filter>Header Files\dev\gpu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -172,6 +187,15 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\DmaController.cpp">
       <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\GPU.cpp">
+      <Filter>Resource Files\dev\gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\GP1Commands.cpp">
+      <Filter>Resource Files\dev\gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\GP0Commands.cpp">
+      <Filter>Resource Files\dev\gpu</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
