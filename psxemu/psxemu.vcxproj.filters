@@ -43,6 +43,12 @@
     <Filter Include="Header Files\bios">
       <UniqueIdentifier>{be478d92-b5ac-4d9c-9ef7-6af01f2d3fb1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev\dma">
+      <UniqueIdentifier>{a211b201-b23d-4698-90e7-388f2b7f1746}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\dma">
+      <UniqueIdentifier>{fbc09a70-ef7f-44af-9fe6-f3294cb73344}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -114,6 +120,9 @@
     <ClInclude Include="include\psxemu\Interrupts.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\DmaController.hpp">
+      <Filter>Header Files\dev\dma</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -160,6 +169,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\Scheduler.cpp">
       <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\DmaController.cpp">
+      <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

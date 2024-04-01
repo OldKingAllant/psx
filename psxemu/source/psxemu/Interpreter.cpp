@@ -85,6 +85,13 @@ namespace psx::cpu {
 					return SysBreak<opcode>;
 			}
 			break;
+			case InstructionSubtype::SHIFT_REG: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return ShiftReg<opcode>;
+			}
+			break;
 			default:
 				break;
 			}

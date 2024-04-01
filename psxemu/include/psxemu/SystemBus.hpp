@@ -7,6 +7,7 @@
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/IOGaps.hpp>
 #include <psxemu/include/psxemu/RootCounters.hpp>
+#include <psxemu/include/psxemu/DmaController.hpp>
 
 #include <fmt/format.h>
 
@@ -612,6 +613,31 @@ namespace psx {
 				return;
 			}
 
+			if (address >= memory::IO::DMA_START &&
+				address < memory::IO::DMA_END) {
+				u32 to_write = value;
+
+				if constexpr (sizeof(Ty) != 4) {
+					u32 shift = (address & 3) * 8;
+					to_write <<= shift;
+				}
+
+				u32 mask = 0xFF'FF'FF'FF;
+
+				if constexpr (sizeof(Ty) == 1)
+					mask = 0xFF;
+				else if constexpr (sizeof(Ty) == 2)
+					mask = 0xFFFF;
+
+				m_dma_controller.Write(address,
+					to_write, mask << ((address & 3) * 8));
+				return;
+			}
+
+			if (address >= memory::IO::SPU_START &&
+				address < memory::IO::SPU_END)
+				return;
+
 #ifdef DEBUG_IO
 			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
 #endif // DEBUG_IO
@@ -666,6 +692,17 @@ namespace psx {
 
 				return (Ty)(m_count3.Read(address - memory::IO::TIMER_3) >> shift);
 			}
+
+			if (address >= memory::IO::DMA_START &&
+				address < memory::IO::DMA_END) {
+				u32 shift = (address & 3) * 8;
+
+				return (Ty)(m_dma_controller.Read(address) >> shift);
+			}
+
+			if (address >= memory::IO::SPU_START &&
+				address < memory::IO::SPU_END)
+				return 0;
 
 #ifdef DEBUG_IO
 			fmt::println("Reading invalid/unused/unimplemented register 0x{:x}", address);
@@ -773,5 +810,7 @@ namespace psx {
 		RootCounter m_count1;
 		RootCounter m_count2;
 		RootCounter m_count3;
+
+		DmaController m_dma_controller;
 	};
 }

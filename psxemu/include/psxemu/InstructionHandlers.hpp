@@ -252,6 +252,10 @@ namespace psx::cpu {
 		else if constexpr (AluOpcode == Opcode::SUBU) {
 			status->AddWriteback(rs_val - rt_val, rd);
 		}
+		else if constexpr (AluOpcode == Opcode::NOR) {
+			constexpr u32 CONSTANT = 0xFFFFFFFF;
+			status->AddWriteback(CONSTANT ^ (rs_val | rt_val), rd);
+		}
 		else {
 			error::DebugBreak();
 		}
@@ -501,6 +505,15 @@ namespace psx::cpu {
 				status->cpu->GetLO() = rs_val / rt_val;
 			}
 		}
+		else if constexpr (MulDivOpcode == Opcode::MULTU) {
+			status->hi_lo_ready_timestamp = status->scheduler.GetTimestamp()
+				+ 9;
+
+			u64 res = (u64)rs_val * (u64)rt_val;
+
+			status->cpu->GetLO() = (u32)res;
+			status->cpu->GetHI() = (u32)(res >> 32);
+		}
 		else {
 			error::DebugBreak();
 		}
@@ -544,6 +557,32 @@ namespace psx::cpu {
 				status->cpu->GetPc());
 			status->exception = true;
 			status->exception_number = Excode::BP;
+		}
+	}
+
+	template <Opcode ShiftOpcode>
+	void ShiftReg(system_status* status, u32 instruction) {
+		u32 rs = (instruction >> 21) & 0x1F;
+		u32 rt = (instruction >> 16) & 0x1F;
+		u32 rd = (instruction >> 11) & 0x1F;
+
+		auto& regs = status->cpu->GetRegs();
+
+		u32 rs_val = regs.array[rs];
+		u32 rt_val = regs.array[rt];
+
+		if constexpr (ShiftOpcode == Opcode::SLLV) {
+			status->AddWriteback(rt_val << (rs_val & 0x1F), rd);
+		}
+		else if constexpr (ShiftOpcode == Opcode::SRLV) {
+			status->AddWriteback(rt_val >> (rs_val & 0x1F), rd);
+		}
+		else if constexpr (ShiftOpcode == Opcode::SRAV) {
+			i32 rt_se = (i32)rt_val;
+			status->AddWriteback(rt_se >> (rs_val & 0x1F), rd);
+		}
+		else {
+			error::DebugBreak();
 		}
 	}
 }

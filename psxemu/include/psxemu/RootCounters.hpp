@@ -183,5 +183,7 @@ namespace psx {
 
 		bool m_hblank;
 		bool m_vblank;
+
+		static_assert(sizeof(m_mode) == 2);
 	};
 }
