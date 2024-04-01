@@ -279,10 +279,35 @@ namespace psx {
 
 		the_table.insert(std::pair{ 0xB08,
 			std::pair{ "OpenEvent", ParamList{
-				std::pair{ "class", SyscallParamType::UINT },
+				std::pair{ "class", SyscallParamType::EVENT_CLASS },
 				std::pair{ "spec", SyscallParamType::UINT },
-				std::pair{ "mode", SyscallParamType::UINT },
+				std::pair{ "mode", SyscallParamType::EVENT_MODE },
 				std::pair{ "func", SyscallParamType::VOID_PTR },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xB0C,
+			std::pair{ "EnableEvent", ParamList{
+				std::pair{ "event", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xB19,
+			std::pair{ "HookEntryInt", ParamList{
+				std::pair{ "addr", SyscallParamType::VOID_PTR },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xC0A,
+			std::pair{ "ChangeClearRCnt", ParamList{
+				std::pair{ "timer", SyscallParamType::UINT },
+				std::pair{ "flag", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xA49,
+			std::pair{ "GPU_cw", ParamList{
+				std::pair{ "cmd", SyscallParamType::UINT },
 			} }
 		});
 
@@ -418,6 +443,73 @@ namespace psx {
 			default:
 				out << "INVALID_SEEK";
 				break;
+			}
+		}
+		break;
+		case SyscallParamType::EVENT_MODE: {
+			if (param_value == 0x1000)
+				out << "STAY_BUSY";
+			else if (param_value == 0x2000)
+				out << "MARK_READY";
+			else
+				out << "INVALID";
+		}
+		break;
+		case SyscallParamType::EVENT_CLASS: {
+			if (param_value >= 0 && param_value <= 0xF)
+				out << "MEMORY_CARD";
+			else {
+				switch (param_value)
+				{
+				case 0xF0000001:
+					out << "IRQ0_VBLANK";
+					break;
+				case 0xF0000002:
+					out << "IRQ1_GPU";
+					break;
+				case 0xF0000003:
+					out << "IRQ2_CDROM";
+					break;
+				case 0xF0000004:
+					out << "IRQ3_DMA";
+					break;
+				case 0xF0000005:
+					out << "IRQ4_RTC0";
+					break;
+				case 0xF0000006:
+					out << "IRQ5/6_RTC1";
+					break;
+				case 0xF0000008:
+					out << "IRQ7_CONTROLLER";
+					break;
+				case 0xF0000009:
+					out << "IRQ9_SPU";
+					break;
+				case 0xF000000A:
+					out << "IRQ10_PIO";
+					break;
+				case 0xF000000B:
+					out << "IRQ8_SIO";
+					break;
+				case 0xF0000010:
+					out << "CPU_EXCEPTION";
+					break;
+				case 0xF2000000:
+					out << "ROOT_COUNTER0";
+					break;
+				case 0xF2000001:
+					out << "ROOT_COUNTER1";
+					break;
+				case 0xF2000002:
+					out << "ROOT_COUNTER2";
+					break;
+				case 0xF2000003:
+					out << "ROOT_COUNTER3";
+					break;
+				default:
+					out << "UNKNOWN";
+					break;
+				}
 			}
 		}
 		break;
