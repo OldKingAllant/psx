@@ -27,8 +27,8 @@ namespace psx {
 	enum class SyncMode2 : u8 {
 		STOP1,
 		FREE_RUN1,
-		STOP2,
-		FREE_RUN2
+		FREE_RUN2,
+		STOP2
 	};
 
 	enum class ClockSource0 : u8 {
@@ -47,8 +47,8 @@ namespace psx {
 
 	enum class ClockSource2 : u8 {
 		SYS_CLOCK1,
-		SYS_CLOCK81,
 		SYS_CLOCK2,
+		SYS_CLOCK81,
 		SYS_CLOCK82,
 	};
 

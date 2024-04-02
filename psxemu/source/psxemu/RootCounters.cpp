@@ -444,8 +444,8 @@ namespace psx {
 
 		if (m_mode.m_sync_enable) {
 			//Enforce all sync modes for all the counters
-			if (m_counter_id == 2 && (m_mode.sync_mode == 0
-				|| m_mode.sync_mode == 3)) {
+			if (m_counter_id == 2 && (m_mode.sync_mode == 1
+				|| m_mode.sync_mode == 2)) {
 				m_stopped = true;
 				return;
 			}
