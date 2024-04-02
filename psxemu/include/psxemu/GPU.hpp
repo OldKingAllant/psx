@@ -49,7 +49,8 @@ namespace psx {
 	enum class Status {
 		IDLE,
 		WAITING_PARAMETERS,
-		BUSY
+		BUSY,
+		VRAM_GPU
 	};
 
 	/// <summary>
@@ -88,6 +89,15 @@ namespace psx {
 		bool drawing_odd;
 	};
 
+	struct RawDrawConfig {
+		u32 texpage;
+		u32 tex_window;
+		u32 draw_top_left;
+		u32 draw_bottom_right;
+		u32 draw_offset;
+		u32 mask_setting;
+	};
+
 	class Gpu {
 	public :
 		Gpu();
@@ -115,8 +125,11 @@ namespace psx {
 		void CommandStart(u32 cmd);
 
 		void EnvCommand(u32 cmd);
+		void MiscCommand(u32 cmd);
 
 		void Texpage(u32 cmd);
+
+		void UpdateDreq();
 
 	private :
 		Queue<u32, 16> m_cmd_fifo;
@@ -137,5 +150,10 @@ namespace psx {
 		u32 m_vert_disp_end;
 
 		Status m_cmd_status;
+
+		RawDrawConfig m_raw_conf;
+
+		bool m_tex_x_flip;
+		bool m_tex_y_flip;
 	};
 }

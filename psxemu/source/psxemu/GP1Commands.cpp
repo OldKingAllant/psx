@@ -43,21 +43,48 @@ namespace psx {
 
 	void Gpu::DmaDirection(DmaDir dir) {
 		m_stat.dma_dir = dir;
+
+		switch (dir)
+		{
+		case psx::DmaDir::OFF:
+			fmt::println("[GPU] DMA OFF");
+			break;
+		case psx::DmaDir::IDK:
+			fmt::println("[GPU] DMA ?");
+			break;
+		case psx::DmaDir::CPU_GP0:
+			fmt::println("[GPU] DMA CPU to GPU");
+			break;
+		case psx::DmaDir::GPUREAD_CPU:
+			fmt::println("[GPU] DMA GPU to CPU");
+			break;
+		default:
+			break;
+		}
 	}
 
 	void Gpu::DisplayAreaStart(u32 cmd) {
 		m_disp_x_start = cmd & 1023;
 		m_disp_y_start = (cmd >> 10) & 511;
+
+		fmt::println("[GPU] Display address X: 0x{:x}, Y: 0x{:x}",
+			m_disp_x_start, m_disp_y_start);
 	}
 
 	void Gpu::HorizontalDispRange(u32 cmd) {
 		m_hoz_disp_start = cmd & ((1 << 12) - 1);
 		m_hoz_disp_end = (cmd >> 12) & ((1 << 11) - 1);
+
+		fmt::println("[GPU] Display X1: 0x{:x}, X2: 0x{:x}",
+			m_hoz_disp_start, m_hoz_disp_end);
 	}
 
 	void Gpu::VerticalDispRange(u32 cmd) {
 		m_vert_disp_start = cmd & ((1 << 10) - 1);
 		m_vert_disp_end = (cmd >> 10) & ((1 << 10) - 1);
+
+		fmt::println("[GPU] Display Y1: 0x{:x}, Y2: 0x{:x}",
+			m_vert_disp_start, m_vert_disp_end);
 	}
 
 	void Gpu::DisplayMode(u32 cmd) {
@@ -68,6 +95,52 @@ namespace psx {
 		m_stat.vertical_interlace = (cmd >> 5) & 1;
 		m_stat.hoz_res_2 = (cmd >> 6) & 1;
 		m_stat.flip_screen_hoz = (cmd >> 7) & 1;
+
+		fmt::println("[GPU] DISPMODE(0x{:x})", cmd & 0xFF);
+
+		if (m_stat.hoz_res_2) {
+			fmt::println("        Horizontal res : 368");
+		}
+		else {
+			u32 hoz_value = 0;
+
+			switch (m_stat.hoz_res1)
+			{
+			case 0x0:
+				hoz_value = 256;
+				break;
+			case 0x1:
+				hoz_value = 320;
+				break;
+			case 0x2:
+				hoz_value = 512;
+				break;
+			case 0x3:
+				hoz_value = 640;
+				break;
+			default:
+				break;
+			}
+
+			fmt::println("        Horizontal res : {}", hoz_value);
+		}
+
+		if (m_stat.vertical_res)
+			fmt::println("        Vertical res : 480");
+		else 
+			fmt::println("        Vertical res : 240");
+
+		if((u8)m_stat.video_mode)
+			fmt::println("        Video mode : PAL");
+		else 
+			fmt::println("        Video mode : NTSC");
+
+		if ((u8)m_stat.disp_color_depth)
+			fmt::println("        Color depth : 24 bits");
+		else
+			fmt::println("        Color depth : 15 bits");
+
+		fmt::println("        Vertical interlace : {}", m_stat.vertical_interlace);
 	}
 
 	void Gpu::GpuReadInternal(u32 cmd) {
@@ -77,19 +150,19 @@ namespace psx {
 		{
 		case 0x2:
 			fmt::println("[GPU] Latch for Texture Window");
-			m_gpu_read_latch = 0x0;
+			m_gpu_read_latch = m_raw_conf.tex_window;
 			break;
 		case 0x3:
 			fmt::println("[GPU] Latch for draw top-left");
-			m_gpu_read_latch = 0x0;
+			m_gpu_read_latch = m_raw_conf.draw_top_left;
 			break;
 		case 0x4:
 			fmt::println("[GPU] Latch for draw bottom-right");
-			m_gpu_read_latch = 0x0;
+			m_gpu_read_latch = m_raw_conf.draw_bottom_right;
 			break;
 		case 0x5:
 			fmt::println("[GPU] Latch for draw offset");
-			m_gpu_read_latch = 0x0;
+			m_gpu_read_latch = m_raw_conf.draw_offset;
 			break;
 		default:
 			return;

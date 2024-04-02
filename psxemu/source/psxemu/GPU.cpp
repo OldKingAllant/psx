@@ -3,17 +3,25 @@
 
 #include <fmt/format.h>
 
+#include <common/Errors.hpp>
+
 namespace psx {
 	Gpu::Gpu() :
 		m_cmd_fifo{}, m_stat{},
 		m_cpu_vram{ nullptr }, m_read_status{ GPUREAD_Status::NONE },
 		m_gpu_read_latch{ 0 }, m_disp_x_start{}, 
 		m_disp_y_start{}, m_hoz_disp_start{}, m_hoz_disp_end{},
-		m_vert_disp_start{}, m_vert_disp_end{}, m_cmd_status{Status::IDLE} {
+		m_vert_disp_start{}, m_vert_disp_end{}, m_cmd_status{Status::IDLE}, 
+		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{} {
 		m_cpu_vram = new u8[VRAM_SIZE];
 	}
 
 	void Gpu::WriteGP0(u32 value) {
+		if ((value & 0xFF00'0000) == 0) {
+			fmt::println("[GPU] NOP");
+			return;
+		}
+
 		if (m_cmd_fifo.full()) {
 			fmt::println("[GPU] Command FIFO full!");
 			return;
@@ -31,10 +39,47 @@ namespace psx {
 		default:
 			break;
 		}
+
+		UpdateDreq();
 	}
 
 	void Gpu::WriteGP1(u32 value) {
-		(void)value;
+		u32 upper = (value >> 24) & 0xFF;
+
+		switch (upper)
+		{
+		case 0x0:
+			Reset();
+			break;
+		case 0x1:
+			ResetFifo();
+			break;
+		case 0x2:
+			AckIrq();
+			break;
+		case 0x3:
+			DispEnable(value & 1);
+			break;
+		case 0x4:
+			DmaDirection((DmaDir)(value & 3));
+			break;
+		case 0x5:
+			DisplayAreaStart(value);
+			break;
+		case 0x6:
+			HorizontalDispRange(value);
+			break;
+		case 0x7:
+			VerticalDispRange(value);
+			break;
+		case 0x8:
+			DisplayMode(value);
+			break;
+		default:
+			fmt::println("[GPU] Unimplemented ENV command 0x{:x}", (u32)upper);
+			error::DebugBreak();
+			break;
+		}
 	}
 
 	u32 Gpu::ReadData() {
@@ -55,23 +100,10 @@ namespace psx {
 	u32 Gpu::ReadStat() {
 		u32 out = 0;
 
-		switch (m_stat.dma_dir)
-		{
-		case DmaDir::OFF:
-			m_stat.dreq = false;
-			break;
-		case DmaDir::IDK:
-			m_stat.dreq = !m_cmd_fifo.full();
-			break;
-		case DmaDir::CPU_GP0:
-			m_stat.dreq = m_stat.recv_dma;
-			break;
-		case DmaDir::GPUREAD_CPU:
-			m_stat.dreq = m_stat.send_vram_cpu;
-			break;
-		default:
-			break;
-		}
+		if (!m_stat.vertical_interlace)
+			m_stat.interlace_field = true;
+
+		UpdateDreq();
 
 		//I absolutely hate this thing, however
 		//I don't have any other choice thanks
@@ -104,6 +136,38 @@ namespace psx {
 		out |= ((u32)m_stat.drawing_odd) << 31;
 
 		return out;
+	}
+
+	void Gpu::UpdateDreq() {
+		m_stat.recv_dma = (m_cmd_status == Status::IDLE)
+			|| (m_cmd_status == Status::WAITING_PARAMETERS);
+
+		m_stat.send_vram_cpu = (m_cmd_status == Status::VRAM_GPU);
+
+		bool dreq = m_stat.dreq;
+
+		switch (m_stat.dma_dir)
+		{
+		case DmaDir::OFF:
+			m_stat.dreq = false;
+			break;
+		case DmaDir::IDK:
+			m_stat.dreq = !m_cmd_fifo.full();
+			break;
+		case DmaDir::CPU_GP0:
+			m_stat.dreq = m_stat.recv_dma;
+			break;
+		case DmaDir::GPUREAD_CPU:
+			m_stat.dreq = m_stat.send_vram_cpu;
+			break;
+		default:
+			break;
+		}
+
+		if (!dreq && m_stat.dreq) {
+			fmt::println("[GPU] DREQ Rising edge");
+			//Trigger DMA transfers
+		}
 	}
 
 	Gpu::~Gpu() {
