@@ -119,6 +119,10 @@ namespace psx {
 			fmt::println("[COUNTER{}] Value set to 0x{:x}", 
 				m_counter_id, (u16)value);
 			m_count_value = (u16)value;
+
+			//Update timestamp, so UpdateEvents() does not modify the
+			//counter
+			m_last_update_timestamp = m_sys_status->scheduler.GetTimestamp();
 			//Events might happen sooner/later
 			UpdateEvents();
 			return;
@@ -143,6 +147,10 @@ namespace psx {
 
 			//Set to 1 on write (0 = irq, 1 = no irq)
 			m_mode.irq = true;
+
+			//Update timestamp, so UpdateEvents() does not modify the
+			//counter
+			m_last_update_timestamp = m_sys_status->scheduler.GetTimestamp();
 
 			//Remove/Insert new events if necessary
 			m_cycles_per_inc = ComputeCyclesPerInc();
