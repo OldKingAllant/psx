@@ -16,6 +16,9 @@ namespace psx::cpu {
 	}
 
 	bool MIPS1::CheckInterrupts() {
+		if (!m_sys_status->interrupt_line)
+			return false;
+
 		bool bit10 = !!((m_coprocessor0.registers.sr.int_mask >> 2) & 1);
 
 		if (!m_coprocessor0.registers.sr.curr_int_enable || !bit10)
@@ -78,6 +81,7 @@ namespace psx::cpu {
 
 		if (CheckInterrupts()) {
 			if (!CheckInstructionGTE()) {
+				m_sys_status->interrupt_line = false;
 				FlushLoadDelay();
 				m_sys_status->Exception(Excode::INT, false);
 				m_sys_status->branch_delay = false;

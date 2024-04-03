@@ -98,9 +98,11 @@ namespace psx {
 		u32 mask_setting;
 	};
 
+	struct system_status;
+
 	class Gpu {
 	public :
-		Gpu();
+		Gpu(system_status* sys_status);
 		~Gpu();
 
 		void WriteGP0(u32 value);
@@ -121,6 +123,11 @@ namespace psx {
 		void ResetFifo();
 		void AckIrq();
 
+		friend void hblank_callback(void*, u64);
+		friend void hblank_end_callback(void*, u64);
+
+		void InitEvents();
+
 	private :
 		void CommandStart(u32 cmd);
 
@@ -130,6 +137,9 @@ namespace psx {
 		void Texpage(u32 cmd);
 
 		void UpdateDreq();
+
+		void HBlank(u64 cycles_late);
+		void HBlankEnd(u64 cycles_late);
 
 	private :
 		Queue<u32, 16> m_cmd_fifo;
@@ -155,5 +165,10 @@ namespace psx {
 
 		bool m_tex_x_flip;
 		bool m_tex_y_flip;
+
+		system_status* m_sys_status;
+
+		u32 m_scanline;
+		bool m_vblank;
 	};
 }

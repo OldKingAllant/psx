@@ -62,6 +62,7 @@ namespace psx {
 
 		u32 interrupt_mask;
 		u32 interrupt_request;
+		bool interrupt_line;
 
 		u64 hi_lo_ready_timestamp;
 
@@ -114,6 +115,17 @@ namespace psx {
 		void AddWriteback(u32 value, u8 dest_reg) {
 			reg_writeback.dest = dest_reg;
 			reg_writeback.value = value;
+		}
+
+		void Interrupt(u32 int_code) {
+			//Trigger interrupt line only
+			//when single bits go from low
+			//to high
+			if (interrupt_request & int_code)
+				return;
+
+			interrupt_request |= int_code;
+			interrupt_line = true;
 		}
 	};
 }

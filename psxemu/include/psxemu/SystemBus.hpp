@@ -554,10 +554,9 @@ namespace psx {
 					//bool req_bit = !!((m_sys_status->interrupt_request >> bit_index) & 1);
 
 					if (!ack_bit)
-						m_sys_status->interrupt_request &= ~((u32)ack_bit << bit_index);
+						m_sys_status->interrupt_request &= ~((u32)1 << bit_index);
 				}
 				
-				fmt::println("Write to I_STAT = 0x{:x}", m_sys_status->interrupt_request);
 				return;
 			}
 
@@ -571,7 +570,6 @@ namespace psx {
 				}
 
 				m_sys_status->interrupt_mask = to_write;
-				fmt::println("Write to I_MASK = 0x{:x}", to_write);
 				return;
 			}
 
@@ -760,6 +758,22 @@ namespace psx {
 
 		FORCE_INLINE bool CacheEnabled() const {
 			return m_cache_control.cache_en;
+		}
+
+		RootCounter& GetCounter0() {
+			return m_count1;
+		}
+
+		RootCounter& GetCounter1() {
+			return m_count2;
+		}
+
+		RootCounter& GetCounter2() {
+			return m_count3;
+		}
+
+		Gpu& GetGPU() {
+			return m_gpu;
 		}
 
 	private :

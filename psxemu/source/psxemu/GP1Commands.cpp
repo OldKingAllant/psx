@@ -1,4 +1,6 @@
 #include <psxemu/include/psxemu/GPU.hpp>
+#include <psxemu/include/psxemu/SystemBus.hpp>
+#include <psxemu/include/psxemu/SystemStatus.hpp>
 
 #include <fmt/format.h>
 
@@ -100,6 +102,8 @@ namespace psx {
 
 		if (m_stat.hoz_res_2) {
 			fmt::println("        Horizontal res : 368");
+
+			m_sys_status->sysbus->GetCounter0().SetDotclock(2);
 		}
 		else {
 			u32 hoz_value = 0;
@@ -108,15 +112,19 @@ namespace psx {
 			{
 			case 0x0:
 				hoz_value = 256;
+				m_sys_status->sysbus->GetCounter0().SetDotclock(0);
 				break;
 			case 0x1:
 				hoz_value = 320;
+				m_sys_status->sysbus->GetCounter0().SetDotclock(1);
 				break;
 			case 0x2:
 				hoz_value = 512;
+				m_sys_status->sysbus->GetCounter0().SetDotclock(3);
 				break;
 			case 0x3:
 				hoz_value = 640;
+				m_sys_status->sysbus->GetCounter0().SetDotclock(4);
 				break;
 			default:
 				break;

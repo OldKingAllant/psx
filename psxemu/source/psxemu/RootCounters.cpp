@@ -15,6 +15,7 @@ namespace psx {
 		m_last_update_timestamp{}, m_stopped{false}, 
 		m_vblank{ false }, m_hblank{false} {
 		m_curr_event_id = INVALID_EVENT;
+		m_cycles_per_inc = ComputeCyclesPerInc();
 	}
 
 	void RootCounter::SetDotclock(u16 sel) {
@@ -558,8 +559,9 @@ namespace psx {
 		//the interrupt is requested only
 		//if the irq flag is zero, so that
 		//the irq toggle mode works
-		if (!m_mode.irq)
-			m_sys_status->interrupt_request |= (u32)(Interrupts::TIMER0) << m_counter_id;
+		if (!m_mode.irq) {
+			m_sys_status->Interrupt((u32)(Interrupts::TIMER0) << m_counter_id);
+		}
 	}
 
 	u64 RootCounter::CyclesTillIRQ() const {

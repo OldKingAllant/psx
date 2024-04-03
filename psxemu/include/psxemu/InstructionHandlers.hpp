@@ -256,6 +256,9 @@ namespace psx::cpu {
 			constexpr u32 CONSTANT = 0xFFFFFFFF;
 			status->AddWriteback(CONSTANT ^ (rs_val | rt_val), rd);
 		}
+		else if constexpr (AluOpcode == Opcode::XOR) {
+			status->AddWriteback(rs_val ^ rt_val, rd);
+		}
 		else {
 			error::DebugBreak();
 		}

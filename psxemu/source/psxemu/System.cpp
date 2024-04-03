@@ -18,6 +18,7 @@ namespace psx {
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
+		m_status.sysbus->GetGPU().InitEvents();
 
 		m_cpu.SetHLEHandler([this](u32 address) {
 			if (!m_hle_enable)

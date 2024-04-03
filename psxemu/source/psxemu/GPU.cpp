@@ -1,18 +1,28 @@
 #include <psxemu/include/psxemu/GPU.hpp>
 #include <psxemu/include/psxemu/GPUCommands.hpp>
+#include <psxemu/include/psxemu/SystemBus.hpp>
+#include <psxemu/include/psxemu/SystemStatus.hpp>
+#include <psxemu/include/psxemu/Interrupts.hpp>
 
 #include <fmt/format.h>
 
 #include <common/Errors.hpp>
 
 namespace psx {
-	Gpu::Gpu() :
+	static constexpr u64 GPU_CLOCKS_FRAME = (u64)(VIDEO_CLOCK / (double)59.94);
+	static constexpr u64 VISIBLE_LINE_START = 16;
+	static constexpr u64 VISIBLE_LINE_END = 256;
+	static constexpr u64 ACTIVE_CLOCKS = 1812;
+	static constexpr u64 BLANKING_CLOCKS = 339;
+	
+	Gpu::Gpu(system_status* sys_state) :
 		m_cmd_fifo{}, m_stat{},
 		m_cpu_vram{ nullptr }, m_read_status{ GPUREAD_Status::NONE },
 		m_gpu_read_latch{ 0 }, m_disp_x_start{}, 
 		m_disp_y_start{}, m_hoz_disp_start{}, m_hoz_disp_end{},
 		m_vert_disp_start{}, m_vert_disp_end{}, m_cmd_status{Status::IDLE}, 
-		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{} {
+		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
+		m_scanline{}, m_vblank{false} {
 		m_cpu_vram = new u8[VRAM_SIZE];
 	}
 
@@ -141,6 +151,7 @@ namespace psx {
 	void Gpu::UpdateDreq() {
 		m_stat.recv_dma = (m_cmd_status == Status::IDLE)
 			|| (m_cmd_status == Status::WAITING_PARAMETERS);
+		m_stat.recv_cmd_word = (m_cmd_status == Status::IDLE);
 
 		m_stat.send_vram_cpu = (m_cmd_status == Status::VRAM_GPU);
 
@@ -168,6 +179,60 @@ namespace psx {
 			fmt::println("[GPU] DREQ Rising edge");
 			//Trigger DMA transfers
 		}
+	}
+
+	void hblank_callback(void* gpu, u64 cycles_late) {
+		std::bit_cast<Gpu*>(gpu)->HBlank(cycles_late);
+	}
+
+	void hblank_end_callback(void* gpu, u64 cycles_late) {
+		std::bit_cast<Gpu*>(gpu)->HBlankEnd(cycles_late);
+	}
+
+	void Gpu::InitEvents() {
+		(void)m_sys_status->scheduler.Schedule(ACTIVE_CLOCKS, hblank_callback, this);
+		(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE, hblank_end_callback, this);
+	}
+
+	void Gpu::HBlank(u64 cycles_late) {
+		m_sys_status->sysbus->GetCounter0().HBlank();
+		(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE - cycles_late, hblank_callback, this);
+	}
+
+	void Gpu::HBlankEnd(u64 cycles_late) {
+		m_sys_status->sysbus->GetCounter0().HBlankEnd();
+
+		if (m_stat.vertical_interlace && !m_stat.vertical_res && !m_vblank)
+			m_stat.drawing_odd = !m_stat.drawing_odd;
+
+		u32 prev_scanline = m_scanline;
+
+		m_scanline++;
+
+		if (m_scanline >= SCANLINES_FRAME)
+			m_scanline = 0;
+
+		if (!(m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END)
+			&& (prev_scanline >= VISIBLE_LINE_START && prev_scanline <= VISIBLE_LINE_END)) {
+			//VBLANK 
+			m_sys_status->sysbus->GetCounter1().VBlank();
+			m_stat.drawing_odd = false;
+			m_vblank = true;
+			m_sys_status->Interrupt((u32)Interrupts::VBLANK);
+		}
+		else if((m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END)
+			&& !(prev_scanline >= VISIBLE_LINE_START && prev_scanline <= VISIBLE_LINE_END)
+			&& m_vblank) {
+			//Exiting VBlank
+			m_sys_status->sysbus->GetCounter1().VBlankEnd();
+			m_vblank = false;
+		}
+		else {
+			if (m_stat.vertical_interlace && m_stat.vertical_res && !m_vblank)
+				m_stat.drawing_odd = !m_stat.drawing_odd;
+		}
+
+		(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE - cycles_late, hblank_end_callback, this);
 	}
 
 	Gpu::~Gpu() {
