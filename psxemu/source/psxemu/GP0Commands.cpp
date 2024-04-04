@@ -74,6 +74,9 @@ namespace psx {
 
 	void Gpu::CommandStart(u32 cmd) {
 		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
+
+		m_stat.recv_cmd_word = false;
+		m_stat.recv_dma = false;
 	
 		switch (cmd_type)
 		{
@@ -96,6 +99,7 @@ namespace psx {
 			EnvCommand(cmd);
 			break;
 		default:
+			fmt::println("[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
 			break;
 		}
 	}

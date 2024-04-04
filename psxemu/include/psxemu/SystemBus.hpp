@@ -776,6 +776,10 @@ namespace psx {
 			return m_gpu;
 		}
 
+		DmaController& GetDMAControl() {
+			return m_dma_controller;
+		}
+
 	private :
 		/// <summary>
 		/// Called only once at the beginning,

@@ -140,6 +140,8 @@
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
+    <ClInclude Include="include\psxemu\DmaBase.hpp" />
+    <ClInclude Include="include\psxemu\DmaCommon.hpp" />
     <ClInclude Include="include\psxemu\DmaController.hpp" />
     <ClInclude Include="include\psxemu\GPU.hpp" />
     <ClInclude Include="include\psxemu\GPUCommands.hpp" />
@@ -150,6 +152,7 @@
     <ClInclude Include="include\psxemu\JitBlock.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
+    <ClInclude Include="include\psxemu\OTDma.hpp" />
     <ClInclude Include="include\psxemu\psxexe.hpp" />
     <ClInclude Include="include\psxemu\Recompiler.hpp" />
     <ClInclude Include="include\psxemu\RootCounters.hpp" />
@@ -165,6 +168,7 @@
     <ClCompile Include="source\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
+    <ClCompile Include="source\psxemu\DmaBase.cpp" />
     <ClCompile Include="source\psxemu\DmaController.cpp" />
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />
@@ -173,6 +177,7 @@
     <ClCompile Include="source\psxemu\Interpreter.cpp" />
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
+    <ClCompile Include="source\psxemu\OTDma.cpp" />
     <ClCompile Include="source\psxemu\psxexe.cpp" />
     <ClCompile Include="source\psxemu\RootCounters.cpp" />
     <ClCompile Include="source\psxemu\Scheduler.cpp" />

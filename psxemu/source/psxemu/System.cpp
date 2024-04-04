@@ -149,7 +149,10 @@ namespace psx {
 	}
 
 	void System::InterpreterSingleStep() {
-		m_cpu.StepInstruction();
+		if (m_status.sysbus->GetDMAControl().HasActiveTransfer()) {
+			m_status.sysbus->GetDMAControl().AdvanceTransfer();
+		} else
+			m_cpu.StepInstruction();
 
 		auto num_cycles = m_sysbus.m_curr_cycles;
 		m_sysbus.m_curr_cycles = 0;

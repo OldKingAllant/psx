@@ -2,6 +2,8 @@
 
 #include <common/Defs.hpp>
 
+#include <psxemu/include/psxemu/OTDma.hpp>
+
 namespace psx {
 	struct system_status;
 
@@ -48,17 +50,26 @@ namespace psx {
 	};
 
 	union DICR {
+#pragma pack(push, 1)
 		struct {
 			u8 interrupt_on_block : 7;
-			u8 : 8;
+			u8 : 1;
+			u8 : 0;
+			u8 : 7;
 			bool bus_error : 1;
 			u8 channel_int_enable : 7;
 			bool master_int_enable : 1;
 			u8 channel_int_req : 7;
 			bool master_irq : 1;
 		};
+#pragma pack(pop)
 
 		u32 raw;
+	};
+
+	struct Transfer {
+		u8 dma_id;
+		u8 dma_priority;
 	};
 
 	class DmaController {
@@ -66,12 +77,35 @@ namespace psx {
 		DmaController(system_status* sys_status);
 
 		void Write(u32 address, u32 value, u32 mask);
-		u32 Read(u32 address) const;
+		u32 Read(u32 address);
+
+		OTDma& GetOtDma() {
+			return m_ot_dma;
+		}
+
+		void AddTransfer(u8 dma_id);
+		void RemoveTransfer();
+
+		bool HasActiveTransfer() const {
+			return m_num_active;
+		}
+
+		void AdvanceTransfer();
+
+		void SignalException();
+		void InterruptRequest(u8 dma_id);
+
+		void UpdateMasterIRQ();
 
 	private :
 		system_status* m_sys_status;
 
 		DPCR m_control;
 		DICR m_int_control;
+
+		OTDma m_ot_dma;
+
+		Transfer m_active_dmas[8];
+		u8 m_num_active;
 	};
 }

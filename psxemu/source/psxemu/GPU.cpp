@@ -90,6 +90,8 @@ namespace psx {
 			error::DebugBreak();
 			break;
 		}
+
+		UpdateDreq();
 	}
 
 	u32 Gpu::ReadData() {
