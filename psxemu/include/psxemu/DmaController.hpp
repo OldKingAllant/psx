@@ -3,6 +3,7 @@
 #include <common/Defs.hpp>
 
 #include <psxemu/include/psxemu/OTDma.hpp>
+#include <psxemu/include/psxemu/GpuDma.hpp>
 
 namespace psx {
 	struct system_status;
@@ -83,6 +84,10 @@ namespace psx {
 			return m_ot_dma;
 		}
 
+		GpuDma& GetGpuDma() {
+			return m_gpu_dma;
+		}
+
 		void AddTransfer(u8 dma_id);
 		void RemoveTransfer();
 
@@ -104,6 +109,7 @@ namespace psx {
 		DICR m_int_control;
 
 		OTDma m_ot_dma;
+		GpuDma m_gpu_dma;
 
 		Transfer m_active_dmas[8];
 		u8 m_num_active;

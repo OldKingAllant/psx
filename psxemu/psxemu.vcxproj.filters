@@ -147,6 +147,9 @@
     <ClInclude Include="include\psxemu\DmaBase.hpp">
       <Filter>Header Files\dev\dma</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\GpuDma.hpp">
+      <Filter>Header Files\dev\dma</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -210,6 +213,9 @@
       <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
     <ClCompile Include="source\psxemu\DmaBase.cpp">
+      <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\GpuDma.cpp">
       <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
   </ItemGroup>

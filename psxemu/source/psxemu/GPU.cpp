@@ -180,7 +180,12 @@ namespace psx {
 		if (!dreq && m_stat.dreq) {
 			fmt::println("[GPU] DREQ Rising edge");
 			//Trigger DMA transfers
+			m_sys_status->sysbus->GetDMAControl()
+				.GetGpuDma().DreqRisingEdge();
 		}
+
+		m_sys_status->sysbus->GetDMAControl()
+				.GetGpuDma().SetDreq(m_stat.dreq);
 	}
 
 	void hblank_callback(void* gpu, u64 cycles_late) {

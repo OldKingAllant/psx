@@ -3,6 +3,8 @@
 
 #include <fmt/format.h>
 
+#include <common/Errors.hpp>
+
 namespace psx {
 	DmaBase::DmaBase(system_status* sys_status, DmaController* dma_controller, u32 id) :
 		m_sys_status{ sys_status }, m_controller{ dma_controller },
@@ -30,12 +32,11 @@ namespace psx {
 			bool old_force = m_control.force_start;
 
 			m_control.raw = value;
-			m_control.decrement = true;
 
 			bool start_edge = !old_start && m_control.start_busy;
 			bool force_edge = !old_force && m_control.force_start;
 
-			if (force_edge)
+			if (force_edge || (start_edge && m_control.sync == SyncMode::BURST))
 				TransferStart();
 			return;
 		}
@@ -61,6 +62,11 @@ namespace psx {
 	}
 
 	void DmaBase::TransferStart() {
+		if (m_control.chopping) {
+			fmt::println("[GPU] Chopping mode not supported!");
+			error::DebugBreak();
+		}
+
 		m_shadow_base_address = m_base_address;
 		m_shadow_block_control = m_block_control;
 
