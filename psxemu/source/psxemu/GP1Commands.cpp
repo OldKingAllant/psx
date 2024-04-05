@@ -74,16 +74,16 @@ namespace psx {
 	}
 
 	void Gpu::HorizontalDispRange(u32 cmd) {
-		m_hoz_disp_start = cmd & ((1 << 12) - 1);
-		m_hoz_disp_end = (cmd >> 12) & ((1 << 11) - 1);
+		m_hoz_disp_start = cmd & 0xFFF;
+		m_hoz_disp_end = (cmd >> 12) & 0xFFF;
 
 		fmt::println("[GPU] Display X1: 0x{:x}, X2: 0x{:x}",
 			m_hoz_disp_start, m_hoz_disp_end);
 	}
 
 	void Gpu::VerticalDispRange(u32 cmd) {
-		m_vert_disp_start = cmd & ((1 << 10) - 1);
-		m_vert_disp_end = (cmd >> 10) & ((1 << 10) - 1);
+		m_vert_disp_start = cmd & 0x3FF;
+		m_vert_disp_end = (cmd >> 10) & 0x3FF;
 
 		fmt::println("[GPU] Display Y1: 0x{:x}, Y2: 0x{:x}",
 			m_vert_disp_start, m_vert_disp_end);

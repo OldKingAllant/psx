@@ -187,8 +187,11 @@ namespace psx {
 		m_sys_status->exception = false;
 	}
 
-	void DmaController::InterruptRequest(u8 dma_id) {
+	void DmaController::InterruptRequest(u8 dma_id, bool last_block) {
 		UpdateMasterIRQ();
+
+		if (!last_block && !(bool)(m_int_control.interrupt_on_block >> dma_id))
+			return;
 
 		if ((m_int_control.channel_int_enable >> dma_id) & 1) {
 			m_int_control.channel_int_req |= (1 << dma_id);

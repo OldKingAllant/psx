@@ -39,7 +39,7 @@ namespace psx {
 			bool force_edge = !old_force && m_control.force_start;
 
 			if (start_edge || force_edge)
-				TransferStart();
+				TransferStart(false);
 			return;
 		}
 
@@ -66,6 +66,6 @@ namespace psx {
 		sysbus->m_curr_cycles += 1;
 
 		if (block_control->word_count == 0)
-			TransferEnd();
+			TransferEnd(true);
 	}
 }

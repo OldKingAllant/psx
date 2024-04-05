@@ -178,7 +178,6 @@ namespace psx {
 		}
 
 		if (!dreq && m_stat.dreq) {
-			fmt::println("[GPU] DREQ Rising edge");
 			//Trigger DMA transfers
 			m_sys_status->sysbus->GetDMAControl()
 				.GetGpuDma().DreqRisingEdge();

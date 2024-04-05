@@ -16,5 +16,7 @@ namespace psx {
 		void Write(u32 address, u32 value, u32 mask);
 
 		void AdvanceTransfer() override;
+
+		u32 GetPort() const override { return 0; }
 	};
 }

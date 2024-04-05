@@ -98,9 +98,13 @@ namespace psx {
 		void AdvanceTransfer();
 
 		void SignalException();
-		void InterruptRequest(u8 dma_id);
+		void InterruptRequest(u8 dma_id, bool last_block);
 
 		void UpdateMasterIRQ();
+
+		bool ChannelEnabled(u8 dma_id) const {
+			return (bool)((m_control.raw >> (dma_id * 4 + 3)) & 1);
+		}
 
 	private :
 		system_status* m_sys_status;

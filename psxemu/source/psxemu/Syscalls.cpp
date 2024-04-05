@@ -311,6 +311,10 @@ namespace psx {
 			} }
 		});
 
+		the_table.insert(std::pair{ 0xB17,
+			std::pair{ "ReturnFromException", ParamList{} }
+		});
+
 		return the_table;
 	}
 
