@@ -20,7 +20,10 @@ namespace psx {
 		m_cpu_vram{ nullptr }, m_read_status{ GPUREAD_Status::NONE },
 		m_gpu_read_latch{ 0 }, m_disp_x_start{}, 
 		m_disp_y_start{}, m_hoz_disp_start{}, m_hoz_disp_end{},
-		m_vert_disp_start{}, m_vert_disp_end{}, m_cmd_status{Status::IDLE}, 
+		m_vert_disp_start{}, m_vert_disp_end{},
+		m_x_top_left{}, m_y_top_left{}, m_x_bot_right{},
+		m_y_bot_right{}, m_x_off{}, m_y_off{}, m_tex_win{},
+		m_cmd_status{Status::IDLE}, 
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{false} {
 		m_cpu_vram = new u8[VRAM_SIZE];

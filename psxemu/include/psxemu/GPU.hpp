@@ -98,6 +98,13 @@ namespace psx {
 		u32 mask_setting;
 	};
 
+	struct TextureWindow {
+		u32 mask_x;
+		u32 mask_y;
+		u32 offset_x;
+		u32 offset_y;
+	};
+
 	struct system_status;
 
 	class Gpu {
@@ -135,6 +142,10 @@ namespace psx {
 		void MiscCommand(u32 cmd);
 
 		void Texpage(u32 cmd);
+		void DrawAreaTopLeft(u32 cmd);
+		void DrawAreaBottomRight(u32 cmd);
+		void DrawOffset(u32 cmd);
+		void TexWindow(u32 cmd);
 
 		void UpdateDreq();
 
@@ -158,6 +169,14 @@ namespace psx {
 		u32 m_hoz_disp_end;
 		u32 m_vert_disp_start;
 		u32 m_vert_disp_end;
+		u32 m_x_top_left;
+		u32 m_y_top_left;
+		u32 m_x_bot_right;
+		u32 m_y_bot_right;
+		u32 m_x_off;
+		u32 m_y_off;
+
+		TextureWindow m_tex_win;
 
 		Status m_cmd_status;
 

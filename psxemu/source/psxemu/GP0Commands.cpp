@@ -15,6 +15,18 @@ namespace psx {
 		case 0xE1:
 			Texpage(cmd);
 			break;
+		case 0xE2:
+			TexWindow(cmd);
+			break;
+		case 0xE3:
+			DrawAreaTopLeft(cmd);
+			break;
+		case 0xE4:
+			DrawAreaBottomRight(cmd);
+			break;
+		case 0xE5:
+			DrawOffset(cmd);
+			break;
 		default:
 			fmt::println("[GPU] Unimplemented ENV command 0x{:x}", (u32)upper_byte);
 			error::DebugBreak();
@@ -102,5 +114,80 @@ namespace psx {
 			fmt::println("[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
 			break;
 		}
+	}
+
+	void Gpu::DrawAreaTopLeft(u32 cmd) {
+		cmd &= 0xFFFFF;
+
+		fmt::println("[GPU] DRAW_TOP_LEFT(0x{:x})", cmd);
+
+		if (m_raw_conf.draw_top_left == cmd)
+			return;
+
+		m_raw_conf.draw_top_left = cmd;
+
+		m_x_top_left = cmd & 1023;
+		m_y_top_left = (cmd >> 10) & 511;
+
+		fmt::println("      X = {}, Y = {}", m_x_top_left,
+			m_y_top_left);
+	}
+
+	void Gpu::DrawAreaBottomRight(u32 cmd) {
+		cmd &= 0xFFFFF;
+
+		fmt::println("[GPU] DRAW_BOTTOM_RIGHT(0x{:x})", cmd);
+
+		if (m_raw_conf.draw_bottom_right == cmd)
+			return;
+
+		m_raw_conf.draw_bottom_right = cmd;
+
+		m_x_bot_right = cmd & 1023;
+		m_y_bot_right = (cmd >> 10) & 511;
+
+		fmt::println("      X = {}, Y = {}", m_x_bot_right,
+			m_y_bot_right);
+	}
+
+	void Gpu::DrawOffset(u32 cmd) {
+		cmd &= 0x1FFFFF;
+
+		fmt::println("[GPU] DRAW_OFFSET(0x{:x})", cmd);
+
+		if (cmd == m_raw_conf.draw_offset)
+			return;
+
+		m_raw_conf.draw_offset = cmd;
+
+		m_x_off = cmd & 0x7FF;
+		m_y_off = (cmd >> 11) & 0x7FF;
+
+		m_x_off = (i32)m_x_off;
+		m_y_off = (i32)m_y_off;
+
+		fmt::println("      X = {}, Y = {}", (i32)m_x_off,
+			(i32)m_y_off);
+	}
+
+	void Gpu::TexWindow(u32 cmd) {
+		cmd &= 0xFFFFF;
+
+		fmt::println("[GPU] TEX_WINDOW(0x{:x})", cmd);
+
+		if (cmd == m_raw_conf.tex_window)
+			return;
+
+		m_raw_conf.tex_window = cmd;
+
+		m_tex_win.mask_x = cmd & 0x1F;
+		m_tex_win.mask_y = (cmd >> 5) & 0x1F;
+		m_tex_win.offset_x = (cmd >> 10) & 0x1F;
+		m_tex_win.offset_y = (cmd >> 15) & 0x1F;
+
+		fmt::println("     Mask X   = {}", m_tex_win.mask_x);
+		fmt::println("     Mask Y   = {}", m_tex_win.mask_y);
+		fmt::println("     Offset X = {}", m_tex_win.offset_x);
+		fmt::println("     Offset Y = {}", m_tex_win.offset_y);
 	}
 }
