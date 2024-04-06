@@ -19,6 +19,7 @@ namespace psx {
 
 		virtual void DoLinked();
 		virtual void DoBurst();
+		virtual void DoSlice();
 
 		void TransferStart(bool resume);
 		void TransferEnd(bool last_block);

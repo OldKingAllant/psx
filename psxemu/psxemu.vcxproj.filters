@@ -218,5 +218,8 @@
     <ClCompile Include="source\psxemu\GpuDma.cpp">
       <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
+    <ClCompile Include="source\psxemu\DrawCalls.cpp">
+      <Filter>Resource Files\dev\gpu</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -15,7 +15,7 @@ namespace psx {
 		}
 
 		constexpr Ty const& peek() const {
-			return arr[m_curr_size - 1];
+			return arr[0];
 		}
 
 		constexpr Ty deque() {

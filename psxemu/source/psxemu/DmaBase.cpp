@@ -192,7 +192,54 @@ namespace psx {
 	}
 
 	void DmaBase::DoBurst() {
-		//
+		error::DebugBreak();
+	}
+
+	void DmaBase::DoSlice() {
+		if (m_words_rem == 0) {
+			m_blocks_rem--;
+
+			auto block_control_ptr = reinterpret_cast<SliceBlockControl*>(&m_shadow_block_control);
+			block_control_ptr->block_count -= 1;
+
+			if (m_blocks_rem == 0 || (int)m_blocks_rem == -1) {
+				TransferEnd(true);
+			}
+			else if (Dreq()) {
+				m_controller->InterruptRequest((u8)m_id, false);
+				auto block_control = *reinterpret_cast<SliceBlockControl*>(&m_shadow_block_control);
+				m_words_rem = block_control.blocksize;
+			}
+			else {
+				TransferEnd(false);
+			}
+
+			return;
+		}
+
+		auto sysbus = m_sys_status->sysbus;
+
+		u32 port = GetPort();
+
+		if (!m_control.transfer_dir) {
+			u32 data = sysbus->Read<u32, true, false>(port);
+			sysbus->Write<u32, true, false>(m_curr_address, data);
+		}
+		else {
+			//RAM to device
+			u32 data = sysbus->Read<u32, true, false>(m_curr_address);
+			sysbus->Write<u32, true, false>(port, data);
+		}
+
+		if (m_sys_status->exception)
+			m_controller->SignalException();
+
+		if (m_control.decrement)
+			m_curr_address -= 4;
+		else
+			m_curr_address += 4;
+
+		m_words_rem--;
 	}
 
 	void DmaBase::AdvanceTransfer() {
@@ -200,6 +247,12 @@ namespace psx {
 		{
 		case SyncMode::LINKED:
 			DoLinked();
+			break;
+		case SyncMode::BURST:
+			DoBurst();
+			break;
+		case SyncMode::SLICE:
+			DoSlice();
 			break;
 		default:
 			error::DebugBreak();

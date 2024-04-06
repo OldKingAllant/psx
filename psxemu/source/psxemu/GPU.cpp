@@ -25,16 +25,13 @@ namespace psx {
 		m_y_bot_right{}, m_x_off{}, m_y_off{}, m_tex_win{},
 		m_cmd_status{Status::IDLE}, 
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
-		m_scanline{}, m_vblank{false} {
+		m_scanline{}, m_vblank{ false }, m_required_params{}, 
+		m_rem_params{}, m_cpu_vram_blit{} {
 		m_cpu_vram = new u8[VRAM_SIZE];
+		std::fill_n(m_cpu_vram, VRAM_SIZE, 0x0);
 	}
 
 	void Gpu::WriteGP0(u32 value) {
-		if ((value & 0xFF00'0000) == 0) {
-			fmt::println("[GPU] NOP");
-			return;
-		}
-
 		if (m_cmd_fifo.full()) {
 			fmt::println("[GPU] Command FIFO full!");
 			return;
@@ -43,13 +40,33 @@ namespace psx {
 		switch (m_cmd_status)
 		{
 		case psx::Status::IDLE:
+			if ((value & 0xFF00'0000) == 0) {
+				fmt::println("[GPU] NOP");
+				return;
+			}
+
 			CommandStart(value);
 			break;
-		case psx::Status::WAITING_PARAMETERS:
-			break;
+		case psx::Status::WAITING_PARAMETERS: {
+			if (m_rem_params == 0)
+				error::DebugBreak();
+
+			m_rem_params -= 1;
+			m_cmd_fifo.queue(value);
+
+			if (m_rem_params == 0) {
+				CommandEnd();
+			}
+		}
+		break;
 		case psx::Status::BUSY:
 			break;
+		case psx::Status::CPU_VRAM_BLIT: {
+			PerformCpuVramBlit(value);
+		}
+			break;
 		default:
+			error::DebugBreak();
 			break;
 		}
 
@@ -158,7 +175,7 @@ namespace psx {
 			|| (m_cmd_status == Status::WAITING_PARAMETERS);
 		m_stat.recv_cmd_word = (m_cmd_status == Status::IDLE);
 
-		m_stat.send_vram_cpu = (m_cmd_status == Status::VRAM_GPU);
+		m_stat.send_vram_cpu = (m_cmd_status == Status::VRAM_CPU_BLIT);
 
 		bool dreq = m_stat.dreq;
 
@@ -247,5 +264,60 @@ namespace psx {
 	Gpu::~Gpu() {
 		if (m_cpu_vram)
 			delete[] m_cpu_vram;
+	}
+
+	void Gpu::PerformCpuVramBlit(u32 data) {
+		u32 end_x = (m_cpu_vram_blit.source_x +
+			m_cpu_vram_blit.size_x) % VRAM_X_SIZE;
+		u32 end_y = (m_cpu_vram_blit.source_y +
+			m_cpu_vram_blit.size_y) % VRAM_Y_SIZE;
+
+		u32 curr_index = (m_cpu_vram_blit.curr_y * VRAM_Y_SIZE) +
+			m_cpu_vram_blit.curr_x;
+
+		curr_index *= 2;
+
+		u16 old_pixel = *reinterpret_cast<u16*>(m_cpu_vram + curr_index);
+
+		if (!m_stat.draw_over_mask_disable || !(old_pixel & 0x8000)) {
+			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)data;
+		}
+
+		m_cpu_vram_blit.curr_x += 1;
+		m_cpu_vram_blit.curr_x %= VRAM_X_SIZE;
+
+		if (m_cpu_vram_blit.curr_x == end_x) {
+			m_cpu_vram_blit.curr_x = m_cpu_vram_blit.source_x;
+
+			m_cpu_vram_blit.curr_y += 1;
+			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
+
+			if (m_cpu_vram_blit.curr_y == end_y) {
+				m_cmd_status = Status::IDLE;
+				return;
+			}
+		}
+
+		curr_index += 2;
+
+		old_pixel = *reinterpret_cast<u16*>(m_cpu_vram + curr_index);
+
+		if (!m_stat.draw_over_mask_disable || !(old_pixel & 0x8000)) {
+			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data >> 16);
+		}
+
+		m_cpu_vram_blit.curr_x += 1;
+		m_cpu_vram_blit.curr_x %= VRAM_X_SIZE;
+
+		if (m_cpu_vram_blit.curr_x == end_x) {
+			m_cpu_vram_blit.curr_x = m_cpu_vram_blit.source_x;
+
+			m_cpu_vram_blit.curr_y += 1;
+			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
+
+			if (m_cpu_vram_blit.curr_y == end_y) {
+				m_cmd_status = Status::IDLE;
+			}
+		}
 	}
 }

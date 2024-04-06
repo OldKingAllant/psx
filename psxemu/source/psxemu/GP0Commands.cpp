@@ -27,6 +27,9 @@ namespace psx {
 		case 0xE5:
 			DrawOffset(cmd);
 			break;
+		case 0xE6:
+			MaskSetting(cmd);
+			break;
 		default:
 			fmt::println("[GPU] Unimplemented ENV command 0x{:x}", (u32)upper_byte);
 			error::DebugBreak();
@@ -48,20 +51,20 @@ namespace psx {
 		m_stat.texture_page_y_base = (cmd >> 4) & 1;
 		m_stat.semi_transparency = (SemiTransparency)((cmd >> 5) & 3);
 		m_stat.tex_page_colors = (TexPageColors)((cmd >> 7) & 3);
-		m_stat.dither = !!((cmd >> 9) & 1);
-		m_stat.draw_to_display = !!((cmd >> 10) & 1);
-		m_stat.texture_page_y_base2 = !!((cmd >> 11) & 1);
+		m_stat.dither = (bool)((cmd >> 9) & 1);
+		m_stat.draw_to_display = (bool)((cmd >> 10) & 1);
+		m_stat.texture_page_y_base2 = (bool)((cmd >> 11) & 1);
 		
-		m_tex_x_flip = !!((cmd >> 12) & 1);
-		m_tex_y_flip = !!((cmd >> 13) & 1);
+		m_tex_x_flip = (bool)((cmd >> 12) & 1);
+		m_tex_y_flip = (bool)((cmd >> 13) & 1);
 
-		fmt::println("          Page X base       0x{:x}", (u32)m_stat.texture_page_x_base * 64);
-		fmt::println("          Page Y base 1     0x{:x}", (u32)m_stat.texture_page_y_base * 512);
+		fmt::println("          Page X base       0x{:x}", (u32)m_stat.texture_page_x_base);
+		fmt::println("          Page Y base 1     0x{:x}", (u32)m_stat.texture_page_y_base);
 		fmt::println("          Semi transparency 0x{:x}", (u32)m_stat.semi_transparency);
 		fmt::println("          Tex page colors   0x{:x}", (u32)m_stat.tex_page_colors);
 		fmt::println("          Dither            {}", m_stat.dither);
 		fmt::println("          Draw to display   {}", m_stat.draw_to_display);
-		fmt::println("          Page Y base 2     0x{:x}", (u32)m_stat.texture_page_y_base2 * 512);
+		fmt::println("          Page Y base 2     0x{:x}", (u32)m_stat.texture_page_y_base2);
 		fmt::println("          Texture X flip    {}", m_tex_x_flip);
 		fmt::println("          Texture Y flip    {}", m_tex_y_flip);
 	}
@@ -73,6 +76,9 @@ namespace psx {
 		{
 		case 0x0:
 			fmt::println("[GPU] NOP");
+			break;
+		case 0x1:
+			fmt::println("[GPU] CLEAR TEXTURE CACHE");
 			break;
 		case 0x3:
 			fmt::println("[GPU] NOP FIFO");
@@ -95,17 +101,50 @@ namespace psx {
 		case psx::CommandType::MISC:
 			MiscCommand(cmd);
 			break;
-		case psx::CommandType::POLYGON:
+		case psx::CommandType::POLYGON: {
+			bool quad = (cmd >> 27) & 1;
+			bool tex = (cmd >> 26) & 1;
+			bool gouraud = (cmd >> 28) & 1;
+
+			u32 num_vertex = quad ? 4 : 3;
+			u32 params_vert = 1;
+
+			if (tex)
+				params_vert += 1;
+			if (gouraud)
+				params_vert += 1;
+
+			m_required_params = num_vertex * params_vert;
+
+			if (gouraud) //The color of the first vertex
+						 //is contained in the command
+						 //itself
+				m_required_params -= 1;
+
+			m_rem_params = m_required_params;
+
+			m_cmd_fifo.queue(cmd);
+			m_cmd_status = Status::WAITING_PARAMETERS;
+		}
 			break;
 		case psx::CommandType::LINE:
+			error::DebugBreak();
 			break;
 		case psx::CommandType::RECTANGLE:
+			error::DebugBreak();
 			break;
 		case psx::CommandType::VRAM_BLIT:
+			error::DebugBreak();
 			break;
-		case psx::CommandType::CPU_VRAM_BLIT:
+		case psx::CommandType::CPU_VRAM_BLIT: {
+			m_cmd_fifo.queue(cmd);
+			m_cmd_status = Status::WAITING_PARAMETERS;
+			m_required_params = 2;
+			m_rem_params = 2;
+		}
 			break;
 		case psx::CommandType::VRAM_CPU_BLIT:
+			error::DebugBreak();
 			break;
 		case psx::CommandType::ENV:
 			EnvCommand(cmd);
@@ -189,5 +228,101 @@ namespace psx {
 		fmt::println("     Mask Y   = {}", m_tex_win.mask_y);
 		fmt::println("     Offset X = {}", m_tex_win.offset_x);
 		fmt::println("     Offset Y = {}", m_tex_win.offset_y);
+	}
+
+	void Gpu::MaskSetting(u32 cmd) {
+		cmd &= 3;
+
+		fmt::println("[GPU] MASK_BIT(0x{:x})", cmd);
+
+		m_stat.set_mask = (bool)(cmd & 1);
+		m_stat.draw_over_mask_disable = (bool)((cmd >> 1) & 1);
+
+		fmt::println("      Force bit 15 to 1      = {}", m_stat.set_mask);
+		fmt::println("      Check mask before draw = {}", m_stat.draw_over_mask_disable);
+	}
+
+	void Gpu::CommandEnd() {
+		if (m_cmd_fifo.empty())
+			error::DebugBreak();
+
+		u32 cmd = m_cmd_fifo.peek();
+
+		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
+
+		switch (cmd_type)
+		{
+		case psx::CommandType::MISC:
+			error::DebugBreak();
+			break;
+		case psx::CommandType::POLYGON: {
+			bool quad = (cmd >> 27) & 1;
+
+			if (quad)
+				DrawQuad();
+			else
+				DrawTriangle();
+
+			m_cmd_status = Status::IDLE;
+		}
+			break;
+		case psx::CommandType::LINE:
+			error::DebugBreak();
+			break;
+		case psx::CommandType::RECTANGLE:
+			error::DebugBreak();
+			break;
+		case psx::CommandType::VRAM_BLIT:
+			error::DebugBreak();
+			break;
+		case psx::CommandType::CPU_VRAM_BLIT: {
+			u32 cmd = m_cmd_fifo.deque();
+			u32 source = m_cmd_fifo.deque();
+			u32 size = m_cmd_fifo.deque();
+
+			m_cpu_vram_blit.source_x = source & 0xFFFF;
+			m_cpu_vram_blit.source_y = (source >> 16) & 0xFFFF;
+			m_cpu_vram_blit.size_x = size & 0xFFFF;
+			m_cpu_vram_blit.size_y = (size >> 16) & 0xFFFF;
+
+			m_cpu_vram_blit.source_x &= VRAM_X_SIZE - 1;
+			m_cpu_vram_blit.source_y &= VRAM_Y_SIZE - 1;
+
+			if (m_cpu_vram_blit.size_x == 0)
+				m_cpu_vram_blit.size_x = VRAM_X_SIZE;
+			else {
+				m_cpu_vram_blit.size_x =
+					((m_cpu_vram_blit.size_x - 1) & (VRAM_X_SIZE - 1)) + 1;
+			}
+
+			if (m_cpu_vram_blit.size_y == 0)
+				m_cpu_vram_blit.size_y = VRAM_Y_SIZE;
+			else {
+				m_cpu_vram_blit.size_y =
+					((m_cpu_vram_blit.size_y - 1) & (VRAM_Y_SIZE - 1)) + 1;
+			}
+
+			m_cpu_vram_blit.curr_x = m_cpu_vram_blit.source_x;
+			m_cpu_vram_blit.curr_y = m_cpu_vram_blit.source_y;
+
+			fmt::println("[GPU] CPU-VRAM BLIT");
+			fmt::println("      Destination X = {}", m_cpu_vram_blit.source_x);
+			fmt::println("      Destination Y = {}", m_cpu_vram_blit.source_y);
+			fmt::println("      Size X        = {}", m_cpu_vram_blit.size_x);
+			fmt::println("      Size Y        = {}", m_cpu_vram_blit.size_y);
+
+			m_cmd_status = Status::CPU_VRAM_BLIT;
+		}
+			break;
+		case psx::CommandType::VRAM_CPU_BLIT:
+			error::DebugBreak();
+			break;
+		case psx::CommandType::ENV:
+			error::DebugBreak();
+			break;
+		default:
+			fmt::println("[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
+			break;
+		}
 	}
 }

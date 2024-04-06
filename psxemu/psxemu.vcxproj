@@ -171,6 +171,7 @@
     <ClCompile Include="source\psxemu\cop0.cpp" />
     <ClCompile Include="source\psxemu\DmaBase.cpp" />
     <ClCompile Include="source\psxemu\DmaController.cpp" />
+    <ClCompile Include="source\psxemu\DrawCalls.cpp" />
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />
     <ClCompile Include="source\psxemu\GPU.cpp" />

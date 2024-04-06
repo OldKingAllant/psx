@@ -7,7 +7,7 @@ namespace psx {
 	{}
 
 	void GpuDma::DreqRisingEdge() {
-		if (!m_control.start_busy)
+		if (!m_control.start_busy || m_running)
 			return;
 
 		if (!m_transfer_active)

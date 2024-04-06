@@ -50,7 +50,8 @@ namespace psx {
 		IDLE,
 		WAITING_PARAMETERS,
 		BUSY,
-		VRAM_GPU
+		CPU_VRAM_BLIT,
+		VRAM_CPU_BLIT
 	};
 
 	/// <summary>
@@ -105,6 +106,18 @@ namespace psx {
 		u32 offset_y;
 	};
 
+	struct CpuVramBlit {
+		u32 source_x;
+		u32 source_y;
+		u32 curr_x;
+		u32 curr_y;
+		u32 size_x;
+		u32 size_y;
+	};
+
+	static constexpr u32 VRAM_X_SIZE = 1024;
+	static constexpr u32 VRAM_Y_SIZE = 512;
+
 	struct system_status;
 
 	class Gpu {
@@ -137,6 +150,7 @@ namespace psx {
 
 	private :
 		void CommandStart(u32 cmd);
+		void CommandEnd();
 
 		void EnvCommand(u32 cmd);
 		void MiscCommand(u32 cmd);
@@ -146,11 +160,19 @@ namespace psx {
 		void DrawAreaBottomRight(u32 cmd);
 		void DrawOffset(u32 cmd);
 		void TexWindow(u32 cmd);
+		void MaskSetting(u32 cmd);
 
 		void UpdateDreq();
 
 		void HBlank(u64 cycles_late);
 		void HBlankEnd(u64 cycles_late);
+
+	/// ///////////////////
+
+		void DrawQuad();
+		void DrawTriangle();
+
+		void PerformCpuVramBlit(u32 data);
 
 	private :
 		Queue<u32, 16> m_cmd_fifo;
@@ -189,5 +211,10 @@ namespace psx {
 
 		u32 m_scanline;
 		bool m_vblank;
+
+		u32 m_required_params;
+		u32 m_rem_params;
+
+		CpuVramBlit m_cpu_vram_blit;
 	};
 }
