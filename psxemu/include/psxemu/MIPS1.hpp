@@ -79,12 +79,12 @@ namespace psx::cpu {
 
 		void InterlockHiLo();
 
+		void UpdateLoadDelay();
+		void UpdateRegWriteback();
+
 	private:
 		bool CheckInterrupts();
 		bool CheckInstructionGTE();
-
-		void UpdateLoadDelay();
-		void UpdateRegWriteback();
 
 	private :
 		Registers m_regs;

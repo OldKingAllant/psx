@@ -161,6 +161,64 @@ namespace psx::cpu {
 		else if constexpr (StoreOpcode == Opcode::SB) {
 			status->sysbus->Write<u8, true, true>((u32)(base + off), (u8)value);
 		}
+		else if constexpr (StoreOpcode == Opcode::SWL) {
+			u32 address = (u32)(base + off);
+
+			u32 value_at = status->sysbus
+				->Read<u32, true, true>(address & ~3);
+			u32 to_write = 0;
+
+			switch (address % 4)
+			{
+			case 0x0:
+				to_write = (value_at & 0x00'FF'FF'FF) | (value & 0xFF'00'00'00);
+				break;
+			case 0x1:
+				to_write = (value_at & 0x00'00'FF'FF) | (value & 0xFF'FF'00'00);
+				break;
+			case 0x2:
+				to_write = (value_at & 0x00'00'00'FF) | (value & 0xFF'FF'FF'00);
+				break;
+			case 0x3:
+				to_write = value;
+				break;
+			default:
+				break;
+			}
+
+			fmt::println("SWL to 0x{:x} = 0x{:x}", address, to_write);
+
+			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
+		}
+		else if constexpr (StoreOpcode == Opcode::SWR) {
+			u32 address = (u32)(base + off);
+
+			u32 value_at = status->sysbus
+				->Read<u32, true, true>(address & ~3);
+			u32 to_write = 0;
+
+			switch (address % 4)
+			{
+			case 0x0:
+				to_write = value;
+				break;
+			case 0x1:
+				to_write = (value_at & 0xFF'00'00'00) | (value & 0x00'FF'FF'FF);
+				break;
+			case 0x2:
+				to_write = (value_at & 0xFF'FF'00'00) | (value & 0x00'00'FF'FF);
+				break;
+			case 0x3:
+				to_write = (value_at & 0xFF'FF'FF'00) | (value & 0x00'00'00'FF);
+				break;
+			default:
+				break;
+			}
+
+			fmt::println("SWR to 0x{:x} = 0x{:x}", address, to_write);
+
+			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
+		}
 		else {
 			error::DebugBreak();
 		}
@@ -430,6 +488,68 @@ namespace psx::cpu {
 		else if constexpr (LoadOpcode == Opcode::LB) {
 			value = (u32)((i32)status->sysbus->Read<i8, true, true>(address));
 		}
+		else if constexpr (LoadOpcode == Opcode::LWL) {
+			if (status->curr_delay.dest == rt) {
+				cpu.GetRegs()
+					.array[rt] = status->curr_delay.value;
+				status->curr_delay.dest = InvalidReg;
+			}
+
+			u32 data = status->sysbus
+				->Read<u32, false, true>(address & ~3);
+
+			u32 rt_val = status->cpu->GetRegs()
+				.array[rt];
+
+			switch (address % 4)
+			{
+			case 0x0:
+				value = (rt_val & 0x00'FF'FF'FF) | (data << 24);
+				break;
+			case 0x1:
+				value = (rt_val & 0x00'00'FF'FF) | (data << 16);
+				break;
+			case 0x2:
+				value = (rt_val & 0x00'00'00'FF) | (data << 8);
+				break;
+			case 0x3:
+				value = data;
+				break;
+			default:
+				break;
+			}
+		}
+		else if constexpr (LoadOpcode == Opcode::LWR) {
+			if (status->curr_delay.dest == rt) {
+				cpu.GetRegs()
+					.array[rt] = status->curr_delay.value;
+				status->curr_delay.dest = InvalidReg;
+			}
+
+			u32 data = status->sysbus
+				->Read<u32, false, true>(address & ~3);
+
+			u32 rt_val = status->cpu->GetRegs()
+				.array[rt];
+
+			switch (address % 4)
+			{
+			case 0x0: 
+				value = data;
+				break;
+			case 0x1:
+				value = (rt_val & 0xFF'00'00'00) | (data >> 8);
+				break;
+			case 0x2:
+				value = (rt_val & 0xFF'FF'00'00) | (data >> 16);
+				break;
+			case 0x3:
+				value = (rt_val & 0xFF'FF'FF'00) | (data >> 24);
+				break;
+			default:
+				break;
+			}
+		}
 		else {
 			error::DebugBreak();
 		}
@@ -437,6 +557,7 @@ namespace psx::cpu {
 		if (status->exception)
 			return;
 
+		
 		status->AddLoadDelay(value, rt);
 	}
 
@@ -489,11 +610,11 @@ namespace psx::cpu {
 		} 
 		else if constexpr (MulDivOpcode == Opcode::MTHI) {
 			status->cpu->InterlockHiLo();
-			status->cpu->GetHI() = rd_val;
+			status->cpu->GetHI() = rs_val;
 		}
 		else if constexpr (MulDivOpcode == Opcode::MTLO) {
 			status->cpu->InterlockHiLo();
-			status->cpu->GetLO() = rd_val;
+			status->cpu->GetLO() = rs_val;
 		}
 		else if constexpr (MulDivOpcode == Opcode::DIVU) {
 			status->hi_lo_ready_timestamp = status->scheduler.GetTimestamp()
@@ -556,8 +677,9 @@ namespace psx::cpu {
 			status->exception_number = Excode::SYSCALL;
 		}
 		else if constexpr (SysBreakOpcode == Opcode::BREAK) {
-			fmt::println("[EXCEPTION] BREAK Opcode at 0x{:x}",
-				status->cpu->GetPc());
+			u32 comment = (instruction >> 6) & 0xFFFFF;
+			fmt::println("[EXCEPTION] BREAK Opcode at 0x{:x} with arg 0x{:x}",
+				status->cpu->GetPc(), comment);
 			status->exception = true;
 			status->exception_number = Excode::BP;
 		}
