@@ -186,8 +186,6 @@ namespace psx::cpu {
 				break;
 			}
 
-			fmt::println("SWL to 0x{:x} = 0x{:x}", address, to_write);
-
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
 		else if constexpr (StoreOpcode == Opcode::SWR) {
@@ -214,8 +212,6 @@ namespace psx::cpu {
 			default:
 				break;
 			}
-
-			fmt::println("SWR to 0x{:x} = 0x{:x}", address, to_write);
 
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
