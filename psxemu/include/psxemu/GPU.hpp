@@ -216,5 +216,6 @@ namespace psx {
 		u32 m_rem_params;
 
 		CpuVramBlit m_cpu_vram_blit;
+		CpuVramBlit m_vram_cpu_blit;
 	};
 }

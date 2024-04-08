@@ -26,7 +26,7 @@ namespace psx {
 		m_cmd_status{Status::IDLE}, 
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
-		m_rem_params{}, m_cpu_vram_blit{} {
+		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{} {
 		m_cpu_vram = new u8[VRAM_SIZE];
 		std::fill_n(m_cpu_vram, VRAM_SIZE, 0x0);
 	}
@@ -64,7 +64,11 @@ namespace psx {
 		case psx::Status::CPU_VRAM_BLIT: {
 			PerformCpuVramBlit(value);
 		}
-			break;
+		break;
+		case psx::Status::VRAM_CPU_BLIT: {
+			fmt::println("[GPU] Ignoring GP0 command during VRAM-CPU blit");
+		}
+		break;
 		default:
 			error::DebugBreak();
 			break;
@@ -119,9 +123,57 @@ namespace psx {
 		{
 		case GPUREAD_Status::READ_REG:
 			return m_gpu_read_latch;
-		case GPUREAD_Status::READ_VRAM:
-			fmt::println("[GPU] Reading GPUREAD VRAM data is not implemented!");
-			return 0;
+		case GPUREAD_Status::READ_VRAM: {
+			u32 read_val = 0;
+
+			u32 end_x = (m_vram_cpu_blit.source_x +
+				m_vram_cpu_blit.size_x) % VRAM_X_SIZE;
+			u32 end_y = (m_vram_cpu_blit.source_y +
+				m_vram_cpu_blit.size_y) % VRAM_Y_SIZE;
+
+			u32 index = (m_vram_cpu_blit.curr_y * VRAM_Y_SIZE) +
+				m_vram_cpu_blit.curr_x;
+
+			u16* ram_view = std::bit_cast<u16*>(m_cpu_vram);
+
+			read_val |= ram_view[index];
+
+			m_vram_cpu_blit.curr_x += 1;
+			m_vram_cpu_blit.curr_x %= VRAM_X_SIZE;
+
+			if (m_vram_cpu_blit.curr_x == end_x) {
+				m_vram_cpu_blit.curr_x = m_vram_cpu_blit.source_x;
+
+				m_vram_cpu_blit.curr_y += 1;
+				m_vram_cpu_blit.curr_y %= VRAM_Y_SIZE;
+
+				if (m_vram_cpu_blit.curr_y == end_y) {
+					m_cmd_status = Status::IDLE;
+					m_read_status = GPUREAD_Status::NONE;
+					return read_val;
+				}
+			}
+
+			if ((u64)index + 1 < VRAM_SIZE / 2)
+				read_val |= ((u32)ram_view[index + 1] << 16);
+
+			m_vram_cpu_blit.curr_x += 1;
+			m_vram_cpu_blit.curr_x %= VRAM_X_SIZE;
+
+			if (m_vram_cpu_blit.curr_x == end_x) {
+				m_vram_cpu_blit.curr_x = m_vram_cpu_blit.source_x;
+
+				m_vram_cpu_blit.curr_y += 1;
+				m_vram_cpu_blit.curr_y %= VRAM_Y_SIZE;
+
+				if (m_vram_cpu_blit.curr_y == end_y) {
+					m_cmd_status = Status::IDLE;
+					m_read_status = GPUREAD_Status::NONE;
+				}
+			}
+
+			return read_val;
+		}
 		default:
 			break;
 		}

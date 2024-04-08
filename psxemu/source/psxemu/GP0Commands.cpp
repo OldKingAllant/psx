@@ -143,8 +143,12 @@ namespace psx {
 			m_rem_params = 2;
 		}
 			break;
-		case psx::CommandType::VRAM_CPU_BLIT:
-			error::DebugBreak();
+		case psx::CommandType::VRAM_CPU_BLIT: {
+			m_cmd_fifo.queue(cmd);
+			m_cmd_status = Status::WAITING_PARAMETERS;
+			m_required_params = 2;
+			m_rem_params = 2;
+		}
 			break;
 		case psx::CommandType::ENV:
 			EnvCommand(cmd);
@@ -314,8 +318,45 @@ namespace psx {
 			m_cmd_status = Status::CPU_VRAM_BLIT;
 		}
 			break;
-		case psx::CommandType::VRAM_CPU_BLIT:
-			error::DebugBreak();
+		case psx::CommandType::VRAM_CPU_BLIT: {
+			u32 cmd = m_cmd_fifo.deque();
+			u32 source = m_cmd_fifo.deque();
+			u32 size = m_cmd_fifo.deque();
+
+			m_vram_cpu_blit.source_x = source & 0xFFFF;
+			m_vram_cpu_blit.source_y = (source >> 16) & 0xFFFF;
+			m_vram_cpu_blit.size_x = size & 0xFFFF;
+			m_vram_cpu_blit.size_y = (size >> 16) & 0xFFFF;
+
+			m_vram_cpu_blit.source_x &= VRAM_X_SIZE - 1;
+			m_vram_cpu_blit.source_y &= VRAM_Y_SIZE - 1;
+
+			if (m_vram_cpu_blit.size_x == 0)
+				m_vram_cpu_blit.size_x = VRAM_X_SIZE;
+			else {
+				m_vram_cpu_blit.size_x =
+					((m_vram_cpu_blit.size_x - 1) & (VRAM_X_SIZE - 1)) + 1;
+			}
+
+			if (m_vram_cpu_blit.size_y == 0)
+				m_vram_cpu_blit.size_y = VRAM_Y_SIZE;
+			else {
+				m_vram_cpu_blit.size_y =
+					((m_vram_cpu_blit.size_y - 1) & (VRAM_Y_SIZE - 1)) + 1;
+			}
+
+			m_vram_cpu_blit.curr_x = m_vram_cpu_blit.source_x;
+			m_vram_cpu_blit.curr_y = m_vram_cpu_blit.source_y;
+
+			fmt::println("[GPU] VRAM-CPU BLIT");
+			fmt::println("      Source X      = {}", m_vram_cpu_blit.source_x);
+			fmt::println("      Source Y      = {}", m_vram_cpu_blit.source_y);
+			fmt::println("      Size X        = {}", m_vram_cpu_blit.size_x);
+			fmt::println("      Size Y        = {}", m_vram_cpu_blit.size_y);
+
+			m_cmd_status = Status::VRAM_CPU_BLIT;
+			m_read_status = GPUREAD_Status::READ_VRAM;
+		}
 			break;
 		case psx::CommandType::ENV:
 			error::DebugBreak();
