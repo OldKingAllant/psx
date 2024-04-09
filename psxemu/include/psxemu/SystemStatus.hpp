@@ -68,6 +68,8 @@ namespace psx {
 
 		Scheduler scheduler;
 
+		bool vblank;
+
 		void CoprocessorUnusableException(u8 cop_number) {
 			cpu->GetCOP0().registers.cause.cop_number = cop_number;
 			Exception(cpu::Excode::COU, false);

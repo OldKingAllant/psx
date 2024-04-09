@@ -8,6 +8,8 @@
 
 #include <common/Errors.hpp>
 
+#include <psxemu/renderer/GLRenderer.hpp>
+
 namespace psx {
 	static constexpr u64 GPU_CLOCKS_FRAME = (u64)(VIDEO_CLOCK / (double)59.94);
 	static constexpr u64 VISIBLE_LINE_START = 16;
@@ -26,9 +28,10 @@ namespace psx {
 		m_cmd_status{Status::IDLE}, 
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
-		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{} {
-		m_cpu_vram = new u8[VRAM_SIZE];
-		std::fill_n(m_cpu_vram, VRAM_SIZE, 0x0);
+		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{},
+		m_renderer{nullptr} {
+		m_renderer = new video::Renderer();
+		m_cpu_vram = m_renderer->GetVramPtr();
 	}
 
 	void Gpu::WriteGP0(u32 value) {
@@ -297,6 +300,8 @@ namespace psx {
 			m_stat.drawing_odd = false;
 			m_vblank = true;
 			m_sys_status->Interrupt((u32)Interrupts::VBLANK);
+			m_sys_status->vblank = true;
+			m_renderer->VBlank();
 		}
 		else if((m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END)
 			&& !(prev_scanline >= VISIBLE_LINE_START && prev_scanline <= VISIBLE_LINE_END)
@@ -314,8 +319,8 @@ namespace psx {
 	}
 
 	Gpu::~Gpu() {
-		if (m_cpu_vram)
-			delete[] m_cpu_vram;
+		if (m_renderer)
+			delete m_renderer;
 	}
 
 	void Gpu::PerformCpuVramBlit(u32 data) {
@@ -346,6 +351,7 @@ namespace psx {
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
+				m_renderer->BlitEnd();
 				return;
 			}
 		}
@@ -368,6 +374,7 @@ namespace psx {
 			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
+				m_renderer->BlitEnd();
 				m_cmd_status = Status::IDLE;
 			}
 		}

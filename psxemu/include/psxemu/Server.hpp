@@ -142,9 +142,17 @@ namespace psx::gdbstub {
 		/// <param name="value">New value</param>
 		void SetRegValueFromIndex(uint8_t reg_index, uint32_t value);
 
+		/// <summary>
+		/// Tell the server that the emulator
+		/// has reached a breakpoint (be it 
+		/// a hardware break, watchpoint or
+		/// error)
+		/// </summary>
+		void BreakTriggered();
+
 		~Server();
 
-		static constexpr int64_t TIMEOUT = 10000000;
+		static constexpr int64_t TIMEOUT = 1000;
 		static constexpr std::size_t BUFFER_SIZE = 2048;
 		static constexpr const char SUPPORTED_STR[] = "PacketSize=1024;multiprocess-;qRelocInsn-;hwbreak+;vContSupported+";
 		static constexpr std::size_t NUM_STUB_REGISTERS = 73;

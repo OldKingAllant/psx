@@ -14,7 +14,7 @@ namespace psx {
 		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}, m_hbreaks{}, m_break_enable{false},
 		m_hle_enable{false}, m_hle_functions{}, 
-		m_putchar{}, m_puts{}
+		m_putchar{}, m_puts{}, m_stopped{true}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
@@ -166,9 +166,9 @@ namespace psx {
 		}
 	}
 
-	void System::RunInterpreterUntilBreakpoint() {
+	bool System::RunInterpreterUntilBreakpoint() {
 		if (!m_break_enable)
-			return;
+			return false;
 
 		bool exit = false;
 
@@ -179,7 +179,14 @@ namespace psx {
 
 			exit = std::find(m_hbreaks.begin(), m_hbreaks.end(), curr_pc) !=
 				m_hbreaks.end();
+
+			if (m_status.vblank) {
+				m_status.vblank = false;
+				break;
+			}
 		}
+
+		return exit;
 	}
 
 	void System::ResetVector() {

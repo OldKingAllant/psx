@@ -44,8 +44,10 @@ namespace psx {
 		/// <summary>
 		/// Run with the interpreter until some
 		/// kind of breakpoint has been hit
+		/// (or VBlank)
 		/// </summary>
-		void RunInterpreterUntilBreakpoint();
+		/// <returns>True if a breakpoint has been hit</returns>
+		bool RunInterpreterUntilBreakpoint();
 
 		/// <summary>
 		/// Reset status to the reset vector
@@ -96,6 +98,14 @@ namespace psx {
 			m_puts = fun;
 		}
 
+		FORCE_INLINE void SetStopped(bool stop) {
+			m_stopped = stop;
+		}
+
+		FORCE_INLINE bool Stopped() const {
+			return m_stopped;
+		}
+
 	private :
 		void InterpreterSingleStep();
 
@@ -116,5 +126,7 @@ namespace psx {
 		
 		PutcharFun m_putchar;
 		PutsFun m_puts;
+
+		bool m_stopped;
 	};
 }

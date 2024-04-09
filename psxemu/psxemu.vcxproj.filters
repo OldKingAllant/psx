@@ -55,6 +55,15 @@
     <Filter Include="Resource Files\dev\gpu">
       <UniqueIdentifier>{1ad44365-706a-471b-a9bc-b750d46b31bc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\renderer">
+      <UniqueIdentifier>{8471c742-a776-462a-987c-c644b41252ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\renderer">
+      <UniqueIdentifier>{d43ff0b4-adfd-4010-a06d-5b3e4fc692a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shaders">
+      <UniqueIdentifier>{5d0aaaf9-a8cd-4e45-a9d8-e6140f54e379}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -150,6 +159,30 @@
     <ClInclude Include="include\psxemu\GpuDma.hpp">
       <Filter>Header Files\dev\dma</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\SdlWindow.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\Shader.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\GlLoad.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\SdlContext.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\Vram.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\GLRenderer.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\Buffer.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\VertexBuffer.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -221,5 +254,37 @@
     <ClCompile Include="source\psxemu\DrawCalls.cpp">
       <Filter>Resource Files\dev\gpu</Filter>
     </ClCompile>
+    <ClCompile Include="renderer\GlLoad.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\Shader.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\SdlWindow.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\SdlContext.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\Vram.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\GLRenderer.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\Buffer.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\VertexBuffer.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shaders\vram_blit.fragment">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\vram_blit.vertex">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

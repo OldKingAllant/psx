@@ -163,9 +163,25 @@
     <ClInclude Include="include\psxemu\System.hpp" />
     <ClInclude Include="include\psxemu\SystemBus.hpp" />
     <ClInclude Include="include\psxemu\SystemStatus.hpp" />
+    <ClInclude Include="renderer\Buffer.hpp" />
+    <ClInclude Include="renderer\GlLoad.hpp" />
+    <ClInclude Include="renderer\GLRenderer.hpp" />
+    <ClInclude Include="renderer\SdlContext.hpp" />
+    <ClInclude Include="renderer\SdlWindow.hpp" />
+    <ClInclude Include="renderer\Shader.hpp" />
+    <ClInclude Include="renderer\VertexBuffer.hpp" />
+    <ClInclude Include="renderer\Vram.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\Errors.cpp" />
+    <ClCompile Include="renderer\Buffer.cpp" />
+    <ClCompile Include="renderer\GlLoad.cpp" />
+    <ClCompile Include="renderer\GLRenderer.cpp" />
+    <ClCompile Include="renderer\SdlContext.cpp" />
+    <ClCompile Include="renderer\SdlWindow.cpp" />
+    <ClCompile Include="renderer\Shader.cpp" />
+    <ClCompile Include="renderer\VertexBuffer.cpp" />
+    <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
@@ -188,6 +204,10 @@
     <ClCompile Include="source\psxemu\Syscalls.cpp" />
     <ClCompile Include="source\psxemu\System.cpp" />
     <ClCompile Include="source\psxemu\SystemBus.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shaders\vram_blit.fragment" />
+    <None Include="..\shaders\vram_blit.vertex" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

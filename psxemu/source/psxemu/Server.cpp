@@ -51,10 +51,10 @@ namespace psx::gdbstub {
 		m_socket.listen(1);
 		m_conn = m_socket.acceptConnection();
 		
-		/*m_conn.setBlocking(true);
+		//m_conn.setBlocking(false);
 		m_conn.setReceiveTimeout(Poco::Timespan(
 			TIMEOUT
-		));*/
+		));
 
 		m_recv_buffer = new char[BUFFER_SIZE];
 
@@ -77,8 +77,8 @@ namespace psx::gdbstub {
 		try {
 			auto effective_len = m_conn.receiveBytes(m_recv_buffer, BUFFER_SIZE);
 
-			if (effective_len == 0) //Returned with no data, probably closed connection?
-				return false;
+			if (effective_len == 0)
+				return true;
 
 			m_recv_size = effective_len;
 
@@ -97,6 +97,11 @@ namespace psx::gdbstub {
 				else if (data[0] == '-') {
 					//SendPayload(m_out);
 					data.erase(0, 1);
+				}
+				else if (data[0] == (char)0x03) {
+					m_sys->SetStopped(true);
+					SendPayload("S05");
+					return true;
 				}
 				else {
 					if (data[0] != '$')
@@ -191,11 +196,14 @@ namespace psx::gdbstub {
 				}
 			}
 		}
+		catch (Poco::TimeoutException const&) {
+			return m_open;
+		}
 		catch (std::exception const&) {
 			return false;
 		}
 
-		return true;
+		return m_open;
 	}
 
 	std::optional<std::pair<std::string, std::size_t>> Server::SeparateStr(std::string const& buf) const {
@@ -412,6 +420,9 @@ namespace psx::gdbstub {
 	}
 
 	void Server::SetRegValueFromIndex(uint8_t reg_index, uint32_t value) {
+		if (reg_index == 0)
+			return;
+
 		auto& cpu_struct = m_sys->GetCPU();
 
 		if (reg_index <= 31) {
@@ -684,8 +695,7 @@ namespace psx::gdbstub {
 				SendPayload("S05");
 			}
 			else if (cmd == 'c') {
-				m_sys->RunInterpreterUntilBreakpoint();
-				SendPayload("S05");
+				m_sys->SetStopped(false);
 			}
 			else {
 				SendPayload("E00");
@@ -697,8 +707,7 @@ namespace psx::gdbstub {
 				SendPayload("S05");
 			}
 			else if (data[0] == 'c') {
-				m_sys->RunInterpreterUntilBreakpoint();
-				SendPayload("S05");
+				m_sys->SetStopped(false);
 			}
 			else {
 				SendPayload("E00");
@@ -754,6 +763,10 @@ namespace psx::gdbstub {
 		m_sys->RemoveHardwareBreak(address.value());
 
 		SendPayload("OK");
+	}
+
+	void Server::BreakTriggered() {
+		SendPayload("S05");
 	}
 
 	Server::~Server() {

@@ -5,7 +5,16 @@
 
 #include <usage/tty/TTY_Console.hpp>
 
+#include <psxemu/renderer/SdlContext.hpp>
+#include <psxemu/renderer/SdlWindow.hpp>
+
 int main(int argc, char* argv[]) {
+	psx::video::SdlInit();
+
+	psx::video::SdlWindow vram_view("Vram",
+		psx::video::Rect{ .w = 1024, .h = 512 }, 
+		"../shaders", "vram_blit", false, false);
+
 	tty::TTY_Console console{ "../x64/Debug/TTY_Console.exe", "psx-tty" };
 
 	console.Open();
@@ -37,10 +46,23 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Connected" << std::endl;
 
-	while (server.HandlePackets())
-	{}
+	while (server.HandlePackets() && vram_view.EventLoop())
+	{
+		if (!sys.Stopped()) {
+			bool break_hit = sys.RunInterpreterUntilBreakpoint();
+
+			if (break_hit) {
+				sys.SetStopped(true);
+				server.BreakTriggered();
+			}
+		}
+
+		vram_view.Blit(0);
+	}
 
 	server.Shutdown();
 
 	console.Close();
+
+	psx::video::SdlShutdown();
 } 

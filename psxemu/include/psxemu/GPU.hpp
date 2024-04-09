@@ -9,6 +9,10 @@ namespace psx {
 
 	static constexpr u64 VRAM_SIZE = (u64)1024 * 1024;
 
+	namespace video {
+		class Renderer;
+	}
+
 	enum class SemiTransparency : u8 {
 		B05_PLUS_F05,
 		B_PLUS_F,
@@ -217,5 +221,7 @@ namespace psx {
 
 		CpuVramBlit m_cpu_vram_blit;
 		CpuVramBlit m_vram_cpu_blit;
+
+		video::Renderer* m_renderer;
 	};
 }
