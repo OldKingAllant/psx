@@ -24,6 +24,15 @@ namespace psx::video {
 		/// </summary>
 		void Upload();
 
+		/// <summary>
+		/// Retrieve OpenGL texture
+		/// handle 
+		/// </summary>
+		/// <returns></returns>
+		u32 GetTextureHandle() const {
+			return m_texture_id;
+		}
+
 	private :
 		void CreateBuffer();
 		void MapBuffer();

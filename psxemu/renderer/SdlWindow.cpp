@@ -15,13 +15,16 @@ namespace psx::video {
 		GLsizei length,
 		const GLchar* message,
 		const void* userParam) {
+		if (type == GL_DEBUG_TYPE_PERFORMANCE)
+			return;
+
 		std::string msg{ message, (size_t)length };
 		fmt::println("[OPENGL] {}", msg);
 	}
 
 	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize)
 		: m_win{ nullptr }, m_gl_ctx { nullptr }, m_blit{ nullptr }, 
-		m_close{}, m_vert_buf{ nullptr } {
+		m_close{}, m_vert_buf{ nullptr }, m_tex_id{} {
 		if (reuse_ctx)
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 		else
@@ -65,15 +68,20 @@ namespace psx::video {
 
 		m_vert_buf = new VertexBuffer<HostVertex2D>(6);
 
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, 0.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, 0.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, 0.0, 0.0 });
+		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  0.0, 0.0 });
+		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  1.0, 1.0 });
+		m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, 0.0, 1.0 });
 
 		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, 0.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0, 0.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, 0.0, 0.0 });
+		m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  1.0, 0.0 });
+		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, 1.0, 1.0 });
 		
 		m_blit = new Shader(blit_loc, blit_name);
+
+		m_tex_id = m_blit->UniformLocation(std::string("vram_tex")).value_or((uint32_t)-1);
+
+		if (m_tex_id == (uint32_t)-1)
+			throw std::runtime_error("Cannot find texture uniform");
 	}
 
 	void SdlWindow::Blit(uint32_t m_texture_id) {
@@ -82,6 +90,9 @@ namespace psx::video {
 
 		m_blit->BindProgram();
 		m_vert_buf->Bind();
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 

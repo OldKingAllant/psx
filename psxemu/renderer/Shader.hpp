@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <optional>
 
 #include <fmt/format.h>
 
@@ -49,6 +50,8 @@ namespace psx::video {
 		void BindUbo(GLuint bind_point, std::string_view ubo_name);
 
 		void BindProgram();
+
+		std::optional<uint32_t> UniformLocation(std::string const& name);
 
 		~Shader();
 

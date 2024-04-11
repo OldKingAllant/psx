@@ -85,10 +85,10 @@ namespace psx::video {
 
 			glGetShaderInfoLog(id, 1024, &effective_size, err.data());
 
-			err.resize((size_t)effective_size);
+			std::string copy{ err.data(), err.data() + effective_size};
 
 			fmt::println("[RENDERER] Shader {} compilation failed :", m_shader_name);
-			fmt::println("{}", err);
+			fmt::println("{}", copy);
 			throw std::runtime_error("Shader creation failed, compilation failed");
 		}
 	}
@@ -111,10 +111,10 @@ namespace psx::video {
 
 			glGetProgramInfoLog(m_program_id, 1024, &effective_size, err.data());
 
-			err.resize((size_t)effective_size);
+			std::string copy{ err.data(), err.data() + effective_size };
 
 			fmt::println("[RENDERER] Shader {} compilation failed :", m_shader_name);
-			fmt::println("{}", err);
+			fmt::println("{}", copy);
 			throw std::runtime_error("Shader creation failed, link failed");
 		}
 	}
@@ -136,6 +136,24 @@ namespace psx::video {
 
 		glBindBufferBase(GL_UNIFORM_BUFFER, bind_point,
 			ubo_index);
+	}
+
+	std::optional<uint32_t> Shader::UniformLocation(std::string const& name) {
+		if (!m_uniforms.contains(std::string(name))) {
+			GLuint uniform_loc = glGetUniformLocation(m_program_id, name.c_str());
+
+			if (uniform_loc == GL_INVALID_INDEX) {
+				fmt::println("[RENDERER] Shader {} with id {}, cannot find uniform {}",
+					m_shader_name, m_program_id, name);
+				return std::nullopt;
+			}
+
+			m_uniforms.insert(std::pair{ std::string(name), uniform_loc });
+		}
+
+		GLuint uniform_loc = m_uniforms.find(std::string(name))->second;
+
+		return uniform_loc;
 	}
 
 	void Shader::BindProgram() {

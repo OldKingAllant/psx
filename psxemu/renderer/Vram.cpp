@@ -48,8 +48,8 @@ namespace psx::video {
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_buffer_id);
 		glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, 1024,
-			GL_RED, GL_UNSIGNED_BYTE, nullptr);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, 512,
+			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
@@ -68,11 +68,17 @@ namespace psx::video {
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 1024, 1024, 0,
-			GL_RED, GL_UNSIGNED_BYTE, nullptr);
+		float border[] = { 1.0, 0.0, 0.0, 1.0 };
+
+		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 1024);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 512, 0,
+			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
 
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);

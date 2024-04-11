@@ -28,5 +28,6 @@ namespace psx::video {
 		Shader* m_blit;
 		bool m_close;
 		VertexBuffer<HostVertex2D>* m_vert_buf;
+		u32 m_tex_id;
 	};
 }

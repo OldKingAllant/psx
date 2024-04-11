@@ -152,6 +152,10 @@ namespace psx {
 
 		void InitEvents();
 
+		video::Renderer* GetRenderer() const {
+			return m_renderer;
+		}
+
 	private :
 		void CommandStart(u32 cmd);
 		void CommandEnd();

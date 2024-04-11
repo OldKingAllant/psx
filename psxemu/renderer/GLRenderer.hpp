@@ -14,6 +14,10 @@ namespace psx::video {
 			return m_vram.Get();
 		}
 
+		Vram& GetVram() {
+			return m_vram;
+		}
+
 		~Renderer();
 
 	private :

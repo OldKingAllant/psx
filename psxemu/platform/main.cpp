@@ -2,6 +2,7 @@
 
 #include <psxemu/include/psxemu/Server.hpp>
 #include <psxemu/include/psxemu/System.hpp>
+#include <psxemu/renderer/GLRenderer.hpp>
 
 #include <usage/tty/TTY_Console.hpp>
 
@@ -57,7 +58,12 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		vram_view.Blit(0);
+		auto handle = sys.GetStatus()
+			.sysbus->GetGPU()
+			.GetRenderer()->GetVram()
+			.GetTextureHandle();
+
+		vram_view.Blit(handle);
 	}
 
 	server.Shutdown();

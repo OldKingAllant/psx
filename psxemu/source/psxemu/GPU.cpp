@@ -134,7 +134,7 @@ namespace psx {
 			u32 end_y = (m_vram_cpu_blit.source_y +
 				m_vram_cpu_blit.size_y) % VRAM_Y_SIZE;
 
-			u32 index = (m_vram_cpu_blit.curr_y * VRAM_Y_SIZE) +
+			u32 index = (m_vram_cpu_blit.curr_y * VRAM_X_SIZE) +
 				m_vram_cpu_blit.curr_x;
 
 			u16* ram_view = std::bit_cast<u16*>(m_cpu_vram);
@@ -329,7 +329,7 @@ namespace psx {
 		u32 end_y = (m_cpu_vram_blit.source_y +
 			m_cpu_vram_blit.size_y) % VRAM_Y_SIZE;
 
-		u32 curr_index = (m_cpu_vram_blit.curr_y * VRAM_Y_SIZE) +
+		u32 curr_index = (m_cpu_vram_blit.curr_y * VRAM_X_SIZE) +
 			m_cpu_vram_blit.curr_x;
 
 		curr_index *= 2;
@@ -337,7 +337,9 @@ namespace psx {
 		u16 old_pixel = *reinterpret_cast<u16*>(m_cpu_vram + curr_index);
 
 		if (!m_stat.draw_over_mask_disable || !(old_pixel & 0x8000)) {
-			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)data;
+			u32 color = (0x1F << 6);
+			color |= (0x1F << 11);
+			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data);
 		}
 
 		m_cpu_vram_blit.curr_x += 1;
