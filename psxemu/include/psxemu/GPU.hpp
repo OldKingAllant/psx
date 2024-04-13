@@ -182,6 +182,10 @@ namespace psx {
 
 		void PerformCpuVramBlit(u32 data);
 
+		void DrawFlatUntexturedOpaqueQuad();
+		void DrawBasicGouraudQuad();
+		void DrawBasicGouraudTriangle();
+
 	private :
 		Queue<u32, 16> m_cmd_fifo;
 		GpuStat m_stat;

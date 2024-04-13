@@ -102,7 +102,6 @@ namespace psx::video {
 		GLint status = 0;
 
 		glGetProgramiv(m_program_id, GL_LINK_STATUS, &status);
-		glValidateProgram(m_program_id);
 
 		if (status == GL_FALSE) {
 			std::string err{};
@@ -117,6 +116,8 @@ namespace psx::video {
 			fmt::println("{}", copy);
 			throw std::runtime_error("Shader creation failed, link failed");
 		}
+
+		glValidateProgram(m_program_id);
 	}
 
 	void Shader::BindUbo(GLuint bind_point, std::string_view ubo_name) {

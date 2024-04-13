@@ -183,6 +183,12 @@
     <ClInclude Include="renderer\VertexBuffer.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\FrameBuffer.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\Pipeline.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -278,12 +284,30 @@
     <ClCompile Include="renderer\VertexBuffer.cpp">
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
+    <ClCompile Include="renderer\FrameBuffer.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\Pipeline.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\vram_blit.fragment">
       <Filter>shaders</Filter>
     </None>
     <None Include="..\shaders\vram_blit.vertex">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\flat_untextured_opaque_triangle.fragment">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\flat_untextured_opaque_triangle.vertex">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\basic_gouraud.fragment">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\basic_gouraud.vertex">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

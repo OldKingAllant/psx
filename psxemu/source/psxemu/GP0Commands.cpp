@@ -5,6 +5,8 @@
 
 #include <common/Errors.hpp>
 
+#include <psxemu/renderer/GLRenderer.hpp>
+
 namespace psx {
 
 	void Gpu::EnvCommand(u32 cmd) {
@@ -316,6 +318,9 @@ namespace psx {
 			fmt::println("      Size Y        = {}", m_cpu_vram_blit.size_y);
 
 			m_cmd_status = Status::CPU_VRAM_BLIT;
+
+			//m_renderer->BlitBegin();
+			//m_renderer->GetVram().Download();
 		}
 			break;
 		case psx::CommandType::VRAM_CPU_BLIT: {
@@ -356,6 +361,9 @@ namespace psx {
 
 			m_cmd_status = Status::VRAM_CPU_BLIT;
 			m_read_status = GPUREAD_Status::READ_VRAM;
+
+			//m_renderer->BlitBegin();
+			//m_renderer->GetVram().Download();
 		}
 			break;
 		case psx::CommandType::ENV:

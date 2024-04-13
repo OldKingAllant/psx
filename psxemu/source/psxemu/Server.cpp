@@ -8,6 +8,8 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 
+#include <iostream>
+
 namespace psx::gdbstub {
 	Server::Server(int16_t port, System* sys) :
 		m_socket{},

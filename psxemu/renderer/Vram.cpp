@@ -104,4 +104,15 @@ namespace psx::video {
 		glDeleteTextures(1, reinterpret_cast<GLuint*>(&m_texture_id));
 		m_buffer_ptr = nullptr;
 	}
+
+	void Vram::Download() {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, m_buffer_id);
+		glBindTexture(GL_TEXTURE_2D, m_texture_id);
+
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, 
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	}
 }

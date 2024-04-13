@@ -10,13 +10,15 @@
 
 #include <fmt/format.h>
 
+#include <common/Errors.hpp>
+
 namespace psx::video {
 	class Shader {
 	public :
 		Shader(std::string const& location, std::string const& name);
 
-		template <typename UniformTy, typename InputTy>
-		void UpdateUniform(InputTy&& value, std::string_view name) {
+		template <typename UniformTy>
+		void UpdateUniform(std::string_view name, UniformTy value) {
 			if (!m_uniforms.contains(std::string(name))) {
 				GLuint uniform_loc = glGetUniformLocation(m_program_id, name.data());
 
@@ -31,19 +33,24 @@ namespace psx::video {
 
 			GLuint uniform_loc = m_uniforms.find(std::string(name))->second;
 
-			auto converted = static_cast<UniformTy>(value);
-
 			if constexpr (std::is_same_v<UniformTy, float>) {
-				glUniform1f(uniform_loc, converted);
+				glUniform1f(uniform_loc, value);
 			}
 			else if constexpr (std::is_same_v<UniformTy, int>) {
-				glUniform1i(uniform_loc, converted);
+				glUniform1i(uniform_loc, value);
 			}
 			else if constexpr (std::is_same_v<UniformTy, unsigned int>) {
-				glUniform1ui(uniform_loc, converted);
+				glUniform1ui(uniform_loc, value);
+			}
+			else if constexpr (std::is_same_v<UniformTy, std::array<unsigned int, 2>>) {
+				glUniform2ui(uniform_loc, value[0], value[1]);
+			}
+			else if constexpr (std::is_same_v<UniformTy, std::array<unsigned int, 3>>) {
+				glUniform3ui(uniform_loc, value[0], value[1], value[2]);
 			}
 			else {
 				fmt::println("[RENDERER] Invalid uniform type");
+				error::DebugBreak();
 			}
 		}
 

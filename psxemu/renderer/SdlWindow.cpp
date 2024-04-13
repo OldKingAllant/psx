@@ -31,8 +31,12 @@ namespace psx::video {
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
 
 		if (!GlIsInit()) {
+			SDL_GL_LoadLibrary(nullptr);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+				SDL_GL_CONTEXT_PROFILE_CORE);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 			SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		}
 
@@ -48,14 +52,32 @@ namespace psx::video {
 		if (!GlIsInit()) {
 			m_gl_ctx = SDL_GL_CreateContext((SDL_Window*)m_win);
 
-			if (!m_gl_ctx)
+			if (!m_gl_ctx) {
+				fmt::println("[RENDERER] OpenGL context creation failed : {}",
+					SDL_GetError());
 				throw std::runtime_error("SDL_GL_CreateContext failed");
+			}
 
 			if(!GlInit())
 				throw std::runtime_error("GlInit() failed");
 
 			GlEnableDebugOutput();
 			GlSetDebugMessageCallback(DebugCallback, nullptr);
+
+			int32_t major = {};
+			int32_t minor = {};
+
+			glGetIntegerv(GL_MAJOR_VERSION, &major);
+			glGetIntegerv(GL_MINOR_VERSION, &minor);
+
+			int32_t mask = {};
+
+			//glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &mask);
+
+			fmt::println("[RENDERER] Using OpenGL {}.{}", major, minor);
+
+			//if (mask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT)
+				//fmt::println("[RENDERER] Compatibility profile!");
 		}
 
 		auto errors = GlGetErrors();

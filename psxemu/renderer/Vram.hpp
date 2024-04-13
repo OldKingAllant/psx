@@ -25,6 +25,12 @@ namespace psx::video {
 		void Upload();
 
 		/// <summary>
+		/// Perform the inverse of
+		/// what Upload() does
+		/// </summary>
+		void Download();
+
+		/// <summary>
 		/// Retrieve OpenGL texture
 		/// handle 
 		/// </summary>

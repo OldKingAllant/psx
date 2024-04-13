@@ -2,6 +2,8 @@
 
 #include <GL/glew.h>
 
+#include <common/Errors.hpp>
+
 namespace psx::video {
 	u32 CreateVertexArray() {
 		u32 id = 0;
@@ -33,7 +35,11 @@ namespace psx::video {
 		case psx::video::VertexAttributeType::FLOAT:
 			return GL_FLOAT;
 			break;
+		case psx::video::VertexAttributeType::UVEC2:
+			return GL_UNSIGNED_INT;
+			break;
 		default:
+			error::DebugBreak();
 			break;
 		}
 
@@ -56,8 +62,22 @@ namespace psx::video {
 			auto offset = (const void*)attribute.offset;
 			auto size = VERTEX_ATTRIB_SIZES[(u32)attribute.type];
 
-			glVertexAttribPointer(index, size, type, GL_FALSE,
-				vert_size, offset);
+			switch (type)
+			{
+			case GL_FLOAT:
+				glVertexAttribPointer(index, size, type, GL_FALSE,
+					vert_size, offset);
+				break;
+			case GL_DOUBLE:
+				glVertexAttribLPointer(index, size, type,
+					vert_size, offset);
+				break;
+			default:
+				glVertexAttribIPointer(index, size, type,
+					vert_size, offset);
+				break;
+			}
+			
 			glEnableVertexAttribArray(index);
 
 			index++;

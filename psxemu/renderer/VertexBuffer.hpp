@@ -15,7 +15,7 @@ namespace psx::video {
 	enum class VertexAttributeType {
 		BYTE, UNSIGNED_BYTE, SHORT,
 		UNSIGNED_SHORT, INT, UNSIGNED_INT,
-		FLOAT
+		FLOAT, UVEC2
 	};
 
 	u32 VertexAttributeToOpenGL(VertexAttributeType attr);
@@ -24,7 +24,7 @@ namespace psx::video {
 	void MakeCurrentArrayBuffer(u32 id);
 
 	static constexpr u32 VERTEX_ATTRIB_SIZES[] = {
-		1, 1, 1, 1, 1, 1, 1
+		1, 1, 1, 1, 1, 1, 1, 2
 	};
 
 	struct VertexAttribute {
@@ -89,8 +89,6 @@ namespace psx::video {
 
 			m_curr_verts++;
 
-			m_buf.Flush();
-
 			return true;
 		}
 
@@ -112,6 +110,10 @@ namespace psx::video {
 
 		~VertexBuffer() {
 			DeleteVertexArray(m_vertex_arr);
+		}
+
+		void Clear() {
+			m_curr_verts = 0;
 		}
 
 	private :

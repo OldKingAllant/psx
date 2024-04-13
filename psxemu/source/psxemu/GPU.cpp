@@ -337,8 +337,6 @@ namespace psx {
 		u16 old_pixel = *reinterpret_cast<u16*>(m_cpu_vram + curr_index);
 
 		if (!m_stat.draw_over_mask_disable || !(old_pixel & 0x8000)) {
-			u32 color = (0x1F << 6);
-			color |= (0x1F << 11);
 			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data);
 		}
 
@@ -353,7 +351,7 @@ namespace psx {
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
-				m_renderer->BlitEnd();
+			//	m_renderer->BlitEnd();
 				return;
 			}
 		}
@@ -376,7 +374,7 @@ namespace psx {
 			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
-				m_renderer->BlitEnd();
+			//	m_renderer->BlitEnd();
 				m_cmd_status = Status::IDLE;
 			}
 		}
