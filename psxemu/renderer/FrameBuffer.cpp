@@ -57,6 +57,12 @@ namespace psx::video {
 			0, 0, 0, 0, 1024, 512, 1);
 	}
 
+	void FrameBuffer::UpdatePartial(u32 blit_tex, u32 xoff, u32 yoff, u32 w, u32 h) {
+		glCopyImageSubData(blit_tex, GL_TEXTURE_2D, 0, xoff, yoff, 0,
+			m_fbo_tex, GL_TEXTURE_2D, 0, xoff, yoff, 0,
+			w, h, 1);
+	}
+
 	FrameBuffer::~FrameBuffer() {
 		glDeleteTextures(1, &m_fbo_tex);
 		glDeleteFramebuffers(1, &m_fbo);

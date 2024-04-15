@@ -186,6 +186,9 @@ namespace psx {
 		void DrawBasicGouraudQuad();
 		void DrawBasicGouraudTriangle();
 
+		void CheckIfDrawNeeded();
+		void FlushDrawOps();
+
 	private :
 		Queue<u32, 16> m_cmd_fifo;
 		GpuStat m_stat;

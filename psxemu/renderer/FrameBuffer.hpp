@@ -11,6 +11,8 @@ namespace psx::video {
 		void UpdateInternalTexture(u32 blit_tex);
 		void CopyToTexture(u32 dest);
 
+		void UpdatePartial(u32 blit_tex, u32 xoff, u32 yoff, u32 w, u32 h);
+
 		FORCE_INLINE u32 GetFbo() const {
 			return m_fbo;
 		}

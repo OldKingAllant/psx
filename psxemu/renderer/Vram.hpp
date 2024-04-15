@@ -39,6 +39,9 @@ namespace psx::video {
 			return m_texture_id;
 		}
 
+		void UploadSubImage(u32 xoff, u32 yoff, u32 w, u32 h);
+		void DownloadSubImage(u32 xoff, u32 yoff, u32 w, u32 h);
+
 	private :
 		void CreateBuffer();
 		void MapBuffer();

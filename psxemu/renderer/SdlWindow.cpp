@@ -15,8 +15,8 @@ namespace psx::video {
 		GLsizei length,
 		const GLchar* message,
 		const void* userParam) {
-		if (type == GL_DEBUG_TYPE_PERFORMANCE)
-			return;
+		//if (type == GL_DEBUG_TYPE_PERFORMANCE)
+			//return;
 
 		std::string msg{ message, (size_t)length };
 		fmt::println("[OPENGL] {}", msg);

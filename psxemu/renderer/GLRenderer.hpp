@@ -70,9 +70,12 @@ namespace psx::video {
 	public :
 		Renderer();
 
-		void BlitBegin();
-		void BlitEnd();
 		void VBlank();
+
+		void BlitBegin(u32 xoff, u32 yoff, u32 w, u32 h);
+		void BlitEnd(u32 xoff, u32 yoff, u32 w, u32 h);
+
+		void FlushCommands();
 
 		void SyncTextures();
 

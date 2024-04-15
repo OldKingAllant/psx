@@ -6,6 +6,23 @@
 #include <fmt/format.h>
 
 namespace psx {
+	void Gpu::CheckIfDrawNeeded() {
+		//If this is true, batching becomes
+		//impossible, since previous draw
+		//calls can immediately affect 
+		//others, for this reason, we
+		//need to always update the VRAM
+		//input texture after every draw
+		//command
+		if (m_stat.draw_over_mask_disable) {
+			FlushDrawOps();
+		}
+	}
+
+	void Gpu::FlushDrawOps() {
+		m_renderer->FlushCommands();
+	}
+
 	void Gpu::DrawFlatUntexturedOpaqueQuad() {
 		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
 
@@ -184,6 +201,8 @@ namespace psx {
 			fmt::println("      Raw texture      = {}", raw);
 			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);
 		}
+
+		CheckIfDrawNeeded();
 	}
 
 	void Gpu::DrawTriangle() {
@@ -215,5 +234,7 @@ namespace psx {
 			fmt::println("      Raw texture      = {}", raw);
 			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);
 		}
+
+		CheckIfDrawNeeded();
 	}
 }

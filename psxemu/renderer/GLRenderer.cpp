@@ -15,10 +15,6 @@ namespace psx::video {
 		m_commands{}
 	{}
 
-	void Renderer::BlitEnd() {
-		m_need_host_to_gpu_copy = true;
-	}
-
 	void Renderer::SyncTextures() {
 		if (m_need_host_to_gpu_copy && m_need_gpu_to_host_copy) {
 			fmt::println("[RENDERER] Texture are out of sync!");
@@ -34,22 +30,13 @@ namespace psx::video {
 		}
 
 		if (m_need_host_to_gpu_copy) {
-			//Host mapped buffer has changed
-			//1. Upload buffer to input VRAM texture
-			//2. Copy input VRAM to output VRAM
-			m_vram.Upload();
 			m_framebuffer.UpdateInternalTexture(m_vram.GetTextureHandle());
 			m_need_host_to_gpu_copy = false;
 		}
 	}
 
 	void Renderer::VBlank() {
-		DrawBatch();
-		SyncTextures();
-	}
-
-	void Renderer::BlitBegin() {
-		SyncTextures();
+		FlushCommands();
 	}
 
 	void Renderer::AppendCommand(DrawCommand cmd) {
@@ -197,6 +184,27 @@ namespace psx::video {
 				flag = false;
 		}
 
+	}
+
+	void Renderer::BlitBegin(u32 xoff, u32 yoff, u32 w, u32 h) {
+		//Flush all commands since:
+		//- CPU-VRAM blits will modify behaviour in most cases
+		//- VRAM-CPU blits require updated VRAM 
+		FlushCommands();
+	}
+
+	void Renderer::BlitEnd(u32 xoff, u32 yoff, u32 w, u32 h) {
+		m_vram.UploadSubImage(xoff, yoff, w, h);
+		m_framebuffer.UpdatePartial(
+			m_vram.GetTextureHandle(),
+			xoff, yoff, w, h
+		);
+	}
+
+	void Renderer::FlushCommands() {
+		SyncTextures();
+		DrawBatch();
+		SyncTextures();
 	}
 
 	Renderer::~Renderer() {

@@ -47,6 +47,8 @@ namespace psx {
 		if (cmd == m_raw_conf.texpage)
 			return;
 
+		FlushDrawOps();
+
 		m_raw_conf.texpage = cmd;
 
 		m_stat.texture_page_x_base = cmd & 0xF;
@@ -169,6 +171,8 @@ namespace psx {
 		if (m_raw_conf.draw_top_left == cmd)
 			return;
 
+		FlushDrawOps();
+
 		m_raw_conf.draw_top_left = cmd;
 
 		m_x_top_left = cmd & 1023;
@@ -185,6 +189,8 @@ namespace psx {
 
 		if (m_raw_conf.draw_bottom_right == cmd)
 			return;
+
+		FlushDrawOps();
 
 		m_raw_conf.draw_bottom_right = cmd;
 
@@ -204,6 +210,8 @@ namespace psx {
 			return;
 
 		m_raw_conf.draw_offset = cmd;
+
+		FlushDrawOps();
 
 		m_x_off = cmd & 0x7FF;
 		m_y_off = (cmd >> 11) & 0x7FF;
@@ -225,6 +233,8 @@ namespace psx {
 
 		m_raw_conf.tex_window = cmd;
 
+		FlushDrawOps();
+
 		m_tex_win.mask_x = cmd & 0x1F;
 		m_tex_win.mask_y = (cmd >> 5) & 0x1F;
 		m_tex_win.offset_x = (cmd >> 10) & 0x1F;
@@ -241,8 +251,13 @@ namespace psx {
 
 		fmt::println("[GPU] MASK_BIT(0x{:x})", cmd);
 
+		bool old_set = m_stat.set_mask;
+		bool old_siable = m_stat.draw_over_mask_disable;
+
 		m_stat.set_mask = (bool)(cmd & 1);
 		m_stat.draw_over_mask_disable = (bool)((cmd >> 1) & 1);
+
+		FlushDrawOps();
 
 		fmt::println("      Force bit 15 to 1      = {}", m_stat.set_mask);
 		fmt::println("      Check mask before draw = {}", m_stat.draw_over_mask_disable);
@@ -318,9 +333,6 @@ namespace psx {
 			fmt::println("      Size Y        = {}", m_cpu_vram_blit.size_y);
 
 			m_cmd_status = Status::CPU_VRAM_BLIT;
-
-			//m_renderer->BlitBegin();
-			//m_renderer->GetVram().Download();
 		}
 			break;
 		case psx::CommandType::VRAM_CPU_BLIT: {
@@ -361,9 +373,6 @@ namespace psx {
 
 			m_cmd_status = Status::VRAM_CPU_BLIT;
 			m_read_status = GPUREAD_Status::READ_VRAM;
-
-			//m_renderer->BlitBegin();
-			//m_renderer->GetVram().Download();
 		}
 			break;
 		case psx::CommandType::ENV:

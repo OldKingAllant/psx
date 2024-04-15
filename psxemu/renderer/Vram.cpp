@@ -14,8 +14,12 @@ namespace psx::video {
 		if (!GlIsInit())
 			throw std::runtime_error("OpeGL context missing");
 
+		m_buffer_ptr = new u8[VRAM_SIZE_BYTES];
+
+		std::memset(m_buffer_ptr, 0x00, VRAM_SIZE_BYTES);
+
 		CreateBuffer();
-		MapBuffer();
+		Upload();
 
 		auto errors = GlGetErrors();
 
@@ -25,11 +29,6 @@ namespace psx::video {
 					(const char*)glewGetErrorString(err));
 			throw std::runtime_error("OpenGL errors!");
 		}
-
-		for (uint32_t index = 0; index < VRAM_SIZE_BYTES; index++)
-			m_buffer_ptr[index] = 0x00;
-
-		Upload();
 	}
 
 	u8* Vram::Get() const {
@@ -40,29 +39,25 @@ namespace psx::video {
 		if (!m_buffer_ptr)
 			return;
 
+		delete[] m_buffer_ptr;
+		m_buffer_ptr = nullptr;
+
 		UnmapBuffer();
 		DestroyBuffer();
 	}
 
 	void Vram::Upload() {
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_buffer_id);
 		glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, 512,
-			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
+			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, m_buffer_ptr);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	}
 
 	void Vram::CreateBuffer() {
 		glGenBuffers(1, reinterpret_cast<GLuint*>(&m_buffer_id));
 		glGenTextures(1, reinterpret_cast<GLuint*>(&m_texture_id));
-
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_buffer_id);
-		glBufferStorage(GL_PIXEL_UNPACK_BUFFER, VRAM_SIZE_BYTES, nullptr,
-			GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | 
-			GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 		glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
@@ -80,7 +75,6 @@ namespace psx::video {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 512, 0,
 			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
 
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
@@ -96,23 +90,37 @@ namespace psx::video {
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_buffer_id);
 		glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-		m_buffer_ptr = nullptr;
 	}
 
 	void Vram::DestroyBuffer() {
 		glDeleteBuffers(1, reinterpret_cast<GLuint*>(&m_buffer_id));
 		glDeleteTextures(1, reinterpret_cast<GLuint*>(&m_texture_id));
-		m_buffer_ptr = nullptr;
 	}
 
 	void Vram::Download() {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, m_buffer_id);
 		glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
 		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, 
-			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, m_buffer_ptr);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	}
+
+	void Vram::UploadSubImage(u32 xoff, u32 yoff, u32 w, u32 h) {
+		u32 pointer_offset = ((yoff * 1024) + xoff) * 2;
+		glBindTexture(GL_TEXTURE_2D, m_texture_id);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, xoff, yoff,
+			w, h, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,
+			m_buffer_ptr + pointer_offset);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	void Vram::DownloadSubImage(u32 xoff, u32 yoff, u32 w, u32 h) {
+		u32 pointer_offset = ((yoff * 1024) + xoff) * 2;
+		glBindTexture(GL_TEXTURE_2D, m_texture_id);
+		glGetTextureSubImage(m_texture_id, 0, xoff, yoff, 0,
+			w, h, 1, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,
+			VRAM_SIZE_BYTES, m_buffer_ptr + pointer_offset);
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 }

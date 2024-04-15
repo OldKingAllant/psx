@@ -351,7 +351,12 @@ namespace psx {
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
-			//	m_renderer->BlitEnd();
+				m_renderer->BlitEnd(
+					m_cpu_vram_blit.source_x,
+					m_cpu_vram_blit.source_y, 
+					m_cpu_vram_blit.size_x,
+					m_cpu_vram_blit.size_y
+				);
 				return;
 			}
 		}
@@ -374,7 +379,12 @@ namespace psx {
 			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
-			//	m_renderer->BlitEnd();
+				m_renderer->BlitEnd(
+					m_cpu_vram_blit.source_x,
+					m_cpu_vram_blit.source_y,
+					m_cpu_vram_blit.size_x,
+					m_cpu_vram_blit.size_y
+				);
 				m_cmd_status = Status::IDLE;
 			}
 		}
