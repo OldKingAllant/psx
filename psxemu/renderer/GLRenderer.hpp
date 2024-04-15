@@ -87,6 +87,10 @@ namespace psx::video {
 			return m_vram;
 		}
 
+		FrameBuffer& GetFramebuffer() {
+			return m_framebuffer;
+		}
+
 		void DrawFlatUntexturedOpaque(UntexturedOpaqueFlatTriangle triangle);
 		void DrawBasicGouraud(BasicGouraudTriangle triangle);
 

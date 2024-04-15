@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
 
 		auto handle = sys.GetStatus()
 			.sysbus->GetGPU()
-			.GetRenderer()->GetVram()
-			.GetTextureHandle();
+			.GetRenderer()->GetFramebuffer()
+			.GetInternalTexture();
 
 		vram_view.Blit(handle);
 	}
