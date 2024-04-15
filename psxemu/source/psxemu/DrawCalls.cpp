@@ -16,6 +16,7 @@ namespace psx {
 		//command
 		if (m_stat.draw_over_mask_disable) {
 			FlushDrawOps();
+			m_renderer->SyncTextures();
 		}
 	}
 
@@ -63,11 +64,11 @@ namespace psx {
 		u32 g = (color >> 8) & 0xFF;
 		u32 b = (color >> 16) & 0xFF;
 
-		fmt::println("[GPU] DRAW QUAD");
+		/*fmt::println("[GPU] DRAW QUAD");
 		fmt::println("      R = {}, G = {}, B = {}",
 			r, g, b);
 		fmt::println("      V0 X = {}, Y = {}", 
-			v1.x, v1.y);
+			v1.x, v1.y);*/
 
 		triangle1.r = r;
 		triangle1.g = g;
@@ -194,12 +195,12 @@ namespace psx {
 				u32 param = m_cmd_fifo.deque();
 			}
 
-			fmt::println("[GPU] DRAW QUAD");
+			/*fmt::println("[GPU] DRAW QUAD");
 			fmt::println("      Gouraud          = {}", gouraud);
 			fmt::println("      Textured         = {}", tex);
 			fmt::println("      Semi-transparent = {}", transparent);
 			fmt::println("      Raw texture      = {}", raw);
-			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);
+			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);*/
 		}
 
 		CheckIfDrawNeeded();
@@ -227,12 +228,12 @@ namespace psx {
 				u32 param = m_cmd_fifo.deque();
 			}
 
-			fmt::println("[GPU] DRAW TRIANGLE");
+			/*fmt::println("[GPU] DRAW TRIANGLE");
 			fmt::println("      Gouraud          = {}", gouraud);
 			fmt::println("      Textured         = {}", tex);
 			fmt::println("      Semi-transparent = {}", transparent);
 			fmt::println("      Raw texture      = {}", raw);
-			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);
+			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);*/
 		}
 
 		CheckIfDrawNeeded();

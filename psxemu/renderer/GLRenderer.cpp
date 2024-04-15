@@ -10,6 +10,7 @@ namespace psx::video {
 		m_vram{}, m_framebuffer{},
 		m_need_gpu_to_host_copy{false},
 		m_need_host_to_gpu_copy{false}, 
+		m_processing_cmd{false},
 		m_untextured_opaque_flat_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_basic_gouraud_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
 		m_commands{}
@@ -159,12 +160,13 @@ namespace psx::video {
 		m_untextured_opaque_flat_pipeline.ClearPrimitiveData();
 		m_untextured_opaque_flat_pipeline.ClearVertices();
 
-		m_need_gpu_to_host_copy = true;
-
-		CommandFenceSync();
+		m_processing_cmd = true;
 	}
 
 	void Renderer::CommandFenceSync() {
+		if (!m_processing_cmd)
+			return;
+
 		auto sync = glFenceSync(
 			GL_SYNC_GPU_COMMANDS_COMPLETE,
 			0
@@ -184,27 +186,30 @@ namespace psx::video {
 				flag = false;
 		}
 
+		glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+
+		m_processing_cmd = false;
+		m_need_gpu_to_host_copy = true;
 	}
 
 	void Renderer::BlitBegin(u32 xoff, u32 yoff, u32 w, u32 h) {
 		//Flush all commands since:
 		//- CPU-VRAM blits will modify behaviour in most cases
 		//- VRAM-CPU blits require updated VRAM 
-		FlushCommands();
+		//FlushCommands();
 	}
 
 	void Renderer::BlitEnd(u32 xoff, u32 yoff, u32 w, u32 h) {
-		m_vram.UploadSubImage(xoff, yoff, w, h);
+		/*m_vram.UploadSubImage(xoff, yoff, w, h);
 		m_framebuffer.UpdatePartial(
 			m_vram.GetTextureHandle(),
 			xoff, yoff, w, h
-		);
+		);*/
 	}
 
 	void Renderer::FlushCommands() {
-		SyncTextures();
 		DrawBatch();
-		SyncTextures();
+		CommandFenceSync();
 	}
 
 	Renderer::~Renderer() {

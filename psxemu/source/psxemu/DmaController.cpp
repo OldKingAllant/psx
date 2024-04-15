@@ -33,7 +33,7 @@ namespace psx {
 	void DmaController::Write(u32 address, u32 value, u32 mask) {
 		if (address >= DMA_CONTROL && address < DMA_CONTROL + 4) {
 			m_control.raw = value;
-			fmt::println("[DMA CONTROLLER] DMA Control = 0x{:x}", m_control.raw);
+			/*fmt::println("[DMA CONTROLLER] DMA Control = 0x{:x}", m_control.raw);
 
 			if (value != 0) {
 				fmt::println("                 MDECin priority  =   {}", (u32)m_control.dma0_prio);
@@ -50,7 +50,7 @@ namespace psx {
 				fmt::println("                 PIO enable       =   {}", (bool)m_control.dma5_en);
 				fmt::println("                 OTC priority     =   {}", (u32)m_control.dma6_prio);
 				fmt::println("                 OTC enable       =   {}", (bool)m_control.dma6_en);
-			}
+			}*/
 
 			return;
 		}
@@ -69,7 +69,7 @@ namespace psx {
 
 			UpdateMasterIRQ();
 
-			fmt::println("[DMA CONTROLLER] INT Control = 0x{:x}", m_int_control.raw);
+			/*fmt::println("[DMA CONTROLLER] INT Control = 0x{:x}", m_int_control.raw);
 
 			if (value != 0) {
 				fmt::println("                 Completion int (1=for each block) = {:07b}", (u32)m_int_control.interrupt_on_block);
@@ -78,7 +78,7 @@ namespace psx {
 				fmt::println("                 Interrupt flags                   = {:07b}", (u32)m_int_control.channel_int_req);
 				fmt::println("                 Master interrupt enable           = {}", (bool)m_int_control.master_int_enable);
 				fmt::println("                 Master interrupt flag             = {}", (bool)m_int_control.master_irq);
-			}
+			}*/
 
 			return;
 		}

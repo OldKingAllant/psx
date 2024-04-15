@@ -107,6 +107,7 @@ namespace psx::video {
 		FrameBuffer m_framebuffer;
 		bool m_need_gpu_to_host_copy;
 		bool m_need_host_to_gpu_copy;
+		bool m_processing_cmd;
 		Pipeline<Primitive::TRIANGLES,
 			UntexturedOpaqueFlatVertex,
 			Color,
