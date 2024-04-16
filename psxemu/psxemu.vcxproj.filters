@@ -292,10 +292,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\shaders\vram_blit.fragment">
+    <None Include="..\shaders\vram_view_blit.fragment">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\shaders\vram_blit.vertex">
+    <None Include="..\shaders\vram_view_blit.vertex">
       <Filter>shaders</Filter>
     </None>
     <None Include="..\shaders\flat_untextured_opaque_triangle.fragment">
@@ -308,6 +308,12 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\shaders\basic_gouraud.vertex">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\vram_blit.fragment">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\vram_blit.vertex">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

@@ -48,6 +48,9 @@ namespace psx::video {
 			else if constexpr (std::is_same_v<UniformTy, std::array<unsigned int, 3>>) {
 				glUniform3ui(uniform_loc, value[0], value[1], value[2]);
 			}
+			else if constexpr (std::is_same_v<UniformTy, bool>) {
+				glUniform1i(uniform_loc, value);
+			}
 			else {
 				fmt::println("[RENDERER] Invalid uniform type");
 				error::DebugBreak();

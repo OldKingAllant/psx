@@ -334,11 +334,7 @@ namespace psx {
 
 		curr_index *= 2;
 
-		u16 old_pixel = *reinterpret_cast<u16*>(m_cpu_vram + curr_index);
-
-		if (!m_stat.draw_over_mask_disable || !(old_pixel & 0x8000)) {
-			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data);
-		}
+		*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data);
 
 		m_cpu_vram_blit.curr_x += 1;
 		m_cpu_vram_blit.curr_x %= VRAM_X_SIZE;
@@ -351,11 +347,12 @@ namespace psx {
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
-				m_renderer->BlitEnd(
+				m_renderer->EndCpuVramBlit(
 					m_cpu_vram_blit.source_x,
-					m_cpu_vram_blit.source_y, 
+					m_cpu_vram_blit.source_y,
 					m_cpu_vram_blit.size_x,
-					m_cpu_vram_blit.size_y
+					m_cpu_vram_blit.size_y,
+					m_stat.draw_over_mask_disable
 				);
 				return;
 			}
@@ -363,11 +360,7 @@ namespace psx {
 
 		curr_index += 2;
 
-		old_pixel = *reinterpret_cast<u16*>(m_cpu_vram + curr_index);
-
-		if (!m_stat.draw_over_mask_disable || !(old_pixel & 0x8000)) {
-			*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data >> 16);
-		}
+		*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data >> 16);
 
 		m_cpu_vram_blit.curr_x += 1;
 		m_cpu_vram_blit.curr_x %= VRAM_X_SIZE;
@@ -379,13 +372,14 @@ namespace psx {
 			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
-				m_renderer->BlitEnd(
+				m_cmd_status = Status::IDLE;
+				m_renderer->EndCpuVramBlit(
 					m_cpu_vram_blit.source_x,
 					m_cpu_vram_blit.source_y,
 					m_cpu_vram_blit.size_x,
-					m_cpu_vram_blit.size_y
+					m_cpu_vram_blit.size_y,
+					m_stat.draw_over_mask_disable
 				);
-				m_cmd_status = Status::IDLE;
 			}
 		}
 	}

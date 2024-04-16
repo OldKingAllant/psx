@@ -3,6 +3,8 @@
 #include "Vram.hpp"
 #include "FrameBuffer.hpp"
 #include "Pipeline.hpp"
+#include "VertexBuffer.hpp"
+#include "Shader.hpp"
 
 #include <list>
 
@@ -49,6 +51,18 @@ namespace psx::video {
 		BasicGouraudVertex v2;
 	};
 
+	struct BlitVertex {
+#pragma pack(push, 1)
+		u32 x, y;
+#pragma pack(pop)
+
+		std::vector<VertexAttribute> attributes() const {
+			return {
+				VertexAttribute{ VertexAttributeType::UVEC2, (u8*)&x - (u8*)this }
+			};
+		}
+	};
+
 	enum class PipelineType {
 		UNTEXTURE_OPAQUE_FLAT_TRIANGLE,
 		BASIC_GOURAUD_TRIANGLE,
@@ -73,8 +87,9 @@ namespace psx::video {
 
 		void VBlank();
 
-		void BlitBegin(u32 xoff, u32 yoff, u32 w, u32 h);
-		void BlitEnd(u32 xoff, u32 yoff, u32 w, u32 h);
+		void VramCpuBlit(u32 xoff, u32 yoff, u32 w, u32 h);
+		void BeginCpuVramBlit();
+		void EndCpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h, bool mask_enable);
 
 		void FlushCommands();
 
@@ -113,6 +128,8 @@ namespace psx::video {
 			UntexturedOpaqueFlatVertex, NullData> m_untextured_opaque_flat_pipeline;
 		Pipeline<Primitive::TRIANGLES,
 			BasicGouraudVertex, NullData> m_basic_gouraud_pipeline;
+		VertexBuffer<BlitVertex> m_blit_vertex_buf;
+		Shader m_blit_shader;
 		std::list<DrawCommand> m_commands;
 	};
 }

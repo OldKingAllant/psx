@@ -67,4 +67,13 @@ namespace psx::video {
 		glDeleteTextures(1, &m_fbo_tex);
 		glDeleteFramebuffers(1, &m_fbo);
 	}
+
+	void FrameBuffer::DownloadSubImage(u8* dest_buf, u32 xoff, u32 yoff, u32 w, u32 h) {
+		u32 pointer_offset = ((yoff * 1024) + xoff) * 2;
+		glBindTexture(GL_TEXTURE_2D, m_fbo_tex);
+		glGetTextureSubImage(m_fbo_tex, 0, xoff, yoff, 0, w, h, 1,
+			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, 
+			(u64)1024 * 1024, dest_buf + pointer_offset);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 }

@@ -4,6 +4,8 @@
 
 #include <fmt/format.h>
 #include <array>
+#include <thread>
+#include <chrono>
 
 namespace psx::video {
 	Renderer::Renderer() :
@@ -13,6 +15,8 @@ namespace psx::video {
 		m_processing_cmd{false},
 		m_untextured_opaque_flat_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_basic_gouraud_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
+		m_blit_vertex_buf(6),
+		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_commands{}
 	{}
 
@@ -191,19 +195,58 @@ namespace psx::video {
 	//also the need of waiting for all commands 
 	//to finish even before the blit has started
 
-	void Renderer::BlitBegin(u32 xoff, u32 yoff, u32 w, u32 h) {
-		//Flush all commands since:
-		//- CPU-VRAM blits will modify behaviour in most cases
-		//- VRAM-CPU blits require updated VRAM 
-		//FlushCommands();
+	void Renderer::VramCpuBlit(u32 xoff, u32 yoff, u32 w, u32 h) {
+		//Immediately flush all commands and wait 
+		//for completion
+		FlushCommands();
+		m_framebuffer.DownloadSubImage(m_vram.Get(), xoff, yoff, w, h);
 	}
 
-	void Renderer::BlitEnd(u32 xoff, u32 yoff, u32 w, u32 h) {
-		/*m_vram.UploadSubImage(xoff, yoff, w, h);
-		m_framebuffer.UpdatePartial(
-			m_vram.GetTextureHandle(),
-			xoff, yoff, w, h
-		);*/
+	void Renderer::BeginCpuVramBlit() {
+		//after calling this method, CPU fills unmasked buffer 
+		//therefore, we need to issue all draw commands
+		//right now, but we don't want to wait for completion, yet
+		DrawBatch();
+		m_blit_vertex_buf.Clear();
+	}
+
+	void Renderer::EndCpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h, bool mask_enable) {
+		CommandFenceSync();
+		SyncTextures();
+
+		m_vram.UploadForBlit(xoff, yoff, w, h);
+
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff + h });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
+
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
+
+		m_framebuffer.Bind();
+
+		m_blit_vertex_buf.Bind();
+
+		m_blit_shader.BindProgram();
+
+		m_blit_shader.UpdateUniform("mask_enable", mask_enable);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		m_blit_vertex_buf.Unbind();
+
+		m_framebuffer.Unbind();
+
+		m_processing_cmd = true;
+
+		CommandFenceSync();
+		SyncTextures();
 	}
 
 	void Renderer::FlushCommands() {

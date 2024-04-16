@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
 
 	psx::video::SdlWindow vram_view("Vram",
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_blit", false, false);
+		"../shaders", "vram_view_blit", false, false);
 
 	tty::TTY_Console console{ "../x64/Debug/TTY_Console.exe", "psx-tty" };
 

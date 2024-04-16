@@ -39,8 +39,14 @@ namespace psx::video {
 			return m_texture_id;
 		}
 
+		u32 GetBlitTextureHandle() const {
+			return m_blit_texture;
+		}
+
 		void UploadSubImage(u32 xoff, u32 yoff, u32 w, u32 h);
 		void DownloadSubImage(u32 xoff, u32 yoff, u32 w, u32 h);
+
+		void UploadForBlit(u32 xoff, u32 yoff, u32 w, u32 h);
 
 	private :
 		void CreateBuffer();
@@ -52,5 +58,6 @@ namespace psx::video {
 		u32 m_texture_id;
 		u32 m_buffer_id;
 		u8* m_buffer_ptr;
+		u32 m_blit_texture;
 	};
 }
