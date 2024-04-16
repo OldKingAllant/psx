@@ -36,6 +36,7 @@ namespace psx::video {
 			return GL_FLOAT;
 			break;
 		case psx::video::VertexAttributeType::UVEC2:
+		case psx::video::VertexAttributeType::UVEC3:
 			return GL_UNSIGNED_INT;
 			break;
 		default:

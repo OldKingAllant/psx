@@ -83,6 +83,7 @@ namespace psx {
 			break;
 		case 0x1:
 			fmt::println("[GPU] CLEAR TEXTURE CACHE");
+			FlushDrawOps();
 			m_renderer->SyncTextures();
 			break;
 		case 0x3:

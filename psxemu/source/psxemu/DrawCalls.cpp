@@ -49,6 +49,26 @@ namespace psx {
 		v4.x = (vertex_4 & 0xFFFF);
 		v4.y = ((vertex_4 >> 16) & 0xFFFF);
 
+		u32 r = color & 0xFF;
+		u32 g = (color >> 8) & 0xFF;
+		u32 b = (color >> 16) & 0xFF;
+
+		v1.r = r;
+		v1.g = g;
+		v1.b = b;
+
+		v2.r = r;
+		v2.g = g;
+		v2.b = b;
+
+		v3.r = r;
+		v3.g = g;
+		v3.b = b;
+
+		v4.r = r;
+		v4.g = g;
+		v4.b = b;
+
 		video::UntexturedOpaqueFlatTriangle triangle1 = {};
 		video::UntexturedOpaqueFlatTriangle triangle2 = {};
 
@@ -60,23 +80,11 @@ namespace psx {
 		triangle2.v1 = v3;
 		triangle2.v2 = v4;
 
-		u32 r = color & 0xFF;
-		u32 g = (color >> 8) & 0xFF;
-		u32 b = (color >> 16) & 0xFF;
-
 		/*fmt::println("[GPU] DRAW QUAD");
 		fmt::println("      R = {}, G = {}, B = {}",
 			r, g, b);
 		fmt::println("      V0 X = {}, Y = {}", 
 			v1.x, v1.y);*/
-
-		triangle1.r = r;
-		triangle1.g = g;
-		triangle1.b = b;
-
-		triangle2.r = r;
-		triangle2.g = g;
-		triangle2.b = b;
 
 		m_renderer->DrawFlatUntexturedOpaque(
 			triangle1

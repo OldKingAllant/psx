@@ -59,13 +59,7 @@ namespace psx::video {
 		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v1);
 		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v2);
 
-		Color triangle_color = {};
-
-		triangle_color.r = triangle.r;
-		triangle_color.g = triangle.g;
-		triangle_color.b = triangle.b;
-
-		m_untextured_opaque_flat_pipeline.AddPrimitiveData(triangle_color);
+		m_untextured_opaque_flat_pipeline.AddPrimitiveData({});
 
 		DrawCommand cmd = {};
 
@@ -113,25 +107,7 @@ namespace psx::video {
 			switch (pipeline_id)
 			{
 			case psx::video::PipelineType::UNTEXTURE_OPAQUE_FLAT_TRIANGLE: {
-				u32 rem = count;
-
-				while (rem) {
-					Color color = m_untextured_opaque_flat_pipeline.GetPrimitiveData(
-						curr_primitive
-					);
-
-					m_untextured_opaque_flat_pipeline
-						.Draw(curr_offset, 3, 
-							std::pair{ "in_color", std::array<unsigned int, 3>{
-								color.r, color.g, color.b
-							}}
-					);
-
-					rem -= 3;
-					curr_primitive++;
-					curr_offset += 3;
-				}
-
+				m_untextured_opaque_flat_pipeline.Draw(curr_offset, count);
 				curr_primitive_index[(u32)pipeline_id] += count / 3;
 			}
 				break;
@@ -191,6 +167,29 @@ namespace psx::video {
 		m_processing_cmd = false;
 		m_need_gpu_to_host_copy = true;
 	}
+
+	//Before ANY blit, flush commands, wait 
+	//for commands to finish
+	//To avoid downloading from GPU  memory to host
+	//memory, we could 
+	//1. write unmasked to CPU memory
+	//2. copy that CPU memory to a blit texture
+	//3. blit that texture to the output VRAM considering mask setting
+	//4. Copy output VRAM to input VRAM
+	//This has also the advantage of waiting for
+	// previous commands to finish only after
+	// the CPU-side blit has been performed,
+	// which could speed up things significantly
+	//Otherwise, by performing GPU-CPU download
+	//1. after waiting commands to finish 
+	//2. copy output VRAM to CPU memory (only required sub-image)
+	//3. Perform blit
+	//4. After the blit, copy CPU memory to GPU memory
+	//5. Copy entire output VRAM to input VRAM
+	//This has the disadvantage of needing to actually
+	//copy part of the VRAM texture to CPU, and 
+	//also the need of waiting for all commands 
+	//to finish even before the blit has started
 
 	void Renderer::BlitBegin(u32 xoff, u32 yoff, u32 w, u32 h) {
 		//Flush all commands since:

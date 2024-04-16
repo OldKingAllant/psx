@@ -2,6 +2,9 @@
 
 layout(location = 0) in int vram_coords_x;
 layout(location = 1) in int vram_coords_y;
+layout(location = 2) in uvec3 color;
+
+flat out uvec3 in_color; 
 
 void main() {
 	float x = float(vram_coords_x) / 1024.0;
@@ -11,4 +14,5 @@ void main() {
 	y = y * 2 - 1;
 
 	gl_Position = vec4(x, y, 0.0, 1.0);
+	in_color = color;
 }

@@ -10,12 +10,14 @@ namespace psx::video {
 	struct UntexturedOpaqueFlatVertex {
 #pragma pack(push, 1)
 		int32_t x, y;
+		u32 r, g, b;
 #pragma pack(pop)
 
 		std::vector<VertexAttribute> attributes() const {
 			return {
 				VertexAttribute{ VertexAttributeType::INT, (u8*)&x - (u8*)this },
-				VertexAttribute{ VertexAttributeType::INT, (u8*)&y - (u8*)this }
+				VertexAttribute{ VertexAttributeType::INT, (u8*)&y - (u8*)this },
+				VertexAttribute{ VertexAttributeType::UVEC3, (u8*)&r - (u8*)this }
 			};
 		}
 	};
@@ -39,7 +41,6 @@ namespace psx::video {
 		UntexturedOpaqueFlatVertex v0;
 		UntexturedOpaqueFlatVertex v1;
 		UntexturedOpaqueFlatVertex v2;
-		u32 r, g, b;
 	};
 
 	struct BasicGouraudTriangle {
@@ -109,9 +110,7 @@ namespace psx::video {
 		bool m_need_host_to_gpu_copy;
 		bool m_processing_cmd;
 		Pipeline<Primitive::TRIANGLES,
-			UntexturedOpaqueFlatVertex,
-			Color,
-			std::array<unsigned int, 3>> m_untextured_opaque_flat_pipeline;
+			UntexturedOpaqueFlatVertex, NullData> m_untextured_opaque_flat_pipeline;
 		Pipeline<Primitive::TRIANGLES,
 			BasicGouraudVertex, NullData> m_basic_gouraud_pipeline;
 		std::list<DrawCommand> m_commands;
