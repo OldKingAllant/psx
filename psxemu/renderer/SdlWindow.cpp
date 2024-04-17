@@ -2,6 +2,7 @@
 #include "GlLoad.hpp"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
 
 #include <fmt/format.h>
 #include <string>
@@ -24,7 +25,7 @@ namespace psx::video {
 
 	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize)
 		: m_win{ nullptr }, m_gl_ctx { nullptr }, m_blit{ nullptr }, 
-		m_close{}, m_vert_buf{ nullptr }, m_tex_id{} {
+		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{} {
 		if (reuse_ctx)
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 		else
@@ -136,6 +137,12 @@ namespace psx::video {
 			case SDL_QUIT:
 				m_close = true;
 				break;
+			case SDL_KEYDOWN:
+				DispatchEvent(SdlEvent::KeyPressed, std::any{ std::string_view{ SDL_GetKeyName(next_ev.key.keysym.sym) }});
+				break;
+			case SDL_KEYUP:
+				DispatchEvent(SdlEvent::KeyReleased, std::any{ std::string_view{ SDL_GetKeyName(next_ev.key.keysym.sym) } });
+				break;
 			default:
 				break;
 			}
@@ -150,5 +157,23 @@ namespace psx::video {
 		delete m_vert_buf;
 		SDL_GL_DeleteContext(m_gl_ctx);
 		SDL_DestroyWindow((SDL_Window*)m_win);
+	}
+
+	void SdlWindow::Listen(SdlEvent ev, EventCallback callback) {
+		m_ev_callbacks.insert(std::pair{ ev, std::move(callback) });
+	}
+
+	void SdlWindow::DispatchEvent(SdlEvent ev, std::any data) {
+		auto range = m_ev_callbacks.equal_range(ev);
+		
+		for (auto entry = range.first; entry != range.second; entry++)
+			entry->second(ev, data);
+	}
+
+	void* SdlWindow::GetNativeWindowHandle() const {
+		SDL_SysWMinfo wminfo{};
+		SDL_VERSION(&wminfo.version);
+		SDL_GetWindowWMInfo((SDL_Window*)m_win, &wminfo);
+		return (void*)wminfo.info.win.window;
 	}
 }

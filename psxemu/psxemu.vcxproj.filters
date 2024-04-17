@@ -189,6 +189,9 @@
     <ClInclude Include="renderer\Pipeline.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\Renderdoc.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -288,6 +291,9 @@
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
     <ClCompile Include="renderer\Pipeline.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\Renderdoc.cpp">
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
   </ItemGroup>

@@ -173,6 +173,7 @@
     <ClInclude Include="renderer\GlLoad.hpp" />
     <ClInclude Include="renderer\GLRenderer.hpp" />
     <ClInclude Include="renderer\Pipeline.hpp" />
+    <ClInclude Include="renderer\Renderdoc.hpp" />
     <ClInclude Include="renderer\SdlContext.hpp" />
     <ClInclude Include="renderer\SdlWindow.hpp" />
     <ClInclude Include="renderer\Shader.hpp" />
@@ -186,6 +187,7 @@
     <ClCompile Include="renderer\GlLoad.cpp" />
     <ClCompile Include="renderer\GLRenderer.cpp" />
     <ClCompile Include="renderer\Pipeline.cpp" />
+    <ClCompile Include="renderer\Renderdoc.cpp" />
     <ClCompile Include="renderer\SdlContext.cpp" />
     <ClCompile Include="renderer\SdlWindow.cpp" />
     <ClCompile Include="renderer\Shader.cpp" />
