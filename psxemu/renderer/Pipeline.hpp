@@ -6,6 +6,7 @@
 #include "Shader.hpp"
 
 #include <string>
+#include <string_view>
 
 namespace psx::video {
 	enum class Primitive {
@@ -41,7 +42,7 @@ namespace psx::video {
 	public :
 		Pipeline(std::string const& shader_loc, std::string const& shader_name) :
 			m_buffer{MAX_VERTEX_COUNT}, m_shader(shader_loc, shader_name),
-			m_per_primitive_data{}, m_curr_primitive{} {}
+			m_per_primitive_data{}, m_curr_primitive{}, m_label{} {}
 
 		void Draw(u32 offset, u32 vertex_count, std::pair<std::string_view, Uniforms>... uniforms) {
 			m_shader.BindProgram();
@@ -80,6 +81,14 @@ namespace psx::video {
 			m_curr_primitive = 0;
 		}
 
+		void SetLabel(std::string_view label) {
+			m_label = std::string{ label };
+			std::string vert_buf_label{ m_label + "_vertex_buf" };
+			std::string shader_label{ m_label + "_shader" };
+			m_buffer.SetLabel(vert_buf_label);
+			m_shader.SetLabel(shader_label);
+		}
+
 		~Pipeline() {}
 
 		static constexpr u32 VERTEX_COUNT_PER_PRIMITIVE = vertex_count_per_primitive(Prim);
@@ -89,5 +98,6 @@ namespace psx::video {
 		Shader m_shader;
 		PrimitiveData m_per_primitive_data[MAX_PRIMITIVE_COUNT];
 		u32 m_curr_primitive;
+		std::string m_label;
 	};
 }

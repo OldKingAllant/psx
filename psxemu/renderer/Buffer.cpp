@@ -120,4 +120,9 @@ namespace psx::video {
 	void Buffer::CreateBuffer() {
 		glGenBuffers(1, &m_buffer_id);
 	}
+
+	void Buffer::SetLabel(std::string_view label) {
+		glObjectLabel(GL_BUFFER, m_buffer_id, (GLsizei)label.size(),
+			label.data());
+	}
 }

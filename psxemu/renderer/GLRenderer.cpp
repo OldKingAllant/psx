@@ -18,7 +18,13 @@ namespace psx::video {
 		m_blit_vertex_buf(6),
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_commands{}
-	{}
+	{
+		m_framebuffer.SetLabel("output_vram_fb");
+		m_blit_shader.SetLabel("vram_blit_shader");
+		m_untextured_opaque_flat_pipeline.SetLabel("untextured_opaque_flat_pipeline");
+		m_basic_gouraud_pipeline.SetLabel("basic_gouraud_pipeline");
+		m_blit_vertex_buf.SetLabel("vram_blit_vertex_buf");
+	}
 
 	void Renderer::SyncTextures() {
 		if (m_need_host_to_gpu_copy && m_need_gpu_to_host_copy) {

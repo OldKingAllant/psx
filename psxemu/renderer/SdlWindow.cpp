@@ -105,6 +105,9 @@ namespace psx::video {
 
 		if (m_tex_id == (uint32_t)-1)
 			throw std::runtime_error("Cannot find texture uniform");
+
+		m_vert_buf->SetLabel("static_vram_view_blit_vertex_buf");
+		m_blit->SetLabel("vram_view_blit_shader");
 	}
 
 	void SdlWindow::Blit(uint32_t m_texture_id) {

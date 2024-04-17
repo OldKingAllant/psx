@@ -63,6 +63,8 @@ namespace psx::video {
 
 		std::optional<uint32_t> UniformLocation(std::string const& name);
 
+		void SetLabel(std::string_view label);
+
 		~Shader();
 
 	private :

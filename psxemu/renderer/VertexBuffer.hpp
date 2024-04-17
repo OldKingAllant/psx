@@ -7,6 +7,8 @@
 
 #include <vector>
 #include <concepts>
+#include <string_view>
+#include <string>
 
 namespace psx::video {
 	u32 CreateVertexArray();
@@ -22,6 +24,8 @@ namespace psx::video {
 
 	void MakeCurrentVertexArray(u32 id);
 	void MakeCurrentArrayBuffer(u32 id);
+
+	void SetVertexBufferLabel(u32 id, std::string_view label);
 
 	static constexpr u32 VERTEX_ATTRIB_SIZES[] = {
 		1, 1, 1, 1, 1, 1, 1, 2, 3
@@ -114,6 +118,12 @@ namespace psx::video {
 
 		void Clear() {
 			m_curr_verts = 0;
+		}
+
+		void SetLabel(std::string_view label) {
+			m_buf.SetLabel(label);
+			std::string vao_label{ std::string(label) + "_VAO" };
+			SetVertexBufferLabel(m_vertex_arr, vao_label);
 		}
 
 	private :

@@ -88,4 +88,9 @@ namespace psx::video {
 	void DeleteVertexArray(u32& id) {
 		glDeleteVertexArrays(1, &id);
 	}
+
+	void SetVertexBufferLabel(u32 id, std::string_view label) {
+		glObjectLabel(GL_VERTEX_ARRAY, id, (GLsizei)label.size(),
+			label.data());
+	}
 }

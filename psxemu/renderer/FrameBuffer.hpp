@@ -3,6 +3,8 @@
 #include <common/Defs.hpp>
 #include <common/Macros.hpp>
 
+#include <string_view>
+
 namespace psx::video {
 	class FrameBuffer {
 	public :
@@ -24,6 +26,8 @@ namespace psx::video {
 
 		void Bind();
 		void Unbind();
+
+		void SetLabel(std::string_view label);
 
 		~FrameBuffer();
 

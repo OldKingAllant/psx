@@ -164,4 +164,9 @@ namespace psx::video {
 	Shader::~Shader() {
 		glDeleteProgram(m_program_id);
 	}
+
+	void Shader::SetLabel(std::string_view label) {
+		glObjectLabel(GL_PROGRAM, m_program_id, (GLsizei)label.size(),
+			label.data());
+	}
 }

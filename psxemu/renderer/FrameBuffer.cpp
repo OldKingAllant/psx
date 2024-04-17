@@ -76,4 +76,12 @@ namespace psx::video {
 			(u64)1024 * 1024, dest_buf + pointer_offset);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+
+	void FrameBuffer::SetLabel(std::string_view label) {
+		glObjectLabel(GL_FRAMEBUFFER, m_fbo, (GLsizei)label.size(),
+			label.data());
+		std::string tex_label{ std::string(label) + "_texture" };
+		glObjectLabel(GL_TEXTURE, m_fbo_tex, (GLsizei)tex_label.size(),
+			tex_label.data());
+	}
 }

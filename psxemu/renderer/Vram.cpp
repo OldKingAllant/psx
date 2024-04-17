@@ -29,6 +29,14 @@ namespace psx::video {
 					(const char*)glewGetErrorString(err));
 			throw std::runtime_error("OpenGL errors!");
 		}
+
+		const char input_vram_label[] = "input_vram";
+		const char vram_blit_texture[] = "vram_blit_texture";
+
+		glObjectLabel(GL_TEXTURE, m_texture_id, (GLsizei)sizeof(input_vram_label),
+			input_vram_label);
+		glObjectLabel(GL_TEXTURE, m_blit_texture, (GLsizei)sizeof(vram_blit_texture),
+			vram_blit_texture);
 	}
 
 	u8* Vram::Get() const {

@@ -3,6 +3,8 @@
 #include <common/Defs.hpp>
 #include <common/Macros.hpp>
 
+#include <string_view>
+
 namespace psx::video {
 	enum class BufferMap {
 		READ,
@@ -33,6 +35,8 @@ namespace psx::video {
 		FORCE_INLINE u32 BufID() const {
 			return m_buffer_id;
 		}
+
+		void SetLabel(std::string_view label);
 
 		~Buffer();
 
