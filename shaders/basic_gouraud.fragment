@@ -1,12 +1,48 @@
 #version 430 core
 
+in vec2 vram_coords;
 in vec3 vertex_color;
+
+layout(std140, binding = 2) uniform globals {
+	bool use_dither;
+};
 
 out vec4 color;
 
+const mat4 dither_table = mat4(
+	vec4(-4, 2, -3, 3),
+	vec4(0, -2, 1, -1),
+	vec4(-3, 3, -4, 2),
+	vec4(1, -1, 0, -2)
+);
+
 void main() {
+	uint r = uint(vertex_color.r * 255.0);
+	uint g = uint(vertex_color.g * 255.0);
+	uint b = uint(vertex_color.b * 255.0);
+	uint x = uint(gl_FragCoord.x * 1024.0);
+	uint y = uint(gl_FragCoord.y * 512.0);
+
+	if(use_dither) {
+	    uint dither_x = x % 4;
+		uint dither_y = y % 4;
+		int dither_coeff = int(dither_table[dither_y][dither_x]);
+		int r_unclamped = int(r) + dither_coeff;
+		int g_unclamped = int(g) + dither_coeff;
+		int b_unclamped = int(b) + dither_coeff;
+		r = uint(clamp(r_unclamped, 0x00, 0xFF) >> 3);
+		g = uint(clamp(g_unclamped, 0x00, 0xFF) >> 3);
+		b = uint(clamp(b_unclamped, 0x00, 0xFF) >> 3);
+	} else {
+		r = (r >> 3) & 0x1F;
+		g = (g >> 3) & 0x1F;
+		b = (b >> 3) & 0x1F;
+	}
+
 	color = vec4(
-		vertex_color.rgb,
+		float(r) / 31.0,
+		float(g) / 31.0,
+		float(b) / 31.0,
 		1.0
 	);
 }

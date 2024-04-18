@@ -5,6 +5,7 @@
 #include "Pipeline.hpp"
 #include "VertexBuffer.hpp"
 #include "Shader.hpp"
+#include "UniformBuffer.hpp"
 
 #include <list>
 
@@ -81,6 +82,19 @@ namespace psx::video {
 
 	struct NullData {};
 
+	struct GlobalUniforms {
+#pragma pack(push, 1)
+		uint32_t use_dither;
+#pragma pack(pop)
+	};
+
+	struct ScissorBox {
+		uint32_t top_x;
+		uint32_t top_y;
+		uint32_t bottom_x;
+		uint32_t bottom_y;
+	};
+
 	class Renderer {
 	public :
 		Renderer();
@@ -92,8 +106,8 @@ namespace psx::video {
 		void EndCpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h, bool mask_enable);
 
 		void FlushCommands();
-
 		void SyncTextures();
+		void UpdateUbo();
 
 		u8* GetVramPtr() const {
 			return m_vram.Get();
@@ -116,6 +130,26 @@ namespace psx::video {
 
 		void CommandFenceSync();
 
+		GlobalUniforms& GetUniformBuffer() {
+			return m_uniform_buf.buffer;
+		}
+
+		void RequestUniformBufferUpdate() {
+			m_update_ubo = true;
+		}
+
+		void SetScissorTop(uint32_t x, uint32_t y) {
+			m_scissor.top_x = x;
+			m_scissor.top_y = y;
+			m_update_scissor = true;
+		}
+
+		void SetScissorBottom(uint32_t x, uint32_t y) {
+			m_scissor.bottom_x = x;
+			m_scissor.bottom_y = y;
+			m_update_scissor = true;
+		}
+
 		~Renderer();
 
 	private :
@@ -124,12 +158,16 @@ namespace psx::video {
 		bool m_need_gpu_to_host_copy;
 		bool m_need_host_to_gpu_copy;
 		bool m_processing_cmd;
+		bool m_update_ubo;
+		bool m_update_scissor;
 		Pipeline<Primitive::TRIANGLES,
 			UntexturedOpaqueFlatVertex, NullData> m_untextured_opaque_flat_pipeline;
 		Pipeline<Primitive::TRIANGLES,
 			BasicGouraudVertex, NullData> m_basic_gouraud_pipeline;
 		VertexBuffer<BlitVertex> m_blit_vertex_buf;
 		Shader m_blit_shader;
+		UniformBuffer<GlobalUniforms> m_uniform_buf;
+		ScissorBox m_scissor;
 		std::list<DrawCommand> m_commands;
 	};
 }

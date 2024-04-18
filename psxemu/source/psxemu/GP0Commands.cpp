@@ -71,6 +71,10 @@ namespace psx {
 		fmt::println("          Page Y base 2     0x{:x}", (u32)m_stat.texture_page_y_base2);
 		fmt::println("          Texture X flip    {}", m_tex_x_flip);
 		fmt::println("          Texture Y flip    {}", m_tex_y_flip);
+
+		m_renderer->GetUniformBuffer()
+			.use_dither = m_stat.dither;
+		m_renderer->RequestUniformBufferUpdate();
 	}
 
 	void Gpu::MiscCommand(u32 cmd) {
@@ -182,6 +186,8 @@ namespace psx {
 
 		fmt::println("      X = {}, Y = {}", m_x_top_left,
 			m_y_top_left);
+
+		m_renderer->SetScissorTop(m_x_top_left, m_y_top_left);
 	}
 
 	void Gpu::DrawAreaBottomRight(u32 cmd) {
@@ -201,6 +207,8 @@ namespace psx {
 
 		fmt::println("      X = {}, Y = {}", m_x_bot_right,
 			m_y_bot_right);
+
+		m_renderer->SetScissorBottom(m_x_bot_right, m_y_bot_right);
 	}
 
 	void Gpu::DrawOffset(u32 cmd) {

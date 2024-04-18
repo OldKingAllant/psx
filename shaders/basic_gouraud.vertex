@@ -5,6 +5,7 @@ layout(location = 1) in int vram_y;
 layout(location = 2) in uint color;
 
 out vec3 vertex_color;
+out vec2 vram_coords;
 
 void main() {
 	float x = float(vram_x) / 1024.0;
@@ -14,9 +15,15 @@ void main() {
 	y = y * 2 - 1;
 
 	gl_Position = vec4(x, y, 0.0, 1.0);
+
+	uint r = (color & 0xFF);
+	uint g = (color >> 8) & 0xFF;
+	uint b = (color >> 16) & 0xFF;
+
 	vertex_color = vec3(
-		((color >> 3) & 0x1F) / 31.0,
-		((color >> 11) & 0x1F) / 31.0,
-		((color >> 19) & 0x1F) / 31.0
+	 float(r) / 255.0, 
+	 float(g) / 255.0, 
+	 float(b) / 255.0
 	);
+	vram_coords = vec2(x, y);
 }

@@ -13,10 +13,14 @@ namespace psx::video {
 		m_need_gpu_to_host_copy{false},
 		m_need_host_to_gpu_copy{false}, 
 		m_processing_cmd{false},
+		m_update_ubo{false},
+		m_update_scissor{false},
 		m_untextured_opaque_flat_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_basic_gouraud_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
 		m_blit_vertex_buf(6),
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
+		m_uniform_buf{},
+		m_scissor{},
 		m_commands{}
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
@@ -24,6 +28,10 @@ namespace psx::video {
 		m_untextured_opaque_flat_pipeline.SetLabel("untextured_opaque_flat_pipeline");
 		m_basic_gouraud_pipeline.SetLabel("basic_gouraud_pipeline");
 		m_blit_vertex_buf.SetLabel("vram_blit_vertex_buf");
+		m_uniform_buf.SetLabel("global_uniform_buffer");
+		m_uniform_buf.Bind();
+		m_uniform_buf.Upload();
+		m_uniform_buf.BindRange(2);
 	}
 
 	void Renderer::SyncTextures() {
@@ -98,6 +106,17 @@ namespace psx::video {
 		if (m_commands.empty())
 			return;
 
+		UpdateUbo();
+
+		if (m_update_scissor) {
+			m_update_scissor = false;
+			glScissor(m_scissor.top_x, m_scissor.top_y,
+				m_scissor.bottom_x - m_scissor.top_x,
+				m_scissor.bottom_y - m_scissor.top_y);
+		}
+
+		glEnable(GL_SCISSOR_TEST);
+
 		constexpr u32 PIPELINE_COUNT = (u32)PipelineType::ENUM_MAX;
 
 		u32 pipeline_offsets[PIPELINE_COUNT] = {};
@@ -145,6 +164,8 @@ namespace psx::video {
 
 		m_untextured_opaque_flat_pipeline.ClearPrimitiveData();
 		m_untextured_opaque_flat_pipeline.ClearVertices();
+
+		glDisable(GL_SCISSOR_TEST);
 
 		m_processing_cmd = true;
 	}
@@ -212,6 +233,7 @@ namespace psx::video {
 		//after calling this method, CPU fills unmasked buffer 
 		//therefore, we need to issue all draw commands
 		//right now, but we don't want to wait for completion, yet
+		UpdateUbo();
 		DrawBatch();
 		m_blit_vertex_buf.Clear();
 	}
@@ -256,11 +278,20 @@ namespace psx::video {
 	}
 
 	void Renderer::FlushCommands() {
+		UpdateUbo();
 		DrawBatch();
 		CommandFenceSync();
 	}
 
+	void Renderer::UpdateUbo() {
+		if (!m_update_ubo)
+			return;
+
+		m_update_ubo = false;
+		m_uniform_buf.Upload();
+	}
+
 	Renderer::~Renderer() {
-		//
+		m_uniform_buf.Unbind();
 	}
 }

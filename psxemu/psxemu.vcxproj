@@ -177,6 +177,7 @@
     <ClInclude Include="renderer\SdlContext.hpp" />
     <ClInclude Include="renderer\SdlWindow.hpp" />
     <ClInclude Include="renderer\Shader.hpp" />
+    <ClInclude Include="renderer\UniformBuffer.hpp" />
     <ClInclude Include="renderer\VertexBuffer.hpp" />
     <ClInclude Include="renderer\Vram.hpp" />
   </ItemGroup>
@@ -191,6 +192,7 @@
     <ClCompile Include="renderer\SdlContext.cpp" />
     <ClCompile Include="renderer\SdlWindow.cpp" />
     <ClCompile Include="renderer\Shader.cpp" />
+    <ClCompile Include="renderer\UniformBuffer.cpp" />
     <ClCompile Include="renderer\VertexBuffer.cpp" />
     <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
