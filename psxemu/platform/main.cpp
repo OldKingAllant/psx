@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 
 	psx::video::SdlWindow vram_view("Vram",
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_view_blit", false, false);
+		"../shaders", "vram_view_blit", false, true);
 
 	char* buf{ nullptr };
 	size_t len{ 0 };

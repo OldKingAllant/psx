@@ -50,5 +50,6 @@ namespace psx::video {
 		VertexBuffer<HostVertex2D>* m_vert_buf;
 		u32 m_tex_id;
 		std::multimap<SdlEvent, EventCallback> m_ev_callbacks;
+		Rect m_size;
 	};
 }

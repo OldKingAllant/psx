@@ -25,7 +25,8 @@ namespace psx::video {
 
 	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize)
 		: m_win{ nullptr }, m_gl_ctx { nullptr }, m_blit{ nullptr }, 
-		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{} {
+		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
+		m_size{size} {
 		if (reuse_ctx)
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 		else
@@ -111,6 +112,11 @@ namespace psx::video {
 	}
 
 	void SdlWindow::Blit(uint32_t m_texture_id) {
+		int curr_viewport[4] = {};
+		glGetIntegerv(GL_VIEWPORT, curr_viewport);
+
+		glViewport(0, 0, m_size.w, m_size.h);
+
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -124,6 +130,8 @@ namespace psx::video {
 
 		m_vert_buf->Unbind();
 
+		glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
+
 		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
@@ -136,6 +144,13 @@ namespace psx::video {
 			case SDL_WINDOWEVENT:
 				if (next_ev.window.type == SDL_WINDOWEVENT_CLOSE)
 					m_close = true;
+				else if (next_ev.window.event == SDL_WINDOWEVENT_RESIZED ||
+					next_ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+					int h{}, w{};
+					SDL_GetWindowSize((SDL_Window*)m_win, &w, &h);
+					m_size.w = (size_t)w;
+					m_size.h = (size_t)h;
+				}
 				break;
 			case SDL_QUIT:
 				m_close = true;

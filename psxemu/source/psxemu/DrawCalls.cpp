@@ -37,17 +37,17 @@ namespace psx {
 		video::UntexturedOpaqueFlatVertex v3 = {};
 		video::UntexturedOpaqueFlatVertex v4 = {};
 
-		v1.x = (vertex_1 & 0xFFFF);
-		v1.y = ((vertex_1 >> 16) & 0xFFFF);
+		v1.x = (i16)(vertex_1 & 0xFFFF);
+		v1.y = (i16)((vertex_1 >> 16) & 0xFFFF);
 
-		v2.x = (vertex_2 & 0xFFFF);
-		v2.y = ((vertex_2 >> 16) & 0xFFFF);
+		v2.x = (i16)(vertex_2 & 0xFFFF);
+		v2.y = (i16)((vertex_2 >> 16) & 0xFFFF);
 
-		v3.x = (vertex_3 & 0xFFFF);
-		v3.y = ((vertex_3 >> 16) & 0xFFFF);
+		v3.x = (i16)(vertex_3 & 0xFFFF);
+		v3.y = (i16)((vertex_3 >> 16) & 0xFFFF);
 
-		v4.x = (vertex_4 & 0xFFFF);
-		v4.y = ((vertex_4 >> 16) & 0xFFFF);
+		v4.x = (i16)(vertex_4 & 0xFFFF);
+		v4.y = (i16)((vertex_4 >> 16) & 0xFFFF);
 
 		u32 r = color & 0xFF;
 		u32 g = (color >> 8) & 0xFF;
@@ -111,17 +111,17 @@ namespace psx {
 		video::BasicGouraudVertex v3 = {};
 		video::BasicGouraudVertex v4 = {};
 
-		v1.x = (vertex1 & 0xFFFF);
-		v1.y = ((vertex1 >> 16) & 0xFFFF);
+		v1.x = (i16)(vertex1 & 0xFFFF);
+		v1.y = (i16)((vertex1 >> 16) & 0xFFFF);
 
-		v2.x = (vertex2 & 0xFFFF);
-		v2.y = ((vertex2 >> 16) & 0xFFFF);
+		v2.x = (i16)(vertex2 & 0xFFFF);
+		v2.y = (i16)((vertex2 >> 16) & 0xFFFF);
 
-		v3.x = (vertex3 & 0xFFFF);
-		v3.y = ((vertex3 >> 16) & 0xFFFF);
+		v3.x = (i16)(vertex3 & 0xFFFF);
+		v3.y = (i16)((vertex3 >> 16) & 0xFFFF);
 
-		v4.x = (vertex4 & 0xFFFF);
-		v4.y = ((vertex4 >> 16) & 0xFFFF);
+		v4.x = (i16)(vertex4 & 0xFFFF);
+		v4.y = (i16)((vertex4 >> 16) & 0xFFFF);
 
 		v1.color = color1;
 		v2.color = color2;
@@ -156,14 +156,14 @@ namespace psx {
 		video::BasicGouraudVertex v2 = {};
 		video::BasicGouraudVertex v3 = {};
 
-		v1.x = (vertex1 & 0xFFFF);
-		v1.y = ((vertex1 >> 16) & 0xFFFF);
+		v1.x = (i16)(vertex1 & 0xFFFF);
+		v1.y = (i16)((vertex1 >> 16) & 0xFFFF);
 
-		v2.x = (vertex2 & 0xFFFF);
-		v2.y = ((vertex2 >> 16) & 0xFFFF);
+		v2.x = (i16)(vertex2 & 0xFFFF);
+		v2.y = (i16)((vertex2 >> 16) & 0xFFFF);
 
-		v3.x = (vertex3 & 0xFFFF);
-		v3.y = ((vertex3 >> 16) & 0xFFFF);
+		v3.x = (i16)(vertex3 & 0xFFFF);
+		v3.y = (i16)((vertex3 >> 16) & 0xFFFF);
 
 		v1.color = color1;
 		v2.color = color2;
@@ -176,6 +176,78 @@ namespace psx {
 		triangle1.v2 = v3;
 
 		m_renderer->DrawBasicGouraud(triangle1);
+	}
+
+	void Gpu::DrawTexturedQuad() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		u32 gouraud = (cmd >> 28) & 1;
+		u32 semi_trans = (cmd >> 25) & 1;
+		u32 raw = (cmd >> 24) & 1;
+		u32 first_color = (cmd & 0xFFFFFF);
+
+		uint32_t flags{ 0 };
+
+		if (gouraud)
+			flags |= video::TexturedVertexFlags::GOURAUD;
+
+		if (semi_trans)
+			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
+
+		if (raw)
+			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
+
+		video::TexturedVertex vertices[4] = {};
+
+		u32 clut_and_page = 0;
+
+		for (u32 i = 0; i < 4; i++) {
+			if (gouraud && i != 0) {
+				vertices[i].color = m_cmd_fifo.deque() & 0xFFFFFF;
+			}
+			else {
+				vertices[i].color = first_color;
+			}
+
+			u32 vertex_pos = m_cmd_fifo.deque();
+
+			vertices[i].x = (i16)(vertex_pos & 0xFFFF);
+			vertices[i].y = (i16)((vertex_pos >> 16) & 0xFFFF);
+
+			u32 uv = m_cmd_fifo.deque();
+
+			if (i == 0) {
+				u32 clut = (uv >> 16) & 0xFFFF;
+				clut_and_page |= (clut << 16);
+			}
+			else if(i == 1) {
+				u32 page = (uv >> 16) & 0xFFFF;
+				clut_and_page |= page;
+			}
+
+			vertices[i].uv = uv & 0xFFFF;
+
+			vertices[i].flags = flags;
+		}
+
+		vertices[0].clut_page = clut_and_page;
+		vertices[1].clut_page = clut_and_page;
+		vertices[2].clut_page = clut_and_page;
+		vertices[3].clut_page = clut_and_page;
+
+		video::TexturedTriangle triangle1 = {};
+		video::TexturedTriangle triangle2 = {};
+
+		triangle1.v0 = vertices[0];
+		triangle1.v1 = vertices[1];
+		triangle1.v2 = vertices[2];
+
+		triangle2.v0 = vertices[1];
+		triangle2.v1 = vertices[2];
+		triangle2.v2 = vertices[3];
+
+		m_renderer->DrawTexturedTriangle(triangle1);
+		m_renderer->DrawTexturedTriangle(triangle2);
 	}
 
 	void Gpu::DrawQuad() {
@@ -195,6 +267,9 @@ namespace psx {
 		}
 		else if (gouraud && !tex && !transparent) {
 			DrawBasicGouraudQuad();
+		}
+		else if (tex) {
+			DrawTexturedQuad();
 		}
 		else {
 			m_cmd_fifo.deque();
@@ -228,6 +303,9 @@ namespace psx {
 
 		if (gouraud && !transparent && !tex) {
 			DrawBasicGouraudTriangle();
+		}
+		else if (tex) {
+			error::DebugBreak();
 		}
 		else {
 			m_cmd_fifo.deque();

@@ -4,6 +4,18 @@ layout(location = 0) in int vram_x;
 layout(location = 1) in int vram_y;
 layout(location = 2) in uint color;
 
+layout(std140, binding = 2) uniform globals {
+	bool use_dither;
+	uint tex_window_mask_x;
+	uint tex_window_mask_y;
+	uint tex_window_off_x;
+	uint tex_window_off_y;
+	int draw_x_off;
+	int draw_y_off;
+	bool set_mask;
+	bool check_mask;
+};
+
 out vec3 vertex_color;
 out vec2 vram_coords;
 
@@ -21,9 +33,9 @@ void main() {
 	uint b = (color >> 16) & 0xFF;
 
 	vertex_color = vec3(
-	 float(r) / 255.0, 
-	 float(g) / 255.0, 
-	 float(b) / 255.0
+	 float(r), 
+	 float(g), 
+	 float(b)
 	);
-	vram_coords = vec2(x, y);
+	vram_coords = vec2(float(vram_x), float(vram_y));
 }

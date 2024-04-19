@@ -231,6 +231,12 @@ namespace psx {
 
 		fmt::println("      X = {}, Y = {}", (i32)m_x_off,
 			(i32)m_y_off);
+
+		m_renderer->GetUniformBuffer()
+			.draw_x_off = m_x_off;
+		m_renderer->GetUniformBuffer()
+			.draw_y_off = m_y_off;
+		m_renderer->RequestUniformBufferUpdate();
 	}
 
 	void Gpu::TexWindow(u32 cmd) {
@@ -254,6 +260,13 @@ namespace psx {
 		fmt::println("     Mask Y   = {}", m_tex_win.mask_y);
 		fmt::println("     Offset X = {}", m_tex_win.offset_x);
 		fmt::println("     Offset Y = {}", m_tex_win.offset_y);
+
+		video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
+		uniforms.tex_window_mask_x = m_tex_win.mask_x;
+		uniforms.tex_window_mask_y = m_tex_win.mask_y;
+		uniforms.tex_window_off_x = m_tex_win.offset_x;
+		uniforms.tex_window_off_y = m_tex_win.offset_y;
+		m_renderer->RequestUniformBufferUpdate();
 	}
 
 	void Gpu::MaskSetting(u32 cmd) {
@@ -271,6 +284,11 @@ namespace psx {
 
 		fmt::println("      Force bit 15 to 1      = {}", m_stat.set_mask);
 		fmt::println("      Check mask before draw = {}", m_stat.draw_over_mask_disable);
+
+		video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
+		uniforms.set_mask = m_stat.set_mask;
+		uniforms.check_mask = m_stat.draw_over_mask_disable;
+		m_renderer->RequestUniformBufferUpdate();
 	}
 
 	void Gpu::CommandEnd() {

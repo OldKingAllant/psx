@@ -1,0 +1,135 @@
+#version 430 core
+
+in vec2 coords;
+in vec3 interpolated_color;
+in flat vec3 base_color;
+in vec2 out_uv;
+in flat uint x_base;
+in flat uint y_base;
+in flat uint blend_func;
+in flat uint texpage_colors;
+in flat uint flags;
+in flat uint clut_x;
+in flat uint clut_y;
+
+const uint GOURAUD_SHADED = 0x1;
+const uint SEMI_TRANSPARENT = 0x2;
+const uint RAW_TEXTURE = 0x4;
+
+layout(binding = 0) uniform sampler2D vram_tex;
+
+layout(std140, binding = 2) uniform globals {
+	bool use_dither;
+	uint tex_window_mask_x;
+	uint tex_window_mask_y;
+	uint tex_window_off_x;
+	uint tex_window_off_y;
+	int draw_x_off;
+	int draw_y_off;
+	bool set_mask;
+	bool check_mask;
+};
+
+void vram_fetch(in uint x, in uint y, out vec4 vram_color) {
+	vram_color = texelFetch(vram_tex, ivec2(x, y), 0);
+}
+
+void vram_clut_index(in uint x, in uint y, out uint index) {
+	vec4 color;
+	vram_fetch(x, y, color);
+	index = 0;
+	index |= uint(floor(color.r * 31.0 + 0.1));
+	index |= (uint(floor(color.g * 31.0 + 0.1)) << 5);
+	index |= (uint(floor(color.b * 31.0 + 0.1)) << 10);
+	index |= (uint(floor(color.a + 0.1)) << 15);
+}
+
+void modulate(in uvec3 texel, in uvec3 frag_color, out vec3 final) {
+	vec3 result = vec3(0.0, 0.0, 0.0);
+	result.r = float(texel.r * frag_color.r) / 128;
+	result.g = float(texel.g * frag_color.g) / 128;
+	result.b = float(texel.b * frag_color.b) / 128;
+	final = result;
+}
+
+void clut4(in uint texpage_x, in uint texpage_y, 
+           in uint u, in uint v, out uint index) {
+		   uint x = texpage_x + (u / 4);
+		   uint y = texpage_y + v;
+		   uint clut_index ;
+		   vram_clut_index(x, y, clut_index);
+		   uint x_affine = (texpage_x + u) & 3;
+		   index = (clut_index >> (4 * x_affine)) & 0xF;
+} 
+
+bool is_fully_transparent(in vec4 color) {
+	return color.r == 0 && color.g == 0 && color.b == 0;
+}
+
+out vec4 color;
+
+void main() {
+	uint x = uint(coords.x); 
+	uint y = uint(coords.y); 
+	uint u = uint(out_uv.x);
+	uint v = uint(out_uv.y);
+
+	uint texpage_x = x_base;
+	uint texpage_y = y_base;
+
+	uint clut_base_x = clut_x;
+	uint clut_base_y = clut_y;
+
+	uint clut_index_affine = 0;
+
+	if(texpage_colors == 0) {
+		clut4(texpage_x, texpage_y, u, v, 
+			clut_index_affine);
+		uint effective_clut_x = clut_base_x + clut_index_affine;
+		vram_fetch(effective_clut_x, clut_base_y, color);
+	} else if(texpage_colors == 1) {
+		color = vec4(1.0, 1.0, 0.0, 0.0);
+	} else if(texpage_colors == 2) {
+		color = vec4(1.0, 1.0, 0.0, 0.0);
+	} else {
+		color = vec4(1.0, 1.0, 0.0, 0.0);
+	}
+
+	if(is_fully_transparent(color))
+		discard;
+
+	if((flags & RAW_TEXTURE) == 0) {
+	   vec3 selected_vertex_color;
+
+	   if((flags & GOURAUD_SHADED) != 0) {
+			selected_vertex_color = interpolated_color;
+	   } else {
+		    selected_vertex_color = base_color;
+	   }
+
+	   float a_channel = color.a;
+
+	   //Modulation
+	   uvec3 vert_color = uvec3(
+	        uint(selected_vertex_color.r),
+			uint(selected_vertex_color.g),
+			uint(selected_vertex_color.b)
+	   );
+
+	   uvec3 texel_color = uvec3(
+	        uint(color.r * 255.0),
+			uint(color.g * 255.0),
+			uint(color.b * 255.0)
+	   );
+
+	   vec3 modulated;
+
+	   modulate(texel_color, vert_color, modulated);
+
+	   color = vec4(modulated.rgb / 255.0, a_channel);
+	}
+
+	if((flags & SEMI_TRANSPARENT) != 0) {
+		color = vec4(1.0, 0.0, 0.0, 1.0);
+	}
+}

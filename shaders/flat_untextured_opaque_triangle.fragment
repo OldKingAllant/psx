@@ -1,5 +1,17 @@
 #version 430 core
 
+layout(std140, binding = 2) uniform globals {
+	bool use_dither;
+	uint tex_window_mask_x;
+	uint tex_window_mask_y;
+	uint tex_window_off_x;
+	uint tex_window_off_y;
+	int draw_x_off;
+	int draw_y_off;
+	bool set_mask;
+	bool check_mask;
+};
+
 flat in uvec3 in_color;
 
 out vec4 out_color;

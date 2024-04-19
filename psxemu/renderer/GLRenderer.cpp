@@ -17,6 +17,7 @@ namespace psx::video {
 		m_update_scissor{false},
 		m_untextured_opaque_flat_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_basic_gouraud_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
+		m_textured_pipeline(std::string("../shaders"), std::string("textured_triangle")),
 		m_blit_vertex_buf(6),
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_uniform_buf{},
@@ -27,6 +28,7 @@ namespace psx::video {
 		m_blit_shader.SetLabel("vram_blit_shader");
 		m_untextured_opaque_flat_pipeline.SetLabel("untextured_opaque_flat_pipeline");
 		m_basic_gouraud_pipeline.SetLabel("basic_gouraud_pipeline");
+		m_textured_pipeline.SetLabel("textured_pipeline");
 		m_blit_vertex_buf.SetLabel("vram_blit_vertex_buf");
 		m_uniform_buf.SetLabel("global_uniform_buffer");
 		m_uniform_buf.Bind();
@@ -82,7 +84,7 @@ namespace psx::video {
 		DrawCommand cmd = {};
 
 		cmd.vertex_count = 3;
-		cmd.type = PipelineType::UNTEXTURE_OPAQUE_FLAT_TRIANGLE;
+		cmd.type = PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
 
 		AppendCommand(cmd);
 	}
@@ -102,11 +104,29 @@ namespace psx::video {
 		AppendCommand(cmd);
 	}
 
+	void Renderer::DrawTexturedTriangle(TexturedTriangle triangle) {
+		m_textured_pipeline.PushVertex(triangle.v0);
+		m_textured_pipeline.PushVertex(triangle.v1);
+		m_textured_pipeline.PushVertex(triangle.v2);
+
+		m_textured_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 3;
+		cmd.type = PipelineType::TEXTURED_TRIANGLE;
+
+		AppendCommand(cmd);
+	}
+
 	void Renderer::DrawBatch() {
 		if (m_commands.empty())
 			return;
 
 		UpdateUbo();
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
 
 		if (m_update_scissor) {
 			m_update_scissor = false;
@@ -135,13 +155,18 @@ namespace psx::video {
 
 			switch (pipeline_id)
 			{
-			case psx::video::PipelineType::UNTEXTURE_OPAQUE_FLAT_TRIANGLE: {
+			case psx::video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE: {
 				m_untextured_opaque_flat_pipeline.Draw(curr_offset, count);
 				curr_primitive_index[(u32)pipeline_id] += count / 3;
 			}
 				break;
 			case psx::video::PipelineType::BASIC_GOURAUD_TRIANGLE: {
 				m_basic_gouraud_pipeline.Draw(curr_offset, count);
+				curr_primitive_index[(u32)pipeline_id] += count / 3;
+			}
+				break;
+			case psx::video::PipelineType::TEXTURED_TRIANGLE: {
+				m_textured_pipeline.Draw(curr_offset, count);
 				curr_primitive_index[(u32)pipeline_id] += count / 3;
 			}
 				break;

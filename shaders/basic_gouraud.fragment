@@ -5,6 +5,14 @@ in vec3 vertex_color;
 
 layout(std140, binding = 2) uniform globals {
 	bool use_dither;
+	uint tex_window_mask_x;
+	uint tex_window_mask_y;
+	uint tex_window_off_x;
+	uint tex_window_off_y;
+	int draw_x_off;
+	int draw_y_off;
+	bool set_mask;
+	bool check_mask;
 };
 
 out vec4 color;
@@ -17,11 +25,11 @@ const mat4 dither_table = mat4(
 );
 
 void main() {
-	uint r = uint(vertex_color.r * 255.0);
-	uint g = uint(vertex_color.g * 255.0);
-	uint b = uint(vertex_color.b * 255.0);
-	uint x = uint(gl_FragCoord.x * 1024.0);
-	uint y = uint(gl_FragCoord.y * 512.0);
+	uint r = uint(vertex_color.r);
+	uint g = uint(vertex_color.g);
+	uint b = uint(vertex_color.b);
+	uint x = uint(vram_coords.x);
+	uint y = uint(vram_coords.y);
 
 	if(use_dither) {
 	    uint dither_x = x % 4;
@@ -30,19 +38,15 @@ void main() {
 		int r_unclamped = int(r) + dither_coeff;
 		int g_unclamped = int(g) + dither_coeff;
 		int b_unclamped = int(b) + dither_coeff;
-		r = uint(clamp(r_unclamped, 0x00, 0xFF) >> 3);
-		g = uint(clamp(g_unclamped, 0x00, 0xFF) >> 3);
-		b = uint(clamp(b_unclamped, 0x00, 0xFF) >> 3);
-	} else {
-		r = (r >> 3) & 0x1F;
-		g = (g >> 3) & 0x1F;
-		b = (b >> 3) & 0x1F;
+		r = uint(clamp(r_unclamped, 0x00, 0xFF));
+		g = uint(clamp(g_unclamped, 0x00, 0xFF));
+		b = uint(clamp(b_unclamped, 0x00, 0xFF));
 	}
 
 	color = vec4(
-		float(r) / 31.0,
-		float(g) / 31.0,
-		float(b) / 31.0,
+		float(r) / 255.0,
+		float(g) / 255.0,
+		float(b) / 255.0,
 		1.0
 	);
 }

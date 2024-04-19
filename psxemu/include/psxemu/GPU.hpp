@@ -185,6 +185,7 @@ namespace psx {
 		void DrawFlatUntexturedOpaqueQuad();
 		void DrawBasicGouraudQuad();
 		void DrawBasicGouraudTriangle();
+		void DrawTexturedQuad();
 
 		void CheckIfDrawNeeded();
 		void FlushDrawOps();

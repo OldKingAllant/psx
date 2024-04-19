@@ -223,6 +223,8 @@
     <None Include="..\shaders\basic_gouraud.vertex" />
     <None Include="..\shaders\flat_untextured_opaque_triangle.fragment" />
     <None Include="..\shaders\flat_untextured_opaque_triangle.vertex" />
+    <None Include="..\shaders\textured_triangle.fragment" />
+    <None Include="..\shaders\textured_triangle.vertex" />
     <None Include="..\shaders\vram_blit.fragment" />
     <None Include="..\shaders\vram_blit.vertex" />
     <None Include="..\shaders\vram_view_blit.fragment" />
