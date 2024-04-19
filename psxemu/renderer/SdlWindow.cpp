@@ -49,7 +49,7 @@ namespace psx::video {
 
 		m_win = SDL_CreateWindow(name.c_str(),
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-			size.w, size.h, flags);
+			(int)size.w, (int)size.h, flags);
 
 		if (!GlIsInit()) {
 			m_gl_ctx = SDL_GL_CreateContext((SDL_Window*)m_win);
@@ -115,7 +115,7 @@ namespace psx::video {
 		int curr_viewport[4] = {};
 		glGetIntegerv(GL_VIEWPORT, curr_viewport);
 
-		glViewport(0, 0, m_size.w, m_size.h);
+		glViewport(0, 0, (GLsizei)m_size.w, (GLsizei)m_size.h);
 
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
