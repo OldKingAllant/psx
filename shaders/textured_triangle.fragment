@@ -66,13 +66,42 @@ bool is_fully_transparent(in vec4 color) {
 	return color.r == 0 && color.g == 0 && color.b == 0;
 }
 
+const mat4 dither_table = mat4(
+	vec4(-4, 2, -3, 3),
+	vec4(0, -2, 1, -1),
+	vec4(-3, 3, -4, 2),
+	vec4(1, -1, 0, -2)
+);
+
+void dither(in vec2 coordinates, in vec4 color, out vec4 dithered_color) {
+	uint x = uint(coordinates.x);
+	uint y = uint(coordinates.y);
+	float dither_coeff = dither_table[y % 4][x % 4];
+	dithered_color = color;
+	dithered_color.r = clamp(dithered_color.r + dither_coeff, 0.0, 255.0);
+	dithered_color.g = clamp(dithered_color.g + dither_coeff, 0.0, 255.0);
+	dithered_color.b = clamp(dithered_color.b + dither_coeff, 0.0, 255.0);
+}
+
+void compute_uv(in vec2 uv, out vec2 effective_uv) {
+	uint u = uint(uv.x) & 0xFF;
+	uint v = uint(uv.y) & 0xFF;
+	u = (u & ~(tex_window_mask_x * 8)) |
+		((tex_window_off_x & tex_window_mask_x) * 8);
+	v = (v & ~(tex_window_mask_y * 8)) |
+	    ((tex_window_off_y & tex_window_mask_y) * 8);
+	effective_uv = vec2(float(u), float(v));
+}
+
 out vec4 color;
 
 void main() {
 	uint x = uint(coords.x); 
 	uint y = uint(coords.y); 
-	uint u = uint(out_uv.x);
-	uint v = uint(out_uv.y);
+	vec2 final_uv;
+	compute_uv(out_uv, final_uv);
+	uint u = uint(final_uv.x);
+	uint v = uint(final_uv.y);
 
 	uint texpage_x = x_base;
 	uint texpage_y = y_base;
@@ -126,10 +155,16 @@ void main() {
 
 	   modulate(texel_color, vert_color, modulated);
 
-	   color = vec4(modulated.rgb / 255.0, a_channel);
+	   //Apply dithering only if modulated
+
+	   if(use_dither) {
+	       dither(coords, vec4(modulated, 0.0), color);
+	   }
+
+		color = vec4(color.rgb / 255.0, a_channel);
 	}
 
 	if((flags & SEMI_TRANSPARENT) != 0) {
-		color = vec4(1.0, 0.0, 0.0, 1.0);
+		color = vec4(255.0, 0.0, 0.0, 1.0);
 	}
 }
