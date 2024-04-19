@@ -16,3 +16,12 @@
 #define DEBUG
 #define DEBUG_CPU_ERRORS
 #define DEBUG_IO
+
+template <typename Result, unsigned Shift, typename Integral>
+auto sign_extend(Integral value) -> Result {
+	Result res = static_cast<Result>(value);
+	constexpr auto num_bits = sizeof(Result) * 8 - 1;
+	res <<= (num_bits - Shift);
+	res >>= (num_bits - Shift);
+	return res;
+}

@@ -37,17 +37,17 @@ namespace psx {
 		video::UntexturedOpaqueFlatVertex v3 = {};
 		video::UntexturedOpaqueFlatVertex v4 = {};
 
-		v1.x = (i16)(vertex_1 & 0xFFFF);
-		v1.y = (i16)((vertex_1 >> 16) & 0xFFFF);
+		v1.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
 
-		v2.x = (i16)(vertex_2 & 0xFFFF);
-		v2.y = (i16)((vertex_2 >> 16) & 0xFFFF);
+		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
 
-		v3.x = (i16)(vertex_3 & 0xFFFF);
-		v3.y = (i16)((vertex_3 >> 16) & 0xFFFF);
+		v3.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
 
-		v4.x = (i16)(vertex_4 & 0xFFFF);
-		v4.y = (i16)((vertex_4 >> 16) & 0xFFFF);
+		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF);
+		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF);
 
 		u32 r = color & 0xFF;
 		u32 g = (color >> 8) & 0xFF;
@@ -111,17 +111,17 @@ namespace psx {
 		video::BasicGouraudVertex v3 = {};
 		video::BasicGouraudVertex v4 = {};
 
-		v1.x = (i16)(vertex1 & 0xFFFF);
-		v1.y = (i16)((vertex1 >> 16) & 0xFFFF);
+		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
 
-		v2.x = (i16)(vertex2 & 0xFFFF);
-		v2.y = (i16)((vertex2 >> 16) & 0xFFFF);
+		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
 
-		v3.x = (i16)(vertex3 & 0xFFFF);
-		v3.y = (i16)((vertex3 >> 16) & 0xFFFF);
+		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
 
-		v4.x = (i16)(vertex4 & 0xFFFF);
-		v4.y = (i16)((vertex4 >> 16) & 0xFFFF);
+		v4.x = sign_extend<i32, 10>(vertex4 & 0xFFFF);
+		v4.y = sign_extend<i32, 10>((vertex4 >> 16) & 0xFFFF);
 
 		v1.color = color1;
 		v2.color = color2;
@@ -156,14 +156,14 @@ namespace psx {
 		video::BasicGouraudVertex v2 = {};
 		video::BasicGouraudVertex v3 = {};
 
-		v1.x = (i16)(vertex1 & 0xFFFF);
-		v1.y = (i16)((vertex1 >> 16) & 0xFFFF);
+		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
 
-		v2.x = (i16)(vertex2 & 0xFFFF);
-		v2.y = (i16)((vertex2 >> 16) & 0xFFFF);
+		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
 
-		v3.x = (i16)(vertex3 & 0xFFFF);
-		v3.y = (i16)((vertex3 >> 16) & 0xFFFF);
+		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
 
 		v1.color = color1;
 		v2.color = color2;
@@ -211,8 +211,8 @@ namespace psx {
 
 			u32 vertex_pos = m_cmd_fifo.deque();
 
-			vertices[i].x = (i16)(vertex_pos & 0xFFFF);
-			vertices[i].y = (i16)((vertex_pos >> 16) & 0xFFFF);
+			vertices[i].x = sign_extend<i32, 10>(vertex_pos & 0xFFFF);
+			vertices[i].y = sign_extend<i32, 10>((vertex_pos >> 16) & 0xFFFF);
 
 			u32 uv = m_cmd_fifo.deque();
 
