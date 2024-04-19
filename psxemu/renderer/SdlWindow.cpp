@@ -51,9 +51,9 @@ namespace psx::video {
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 			(int)size.w, (int)size.h, flags);
 
-		if (!GlIsInit()) {
-			m_gl_ctx = SDL_GL_CreateContext((SDL_Window*)m_win);
+		m_gl_ctx = SDL_GL_CreateContext((SDL_Window*)m_win);
 
+		if (!GlIsInit()) {
 			if (!m_gl_ctx) {
 				fmt::println("[RENDERER] OpenGL context creation failed : {}",
 					SDL_GetError());
@@ -102,16 +102,28 @@ namespace psx::video {
 		
 		m_blit = new Shader(blit_loc, blit_name);
 
-		m_tex_id = m_blit->UniformLocation(std::string("vram_tex")).value_or((uint32_t)-1);
+		m_vert_buf->SetLabel(fmt::format("static_window_{}_vertex_buf", name));
+		m_blit->SetLabel(fmt::format("window_{}_blit_shader", name));
+	}
 
-		if (m_tex_id == (uint32_t)-1)
-			throw std::runtime_error("Cannot find texture uniform");
+	void SdlWindow::Clear() {
+		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
 
-		m_vert_buf->SetLabel("static_vram_view_blit_vertex_buf");
-		m_blit->SetLabel("vram_view_blit_shader");
+		int curr_viewport[4] = {};
+		glGetIntegerv(GL_VIEWPORT, curr_viewport);
+
+		glViewport(0, 0, (GLsizei)m_size.w, (GLsizei)m_size.h);
+
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
+		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
 	void SdlWindow::Blit(uint32_t m_texture_id) {
+		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+
 		int curr_viewport[4] = {};
 		glGetIntegerv(GL_VIEWPORT, curr_viewport);
 
@@ -127,6 +139,20 @@ namespace psx::video {
 		glBindTexture(GL_TEXTURE_2D, m_texture_id);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		/*auto sync_object = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,
+			0);
+
+		bool end = false;
+
+		while (!end) {
+			auto result = glClientWaitSync(sync_object,
+				GL_SYNC_FLUSH_COMMANDS_BIT, 10000000);
+
+			if (result == GL_ALREADY_SIGNALED ||
+				result == GL_CONDITION_SATISFIED)
+				end = true;
+		}*/
 
 		m_vert_buf->Unbind();
 
@@ -184,7 +210,7 @@ namespace psx::video {
 	void SdlWindow::DispatchEvent(SdlEvent ev, std::any data) {
 		auto range = m_ev_callbacks.equal_range(ev);
 		
-		for (auto entry = range.first; entry != range.second; entry++)
+		for (auto& entry = range.first; entry != range.second; entry++)
 			entry->second(ev, data);
 	}
 
@@ -194,4 +220,25 @@ namespace psx::video {
 		SDL_GetWindowWMInfo((SDL_Window*)m_win, &wminfo);
 		return (void*)wminfo.info.win.window;
 	}
+
+	void SdlWindow::SetTextureWindow(u32 start_x, u32 start_y, Rect window_size, Rect texture_size) {
+		m_vert_buf->Clear();
+
+		float w = float(window_size.w) / texture_size.w;
+		float h = float(window_size.h) / texture_size.h;
+
+		float xoff = float(start_x) / texture_size.w;
+		float yoff = float(start_y) / texture_size.h;
+		float endx = xoff + w;
+		float endy = yoff + h;
+
+		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  xoff, yoff });
+		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  endx, endy });
+		m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, xoff, endy });
+
+		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, xoff, yoff });
+		m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  endx, yoff });
+		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, endx, endy });
+	}
+
 }

@@ -46,7 +46,11 @@ int main(int argc, char* argv[]) {
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
 		"../shaders", "vram_view_blit", false, true);
 
-	renderdoc.SetCurrentWindow(vram_view.GetNativeWindowHandle());
+	psx::video::SdlWindow display("PSX-Display",
+		psx::video::Rect{ .w = 640, .h = 480 },
+		"../shaders", "display_blit", true, true);
+
+	renderdoc.SetCurrentWindow(display.GetNativeWindowHandle());
 
 	using SdlEvent = psx::video::SdlEvent;
 
@@ -100,7 +104,8 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Connected" << std::endl;
 
-	while (server.HandlePackets() && vram_view.EventLoop())
+	while (server.HandlePackets() && vram_view.EventLoop()
+		&& display.EventLoop())
 	{
 		if (!sys.Stopped()) {
 			renderdoc.StartCapture();
@@ -113,12 +118,29 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		auto handle = sys.GetStatus()
-			.sysbus->GetGPU()
-			.GetRenderer()->GetFramebuffer()
+		auto& gpu = sys.GetStatus()
+			.sysbus->GetGPU();
+
+		auto handle = gpu.GetRenderer()
+			->GetFramebuffer()
 			.GetInternalTexture();
 
 		vram_view.Blit(handle);
+
+		auto const& disp_conf = gpu.GetDispConfig();
+
+		if (!disp_conf.display_enable) {
+			display.Clear();
+		}
+		else {
+			display.SetTextureWindow(
+				disp_conf.disp_x,
+				disp_conf.disp_y,
+				psx::video::Rect{ .w = disp_conf.hoz_res - 1, .h = disp_conf.vert_res - 1 },
+				psx::video::Rect{ .w = 1024, .h = 512 }
+			);
+			display.Blit(handle);
+		}
 	}
 
 	server.Shutdown();

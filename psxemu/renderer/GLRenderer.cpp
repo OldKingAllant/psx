@@ -125,6 +125,8 @@ namespace psx::video {
 
 		UpdateUbo();
 
+		glViewport(0, 0, 1024, 512);
+
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
 
@@ -266,6 +268,8 @@ namespace psx::video {
 	void Renderer::EndCpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h, bool mask_enable) {
 		CommandFenceSync();
 		SyncTextures();
+
+		glViewport(0, 0, 1024, 512);
 
 		m_vram.UploadForBlit(xoff, yoff, w, h);
 

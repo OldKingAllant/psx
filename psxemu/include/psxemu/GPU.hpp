@@ -119,6 +119,14 @@ namespace psx {
 		u32 size_y;
 	};
 
+	struct DisplayConfig {
+		bool display_enable;
+		u32 disp_x;
+		u32 disp_y;
+		u32 hoz_res;
+		u32 vert_res;
+	};
+
 	static constexpr u32 VRAM_X_SIZE = 1024;
 	static constexpr u32 VRAM_Y_SIZE = 512;
 
@@ -154,6 +162,10 @@ namespace psx {
 
 		video::Renderer* GetRenderer() const {
 			return m_renderer;
+		}
+
+		DisplayConfig& GetDispConfig() {
+			return m_disp_conf;
 		}
 
 	private :
@@ -235,5 +247,7 @@ namespace psx {
 		CpuVramBlit m_vram_cpu_blit;
 
 		video::Renderer* m_renderer;
+
+		DisplayConfig m_disp_conf;
 	};
 }

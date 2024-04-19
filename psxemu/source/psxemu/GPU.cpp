@@ -29,7 +29,7 @@ namespace psx {
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
 		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{},
-		m_renderer{nullptr} {
+		m_renderer{ nullptr }, m_disp_conf{} {
 		m_renderer = new video::Renderer();
 		m_cpu_vram = m_renderer->GetVramPtr();
 	}

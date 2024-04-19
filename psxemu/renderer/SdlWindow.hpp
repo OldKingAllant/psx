@@ -23,7 +23,9 @@ namespace psx::video {
 	public :
 		SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize);
 
+		void SetTextureWindow(u32 start_x, u32 start_y, Rect window_size, Rect texture_size);
 		void Blit(uint32_t m_texture_id);
+		void Clear();
 
 		bool EventLoop();
 

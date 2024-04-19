@@ -11,7 +11,7 @@ namespace psx {
 
 		ResetFifo();
 		AckIrq();
-		DispEnable(false);
+		DispEnable(true);
 		DmaDirection(DmaDir::OFF);
 		DisplayAreaStart(0);
 
@@ -36,8 +36,9 @@ namespace psx {
 
 	void Gpu::DispEnable(bool enable) {
 		m_stat.disp_enable = enable;
+		m_disp_conf.display_enable = !enable;
 
-		if (enable)
+		if (!enable)
 			fmt::println("[GPU] Display enabled");
 		else
 			fmt::println("[GPU] Display disabled");
@@ -68,6 +69,9 @@ namespace psx {
 	void Gpu::DisplayAreaStart(u32 cmd) {
 		m_disp_x_start = cmd & 1023;
 		m_disp_y_start = (cmd >> 10) & 511;
+
+		m_disp_conf.disp_x = m_disp_x_start;
+		m_disp_conf.disp_y = m_disp_y_start;
 
 		fmt::println("[GPU] Display address X: 0x{:x}, Y: 0x{:x}",
 			m_disp_x_start, m_disp_y_start);
@@ -130,13 +134,19 @@ namespace psx {
 				break;
 			}
 
+			m_disp_conf.hoz_res = hoz_value;
+
 			fmt::println("        Horizontal res : {}", hoz_value);
 		}
 
-		if (m_stat.vertical_res)
+		if (m_stat.vertical_res) {
 			fmt::println("        Vertical res : 480");
-		else 
+			m_disp_conf.vert_res = 480;
+		}	
+		else {
 			fmt::println("        Vertical res : 240");
+			m_disp_conf.vert_res = 240;
+		}
 
 		if((u8)m_stat.video_mode)
 			fmt::println("        Video mode : PAL");
