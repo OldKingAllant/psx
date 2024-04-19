@@ -13,10 +13,6 @@
 int main(int argc, char* argv[]) {
 	psx::video::SdlInit();
 
-	psx::video::SdlWindow vram_view("Vram",
-		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_view_blit", false, true);
-
 	char* buf{ nullptr };
 	size_t len{ 0 };
 	auto err = _dupenv_s(&buf, &len, "PROGRAMFILES");
@@ -40,13 +36,17 @@ int main(int argc, char* argv[]) {
 	using CaptureOpts = psx::video::CaptureOpts;
 
 	renderdoc.Load();
-	renderdoc.SetCurrentWindow(vram_view.GetNativeWindowHandle());
 	renderdoc.SetCaptureOption(CaptureOpts::API_VALIDATION, 1);
 	renderdoc.SetCaptureOption(CaptureOpts::REDIRECT_DEBUG_OUT, 0);
 	renderdoc.SetCaptureOption(CaptureOpts::VERIFY_BUFF_ACCESS, 1);
 	renderdoc.SetCaptureOption(CaptureOpts::REF_ALL_RES, 1);
 	renderdoc.SetCaptureOption(CaptureOpts::CAPTURE_CALLSTACKS, 1);
 
+	psx::video::SdlWindow vram_view("Vram",
+		psx::video::Rect{ .w = 1024, .h = 512 }, 
+		"../shaders", "vram_view_blit", false, true);
+
+	renderdoc.SetCurrentWindow(vram_view.GetNativeWindowHandle());
 
 	using SdlEvent = psx::video::SdlEvent;
 

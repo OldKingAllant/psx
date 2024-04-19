@@ -315,6 +315,25 @@ namespace psx {
 			std::pair{ "ReturnFromException", ParamList{} }
 		});
 
+		the_table.insert(std::pair{ 0xA33,
+			std::pair{ "malloc", ParamList{
+				std::pair{ "size", SyscallParamType::UINT },
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xC02,
+			std::pair{ "SysEnqIntRP", ParamList{
+				std::pair{ "priority", SyscallParamType::UINT },
+				std::pair{ "struc", SyscallParamType::VOID_PTR }
+			} }
+		});
+
+		the_table.insert(std::pair{ 0xB0B,
+			std::pair{ "TestEvent", ParamList{
+				std::pair{ "event", SyscallParamType::UINT },
+			} }
+		});
+
 		return the_table;
 	}
 
