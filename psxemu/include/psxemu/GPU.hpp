@@ -202,6 +202,8 @@ namespace psx {
 		void CheckIfDrawNeeded();
 		void FlushDrawOps();
 
+		void FinalizeCpuVramBlit();
+
 	private :
 		Queue<u32, 16> m_cmd_fifo;
 		GpuStat m_stat;

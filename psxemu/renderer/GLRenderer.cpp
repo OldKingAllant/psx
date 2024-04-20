@@ -262,16 +262,31 @@ namespace psx::video {
 		//right now, but we don't want to wait for completion, yet
 		UpdateUbo();
 		DrawBatch();
-		m_blit_vertex_buf.Clear();
 	}
 
-	void Renderer::EndCpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h, bool mask_enable) {
+	void Renderer::PrepareBlit(bool mask_enable) {
 		CommandFenceSync();
 		SyncTextures();
 
 		glViewport(0, 0, 1024, 512);
 
+		m_framebuffer.Bind();
+		m_blit_vertex_buf.Bind();
+		m_blit_shader.BindProgram();
+
+		m_blit_shader.UpdateUniform("mask_enable", mask_enable);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
+		glActiveTexture(GL_TEXTURE0);
+	}
+
+	void Renderer::CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h) {
 		m_vram.UploadForBlit(xoff, yoff, w, h);
+
+		m_blit_vertex_buf.Clear();
 
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff + h });
@@ -281,28 +296,16 @@ namespace psx::video {
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
 
-		m_framebuffer.Bind();
-
-		m_blit_vertex_buf.Bind();
-
-		m_blit_shader.BindProgram();
-
-		m_blit_shader.UpdateUniform("mask_enable", mask_enable);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
-
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		m_blit_vertex_buf.Unbind();
-
-		m_framebuffer.Unbind();
 
 		m_processing_cmd = true;
 
 		CommandFenceSync();
+	}
+
+	void Renderer::EndBlit() {
+		m_blit_vertex_buf.Unbind();
+		m_framebuffer.Unbind();
 		SyncTextures();
 	}
 

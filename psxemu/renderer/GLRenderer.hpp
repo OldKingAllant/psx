@@ -146,7 +146,9 @@ namespace psx::video {
 
 		void VramCpuBlit(u32 xoff, u32 yoff, u32 w, u32 h);
 		void BeginCpuVramBlit();
-		void EndCpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h, bool mask_enable);
+		void PrepareBlit(bool mask_enable);
+		void CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h);
+		void EndBlit();
 
 		void FlushCommands();
 		void SyncTextures();

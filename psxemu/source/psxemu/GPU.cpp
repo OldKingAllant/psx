@@ -323,6 +323,78 @@ namespace psx {
 			delete m_renderer;
 	}
 
+	void Gpu::FinalizeCpuVramBlit() {
+		u32 end_x = (m_cpu_vram_blit.source_x +
+			m_cpu_vram_blit.size_x);
+		u32 end_y = (m_cpu_vram_blit.source_y +
+			m_cpu_vram_blit.size_y);
+
+		//If sourcex + w > 1024 || sourcey + h > 512
+		//the coordinates should wrap around
+		//This cannot be replicated directly
+		//in OpenGL without using geometry
+		//shaders (since we would need to generate
+		//new vertices for the second part of the
+		//blit). For this reason we do it here
+
+		//Draw full or first part of the blit
+		//Vertices outside of the 1024x512 viewport
+		//are simply clipped
+
+		m_renderer->PrepareBlit(m_stat.draw_over_mask_disable);
+
+		m_renderer->CpuVramBlit(
+			m_cpu_vram_blit.source_x,
+			m_cpu_vram_blit.source_y,
+			m_cpu_vram_blit.size_x,
+			m_cpu_vram_blit.size_y
+		);
+
+		if (end_x >= VRAM_X_SIZE && end_y >= VRAM_Y_SIZE) {
+			u32 start_x = m_cpu_vram_blit.source_x;
+			u32 start_y = m_cpu_vram_blit.source_y;
+
+			u32 size_x = (end_x % VRAM_X_SIZE);
+			u32 size_y = (end_y % VRAM_Y_SIZE);
+
+			//There are 4 split parts in total:
+			//1. (X, Y) Both in bounds
+			//2. X out of bounds
+			//3. Y out of bounds
+			//4. (X, Y) Both out of bounds
+			//And we need to draw 4 different quads
+
+			m_renderer->CpuVramBlit(
+				0, m_cpu_vram_blit.source_y, 
+				size_x, m_cpu_vram_blit.size_y
+			);
+
+			m_renderer->CpuVramBlit(
+				m_cpu_vram_blit.source_x, 0,
+				m_cpu_vram_blit.size_x, size_y
+			);
+
+			m_renderer->CpuVramBlit(
+				0, 0,
+				size_x, size_y
+			);
+		}
+		else if (end_x >= VRAM_X_SIZE || end_y >= VRAM_Y_SIZE) {
+			//Emulate wraparound from 1 single side
+			u32 start_x = (end_x >= VRAM_X_SIZE) ? 0 :
+				m_cpu_vram_blit.source_x;
+			u32 start_y = (end_y >= VRAM_Y_SIZE) ? 0 :
+				m_cpu_vram_blit.source_y;
+
+			u32 size_x = (end_x % VRAM_X_SIZE) - start_x;
+			u32 size_y = (end_y % VRAM_Y_SIZE) - start_y;
+
+			m_renderer->CpuVramBlit(start_x, start_y, size_x, size_y);
+		}
+
+		m_renderer->EndBlit();
+	}
+
 	void Gpu::PerformCpuVramBlit(u32 data) {
 		u32 end_x = (m_cpu_vram_blit.source_x +
 			m_cpu_vram_blit.size_x) % VRAM_X_SIZE;
@@ -345,20 +417,18 @@ namespace psx {
 			m_cpu_vram_blit.curr_y += 1;
 			m_cpu_vram_blit.curr_y %= VRAM_Y_SIZE;
 
+			curr_index = (m_cpu_vram_blit.curr_y * VRAM_X_SIZE) +
+				m_cpu_vram_blit.curr_x;
+
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
-				m_renderer->EndCpuVramBlit(
-					m_cpu_vram_blit.source_x,
-					m_cpu_vram_blit.source_y,
-					m_cpu_vram_blit.size_x,
-					m_cpu_vram_blit.size_y,
-					m_stat.draw_over_mask_disable
-				);
+				FinalizeCpuVramBlit();
 				return;
 			}
 		}
-
-		curr_index += 2;
+		else {
+			curr_index += 2;
+		}
 
 		*reinterpret_cast<u16*>(m_cpu_vram + curr_index) = (u16)(data >> 16);
 
@@ -373,13 +443,7 @@ namespace psx {
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
-				m_renderer->EndCpuVramBlit(
-					m_cpu_vram_blit.source_x,
-					m_cpu_vram_blit.source_y,
-					m_cpu_vram_blit.size_x,
-					m_cpu_vram_blit.size_y,
-					m_stat.draw_over_mask_disable
-				);
+				FinalizeCpuVramBlit();
 			}
 		}
 	}

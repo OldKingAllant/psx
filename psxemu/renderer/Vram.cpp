@@ -155,6 +155,8 @@ namespace psx::video {
 	}
 
 	void Vram::UploadForBlit(u32 xoff, u32 yoff, u32 w, u32 h) {
+		w = std::min(w, 1024 - xoff);
+		h = std::min(h, 512 - yoff);
 		u32 pointer_offset = ((yoff * 1024) + xoff) * 2;
 		glBindTexture(GL_TEXTURE_2D, m_blit_texture);
 		glTexSubImage2D(GL_TEXTURE_2D, 0, xoff, yoff, w, h,
