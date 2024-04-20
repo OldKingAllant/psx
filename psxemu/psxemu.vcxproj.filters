@@ -195,6 +195,9 @@
     <ClInclude Include="renderer\UniformBuffer.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\WindowManager.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -300,6 +303,9 @@
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
     <ClCompile Include="renderer\UniformBuffer.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\WindowManager.cpp">
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
   </ItemGroup>

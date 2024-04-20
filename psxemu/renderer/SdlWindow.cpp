@@ -161,17 +161,14 @@ namespace psx::video {
 		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
-	bool SdlWindow::EventLoop() {
-		SDL_Event next_ev{};
-
-		while (SDL_PollEvent(&next_ev)) {
-			switch (next_ev.type)
+	bool SdlWindow::HandleEvent(SDL_Event* ev) {
+			switch (ev->type)
 			{
 			case SDL_WINDOWEVENT:
-				if (next_ev.window.type == SDL_WINDOWEVENT_CLOSE)
+				if (ev->window.event == SDL_WINDOWEVENT_CLOSE)
 					m_close = true;
-				else if (next_ev.window.event == SDL_WINDOWEVENT_RESIZED ||
-					next_ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+				else if (ev->window.event == SDL_WINDOWEVENT_RESIZED ||
+					ev->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
 					int h{}, w{};
 					SDL_GetWindowSize((SDL_Window*)m_win, &w, &h);
 					m_size.w = (size_t)w;
@@ -182,17 +179,19 @@ namespace psx::video {
 				m_close = true;
 				break;
 			case SDL_KEYDOWN:
-				DispatchEvent(SdlEvent::KeyPressed, std::any{ std::string_view{ SDL_GetKeyName(next_ev.key.keysym.sym) }});
+				if (!HasInputFocus()) return false;
+				DispatchEvent(SdlEvent::KeyPressed, std::any{ std::string_view{ SDL_GetKeyName(ev->key.keysym.sym) }});
 				break;
 			case SDL_KEYUP:
-				DispatchEvent(SdlEvent::KeyReleased, std::any{ std::string_view{ SDL_GetKeyName(next_ev.key.keysym.sym) } });
+				if (!HasInputFocus()) return false;
+				DispatchEvent(SdlEvent::KeyReleased, std::any{ std::string_view{ SDL_GetKeyName(ev->key.keysym.sym) } });
 				break;
 			default:
+				return false;
 				break;
 			}
-		}
 
-		return !m_close;
+			return true;
 	}
 
 	SdlWindow::~SdlWindow() {
@@ -241,4 +240,25 @@ namespace psx::video {
 		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, endx, endy });
 	}
 
+	uint32_t SdlWindow::GetWindowID() const {
+		return SDL_GetWindowID((SDL_Window*)m_win);
+	}
+
+	bool SdlWindow::HasMouseFocus() const {
+		auto flags = SDL_GetWindowFlags((SDL_Window*)m_win);
+
+		return (bool)(flags & SDL_WINDOW_MOUSE_FOCUS);
+	}
+
+	bool SdlWindow::HasInputFocus() const {
+		auto flags = SDL_GetWindowFlags((SDL_Window*)m_win);
+
+		return (bool)(flags & SDL_WINDOW_INPUT_FOCUS);
+	}
+
+	void SdlWindow::SetSize(Rect sz) {
+		m_size = sz;
+		SDL_SetWindowSize((SDL_Window*)m_win,
+			(int)sz.w, (int)sz.h);
+	}
 }

@@ -9,6 +9,7 @@
 #include <psxemu/renderer/SdlContext.hpp>
 #include <psxemu/renderer/SdlWindow.hpp>
 #include <psxemu/renderer/Renderdoc.hpp>
+#include <psxemu/renderer/WindowManager.hpp>
 
 int main(int argc, char* argv[]) {
 	psx::video::SdlInit();
@@ -56,7 +57,7 @@ int main(int argc, char* argv[]) {
 
 	bool ov_enable = true;
 
-	vram_view.Listen(SdlEvent::KeyPressed, [&renderdoc, &ov_enable](SdlEvent ev_type, std::any data) {
+	vram_view.Listen(SdlEvent::KeyPressed, [&renderdoc, &ov_enable, &vram_view](SdlEvent ev_type, std::any data) {
 		auto key_name = std::any_cast<std::string_view>(data);
 		
 		if (key_name == "C")
@@ -71,7 +72,15 @@ int main(int argc, char* argv[]) {
 			else 
 				renderdoc.SetOverlayOptions(OverlayOpts::ENABLE | OverlayOpts::FRAMERATE | OverlayOpts::CAPTURES);
 		}
+		else if (key_name == "R") {
+			vram_view.SetSize(psx::video::Rect{.w = 1024, .h = 512});
+		}
 	});
+
+	psx::video::WindowManager wm{};
+
+	wm.AddWindow(&vram_view);
+	wm.AddWindow(&display);
 
 	tty::TTY_Console console{ "../x64/Debug/TTY_Console.exe", "psx-tty" };
 
@@ -104,9 +113,10 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Connected" << std::endl;
 
-	while (server.HandlePackets() && vram_view.EventLoop()
-		&& display.EventLoop())
+	while (server.HandlePackets() && wm.HandleEvents())
 	{
+		if (vram_view.CloseRequest() || display.CloseRequest()) break;
+
 		if (!sys.Stopped()) {
 			renderdoc.StartCapture();
 			bool break_hit = sys.RunInterpreterUntilBreakpoint();

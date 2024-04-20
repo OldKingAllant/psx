@@ -180,6 +180,7 @@
     <ClInclude Include="renderer\UniformBuffer.hpp" />
     <ClInclude Include="renderer\VertexBuffer.hpp" />
     <ClInclude Include="renderer\Vram.hpp" />
+    <ClInclude Include="renderer\WindowManager.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\Errors.cpp" />
@@ -195,6 +196,7 @@
     <ClCompile Include="renderer\UniformBuffer.cpp" />
     <ClCompile Include="renderer\VertexBuffer.cpp" />
     <ClCompile Include="renderer\Vram.cpp" />
+    <ClCompile Include="renderer\WindowManager.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />

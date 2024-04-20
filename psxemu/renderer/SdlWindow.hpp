@@ -7,6 +7,8 @@
 #include <functional>
 #include <map>
 
+union SDL_Event;
+
 namespace psx::video {
 	struct Rect {
 		size_t w, h;
@@ -14,7 +16,11 @@ namespace psx::video {
 
 	enum class SdlEvent {
 		KeyPressed,
-		KeyReleased
+		KeyReleased,
+		WindowClose,
+		WindowResized,
+		WindowSizeChanged,
+		Quit
 	};
 
 	using EventCallback = std::function<void(SdlEvent, std::any)>;
@@ -27,7 +33,7 @@ namespace psx::video {
 		void Blit(uint32_t m_texture_id);
 		void Clear();
 
-		bool EventLoop();
+		bool HandleEvent(SDL_Event* ev);
 
 		~SdlWindow();
 
@@ -43,6 +49,12 @@ namespace psx::video {
 		}
 
 		void* GetNativeWindowHandle() const;
+		uint32_t GetWindowID() const;
+
+		bool HasMouseFocus() const;
+		bool HasInputFocus() const;
+
+		void SetSize(Rect sz);
 
 	private :
 		void* m_win;
