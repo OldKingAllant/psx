@@ -156,6 +156,13 @@
     <ClInclude Include="include\psxemu\Interrupts.hpp" />
     <ClInclude Include="include\psxemu\IOGaps.hpp" />
     <ClInclude Include="include\psxemu\JitBlock.hpp" />
+    <ClInclude Include="include\psxemu\Kernel.hpp" />
+    <ClInclude Include="include\psxemu\KernelDevices.hpp" />
+    <ClInclude Include="include\psxemu\KernelEvents.hpp" />
+    <ClInclude Include="include\psxemu\KernelExceptions.hpp" />
+    <ClInclude Include="include\psxemu\KernelFiles.hpp" />
+    <ClInclude Include="include\psxemu\KernelStructures.hpp" />
+    <ClInclude Include="include\psxemu\KernelThreads.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
     <ClInclude Include="include\psxemu\OTDma.hpp" />
@@ -209,6 +216,9 @@
     <ClCompile Include="source\psxemu\GpuDma.cpp" />
     <ClCompile Include="source\psxemu\HLE_Bios.cpp" />
     <ClCompile Include="source\psxemu\Interpreter.cpp" />
+    <ClCompile Include="source\psxemu\Kernel.cpp" />
+    <ClCompile Include="source\psxemu\KernelStrings.cpp" />
+    <ClCompile Include="source\psxemu\KernelStructures.cpp" />
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\OTDma.cpp" />
@@ -216,6 +226,7 @@
     <ClCompile Include="source\psxemu\RootCounters.cpp" />
     <ClCompile Include="source\psxemu\Scheduler.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />
+    <ClCompile Include="source\psxemu\ServerExtensionPackets.cpp" />
     <ClCompile Include="source\psxemu\Syscalls.cpp" />
     <ClCompile Include="source\psxemu\System.cpp" />
     <ClCompile Include="source\psxemu\SystemBus.cpp" />

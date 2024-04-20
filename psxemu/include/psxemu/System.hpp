@@ -3,6 +3,7 @@
 #include "MIPS1.hpp"
 #include "SystemBus.hpp"
 #include "SystemStatus.hpp"
+#include "Kernel.hpp"
 
 #include <string>
 #include <span>
@@ -128,5 +129,7 @@ namespace psx {
 		PutsFun m_puts;
 
 		bool m_stopped;
+
+		kernel::Kernel m_kernel;
 	};
 }

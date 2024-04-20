@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
 	wm.AddWindow(&vram_view);
 	wm.AddWindow(&display);
 
-	tty::TTY_Console console{ "../x64/Debug/TTY_Console.exe", "psx-tty" };
+	tty::TTY_Console console{ "../x64/Release/TTY_Console.exe", "psx-tty" };
 
 	console.Open();
 

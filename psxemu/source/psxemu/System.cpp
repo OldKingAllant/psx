@@ -14,7 +14,8 @@ namespace psx {
 		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}, m_hbreaks{}, m_break_enable{false},
 		m_hle_enable{false}, m_hle_functions{}, 
-		m_putchar{}, m_puts{}, m_stopped{true}
+		m_putchar{}, m_puts{}, m_stopped{true},
+		m_kernel{}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
@@ -42,6 +43,15 @@ namespace psx {
 		});
 
 		InitHLEHandlers();
+
+		m_kernel.SetRamPointer(
+			m_sysbus.GetGuestBase()
+		);
+
+		m_kernel.SetRomPointer(
+			m_sysbus.GetGuestBase() +
+			memory::region_offsets::PSX_BIOS_OFFSET
+		);
 	}
 
 	void System::InitHLEHandlers() {
@@ -146,6 +156,13 @@ namespace psx {
 		m_sysbus.LoadBios(buf, (u32)size);
 
 		delete[] buf;
+
+		fmt::println("Kernel BCD date : {}",
+			m_kernel.DumpKernelBcdDate());
+		fmt::println("Kernel Maker : {}",
+			m_kernel.DumpKernelMaker());
+		fmt::println("Kernel version : {}",
+			m_kernel.DumpKernelVersion());
 	}
 
 	void System::InterpreterSingleStep() {

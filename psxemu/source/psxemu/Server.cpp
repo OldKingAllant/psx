@@ -21,6 +21,7 @@ namespace psx::gdbstub {
 		m_out{},
 		m_recv_size{},
 		m_cmd_handlers{},
+		m_ext_cmd_handlers{},
 		m_trace_handler{}, m_tracing{false}, 
 		m_sys{sys} {
 		m_cmd_handlers.insert(std::pair{ std::string("qSupported"), &Server::HandleQSupported });
@@ -41,6 +42,9 @@ namespace psx::gdbstub {
 		m_cmd_handlers.insert(std::pair{ std::string("vCont"), &Server::HandleVCont });
 		m_cmd_handlers.insert(std::pair{ std::string("Z1"), &Server::HandleZ1 });
 		m_cmd_handlers.insert(std::pair{ std::string("z1"), &Server::HandleSmallZ1 });
+		m_cmd_handlers.insert(std::pair{ std::string("ext_"), &Server::HandleExtensionPackets});
+
+		InitExtHandlers();
 	}
 
 	void Server::Start() {
@@ -776,5 +780,36 @@ namespace psx::gdbstub {
 
 		if (m_recv_buffer)
 			delete[] m_recv_buffer;
+	}
+
+	void Server::HandleExtensionPackets(std::string& data) {
+		auto arg_start = data.find_first_of(':');
+
+		if (arg_start == 0) {
+			SendPayload("WHAT");
+			return;
+		}
+
+		std::string command{};
+		std::string args{};
+
+		if (arg_start == std::string::npos) {
+			command = data;
+			args = "";
+		}
+		else {
+			command = data.substr(0, arg_start);
+			args = data.substr(arg_start + 1);
+		}
+
+		if (!m_ext_cmd_handlers.contains(command)) {
+			SendPayload("Invalid EXT command");
+			return;
+		}
+
+		auto const& handler = m_ext_cmd_handlers[command];
+		std::invoke(handler, this, args);
+
+		SendPayload("OK");
 	}
 }

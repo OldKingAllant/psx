@@ -215,6 +215,25 @@ namespace psx::gdbstub {
 		/// </summary>
 		void SendAck();
 
+		/// <summary>
+		/// Handle packets implemented only
+		/// by this stub
+		/// </summary>
+		/// <param name="data">Sub-command</param>
+		void HandleExtensionPackets(std::string& data);
+
+		/// <summary>
+		/// Call this after object
+		/// creation (in constructor)
+		/// </summary>
+		void InitExtHandlers();
+
+		/// <summary>
+		/// Handlers for extension packets
+		/// </summary>
+
+		void HandleExtVer(std::string&);
+
 	private :
 		/// <summary>
 		/// Server socket (used only for accepting initial connection from GDB client)
@@ -251,6 +270,7 @@ namespace psx::gdbstub {
 		std::size_t m_recv_size;
 
 		std::map<std::string, CommandHandler> m_cmd_handlers;
+		std::map<std::string, CommandHandler> m_ext_cmd_handlers;
 
 		TraceHandler m_trace_handler;
 		bool m_tracing;

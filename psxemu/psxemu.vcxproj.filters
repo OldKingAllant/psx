@@ -198,6 +198,27 @@
     <ClInclude Include="renderer\WindowManager.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\KernelStructures.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\KernelEvents.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\KernelExceptions.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\KernelThreads.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\KernelFiles.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\KernelDevices.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\Kernel.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -307,6 +328,18 @@
     </ClCompile>
     <ClCompile Include="renderer\WindowManager.cpp">
       <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\Kernel.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\KernelStrings.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\KernelStructures.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\ServerExtensionPackets.cpp">
+      <Filter>Resource Files\gdbstub</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
