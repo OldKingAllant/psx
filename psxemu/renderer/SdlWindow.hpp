@@ -28,6 +28,7 @@ namespace psx::video {
 	class SdlWindow {
 	public :
 		SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize);
+		SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize);
 
 		void SetTextureWindow(u32 start_x, u32 start_y, Rect window_size, Rect texture_size);
 		void Blit(uint32_t m_texture_id);
@@ -47,6 +48,10 @@ namespace psx::video {
 
 		void* GetGlContext() const {
 			return m_gl_ctx;
+		}
+
+		void* GetWindowHandle() const {
+			return m_win;
 		}
 
 		void* GetNativeWindowHandle() const;

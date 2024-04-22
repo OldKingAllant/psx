@@ -23,10 +23,10 @@ namespace psx::video {
 		fmt::println("[OPENGL] {}", msg);
 	}
 
-	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize)
-		: m_win{ nullptr }, m_gl_ctx { nullptr }, m_blit{ nullptr }, 
+	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize) 
+		: m_win{ nullptr }, m_gl_ctx{ nullptr }, m_blit{ nullptr },
 		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
-		m_size{size} {
+		m_size{ size } {
 		if (reuse_ctx)
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 		else
@@ -60,7 +60,7 @@ namespace psx::video {
 				throw std::runtime_error("SDL_GL_CreateContext failed");
 			}
 
-			if(!GlInit())
+			if (!GlInit())
 				throw std::runtime_error("GlInit() failed");
 
 			GlEnableDebugOutput();
@@ -89,6 +89,12 @@ namespace psx::video {
 				fmt::println("[OPENGL] Error : {}",
 					(const char*)glewGetErrorString(err));
 		}
+	}
+
+	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize)
+		: SdlWindow(name, size, reuse_ctx, resize) {
+		m_blit = new Shader(blit_loc, blit_name);
+		m_blit->SetLabel(fmt::format("window_{}_blit_shader", name));
 
 		m_vert_buf = new VertexBuffer<HostVertex2D>(6);
 
@@ -99,11 +105,8 @@ namespace psx::video {
 		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, 0.0, 0.0 });
 		m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  1.0, 0.0 });
 		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, 1.0, 1.0 });
-		
-		m_blit = new Shader(blit_loc, blit_name);
 
 		m_vert_buf->SetLabel(fmt::format("static_window_{}_vertex_buf", name));
-		m_blit->SetLabel(fmt::format("window_{}_blit_shader", name));
 	}
 
 	void SdlWindow::Clear() {
@@ -126,6 +129,9 @@ namespace psx::video {
 
 	void SdlWindow::Blit(uint32_t m_texture_id) {
 		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+
+		if (!m_blit || !m_vert_buf)
+			throw std::runtime_error("Window is not ready for blit ops");
 
 		int curr_viewport[4] = {};
 		glGetIntegerv(GL_VIEWPORT, curr_viewport);
@@ -182,9 +188,8 @@ namespace psx::video {
 	}
 
 	SdlWindow::~SdlWindow() {
-		if(m_blit)
-			delete m_blit;
-		delete m_vert_buf;
+		if(m_blit) delete m_blit;
+		if(m_vert_buf) delete m_vert_buf;
 		SDL_GL_DeleteContext(m_gl_ctx);
 		SDL_DestroyWindow((SDL_Window*)m_win);
 	}
