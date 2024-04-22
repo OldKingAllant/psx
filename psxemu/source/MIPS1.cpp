@@ -1,8 +1,11 @@
 #include <psxemu/include/psxemu/MIPS1.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/Interpreter.hpp>
-
 #include <psxemu/include/psxemu/cpu_instruction.hpp>
+
+#include <common/Errors.hpp>
+
+#include <fmt/format.h>
 
 namespace psx::cpu {
 	MIPS1::MIPS1(system_status* sys_status) :
@@ -13,6 +16,16 @@ namespace psx::cpu {
 		m_sys_status->curr_delay.dest = InvalidReg;
 		m_sys_status->next_delay.dest = InvalidReg;
 		m_sys_status->reg_writeback.dest = InvalidReg;
+
+		auto fake_entry = SyscallCallstackEntry{
+			.exitpoint = UINT32_MAX,
+			.syscall_id = UINT32_MAX,
+			.caller = UINT32_MAX
+		};
+
+		//Just to make sure that at least one element
+		//is always present
+		m_syscall_frames.push(fake_entry);
 	}
 
 	bool MIPS1::CheckInterrupts() {
@@ -124,7 +137,7 @@ namespace psx::cpu {
 			UpdateLoadDelay();
 			UpdateRegWriteback();
 
-			if (!HLE_Bios(m_sys_status->branch_dest))
+			if (HLE_Bios(m_sys_status->branch_dest))
 				m_pc = m_sys_status->branch_dest;
 			else
 				m_pc = m_regs.ra;
@@ -254,14 +267,49 @@ namespace psx::cpu {
 		{
 		case 0xA0:
 		case 0xB0:
-		case 0xC0:
-			return m_hle_bios_handler(address);
+		case 0xC0: {
+			bool should_enter = m_hle_bios_handler(address, true);
+			if (should_enter) {
+				if (m_syscall_frames.stacktop() == MAX_SYSCALL_FRAMES) [[unlikely]] {
+					fmt::println("[CPU] FATAL! Max recursion reached for syscall frames!");
+					error::DebugBreak();
+				}
+				u32 r9 = m_regs.array[9];
+				u32 function_id = (address << 4) | r9;
+
+				//ReturnFromException is [[noreturn]]
+				//Better not put it in the frame pointer stack
+				if (function_id != 0xb17) {
+					m_syscall_frames.push(
+						SyscallCallstackEntry{
+							.exitpoint = m_regs.ra,
+							.syscall_id = function_id,
+							.caller = m_pc - 0x4
+						}
+					);
+				}
+			}
+			return should_enter;
+			}
 			break;
 		default:
 			break;
 		}
 
-		return false;
+		if (m_syscall_frames.top().exitpoint == address) {
+			do {
+				SyscallCallstackEntry entry = m_syscall_frames.pop();
+				
+				if (entry.exitpoint == UINT32_MAX) [[unlikely]] {
+					fmt::println("[CPU] \"Impossible\" happened! Popped invalid entry from system call frame pointer stack!");
+					error::DebugBreak();
+				}
+
+				m_hle_bios_handler(entry.syscall_id, false);
+			} while (m_syscall_frames.top().exitpoint == address);
+		}
+
+		return true;
 	}
 
 	void MIPS1::InterlockHiLo() {

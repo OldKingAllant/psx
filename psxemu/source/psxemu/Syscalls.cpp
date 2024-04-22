@@ -5,7 +5,8 @@
 #include <fmt/format.h>
 
 #include <sstream>
-
+#include <algorithm>
+#include <ranges>
 
 namespace psx {
 	std::map<u32, Syscall> InitSyscallTable() {
@@ -342,9 +343,9 @@ namespace psx {
 		{}
 	};
 
-	Syscall const& GetSyscallDescriptor(u32 syscall_num) {
-		static const std::map<u32, Syscall> table = InitSyscallTable();
+	static const std::map<u32, Syscall> table = InitSyscallTable();
 
+	Syscall const& GetSyscallDescriptor(u32 syscall_num) {
 		if (!table.contains(syscall_num))
 			return UNKNOWN_SYSCALL;
 
@@ -582,5 +583,16 @@ namespace psx {
 		}
 
 		fmt::println(")");
+	}
+
+	std::vector<u32> GetSyscallIdsByName(std::string const& name) {
+		auto descriptor_iter = table |
+			std::views::filter([&name](std::pair<u32, Syscall> const& syscall) {
+				return syscall.second.first == name;
+			});
+
+		return descriptor_iter |
+			std::views::transform([](std::pair<u32, Syscall> const& syscall) { return syscall.first; }) |
+			std::ranges::to<std::vector<u32>>();
 	}
 }

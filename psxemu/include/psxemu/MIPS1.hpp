@@ -3,6 +3,7 @@
 #include "Recompiler.hpp"
 #include "CodeCache.hpp"
 #include "cop0.hpp"
+#include <common/Stack.hpp>
 
 #include <functional>
 
@@ -54,6 +55,14 @@ namespace psx::cpu {
 
 	static constexpr u8 InvalidReg = 32;
 
+	static constexpr u32 MAX_SYSCALL_FRAMES = 64;
+
+	struct SyscallCallstackEntry {
+		u32 exitpoint;
+		u32 syscall_id;
+		u32 caller;
+	};
+
 	class MIPS1 {
 	public :
 		MIPS1(system_status* sys_status);
@@ -73,7 +82,7 @@ namespace psx::cpu {
 
 		bool HLE_Bios(u32 address);
 
-		void SetHLEHandler(std::function<bool(u32)>&& handler) {
+		void SetHLEHandler(std::function<bool(u32, bool)>&& handler) {
 			m_hle_bios_handler = handler;
 		}
 
@@ -96,6 +105,7 @@ namespace psx::cpu {
 
 		system_status* m_sys_status;
 
-		std::function<bool(u32)> m_hle_bios_handler;
+		std::function<bool(u32, bool)> m_hle_bios_handler;
+		Stack<SyscallCallstackEntry, MAX_SYSCALL_FRAMES> m_syscall_frames;
 	};
 }

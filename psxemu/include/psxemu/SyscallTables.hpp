@@ -34,5 +34,8 @@ namespace psx {
 	using Syscall = std::pair<std::string, std::vector<SyscallParam>>;
 
 	Syscall const& GetSyscallDescriptor(u32 syscall_num);
+	std::vector<u32> GetSyscallIdsByName(std::string const& name);
 	void LogSyscall(u32 syscall_num, SyscallLogMode log_mode, system_status* status);
+
+	static constexpr u32 UNKNOWN_SYSCALL_ID = 0xFFFF;
 }

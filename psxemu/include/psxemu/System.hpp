@@ -82,21 +82,8 @@ namespace psx {
 		/// <summary>
 		/// Enable or disable HLE BIOS emulation
 		/// </summary>
-		void EnableHLE(bool enable) {
+		void SetHleEnable(bool enable) {
 			m_hle_enable = enable;
-		}
-
-		using HLE_Function = void(System::*)();
-
-		using PutcharFun = std::function<void(char)>;
-		using PutsFun = std::function<void(char*)>;
-
-		void SetPutchar(PutcharFun fun) {
-			m_putchar = fun;
-		}
-
-		void SetPuts(PutsFun fun) {
-			m_puts = fun;
 		}
 
 		FORCE_INLINE void SetStopped(bool stop) {
@@ -107,13 +94,16 @@ namespace psx {
 			return m_stopped;
 		}
 
+		FORCE_INLINE kernel::Kernel& GetKernel() {
+			return m_kernel;
+		}
+
+		FORCE_INLINE void SetEnableKernelCallstack(bool en) {
+			m_kernel_callstack_enable = en;
+		}
+
 	private :
 		void InterpreterSingleStep();
-
-		void InitHLEHandlers();
-
-		void HLE_Getchar();
-		void HLE_Putchar();
 
 	private :
 		cpu::MIPS1 m_cpu;
@@ -122,11 +112,7 @@ namespace psx {
 		std::vector<u32> m_hbreaks;
 		bool m_break_enable;
 		bool m_hle_enable;
-
-		std::map<u32, HLE_Function> m_hle_functions;
-		
-		PutcharFun m_putchar;
-		PutsFun m_puts;
+		bool m_kernel_callstack_enable;
 
 		bool m_stopped;
 

@@ -91,11 +91,19 @@ int main(int argc, char* argv[]) {
 	sys.LoadBios(std::string("../programs/SCPH1001.BIN"));
 	sys.ResetVector();
 	sys.ToggleBreakpoints(true);
-	sys.EnableHLE(true);
+	sys.SetHleEnable(true);
+	sys.SetEnableKernelCallstack(true);
 
-	sys.SetPutchar([&console](char ch) {
-		console.Putchar(ch);
-	});
+	psx::kernel::Kernel& kernel = sys.GetKernel();
+
+	kernel.SetHooksEnable(true);
+	kernel
+		.InsertEnterHook(std::string("putchar"),
+			[&console, &sys](psx::u32 pc, psx::u32 id) {
+				psx::u32 ch = sys.GetCPU().GetRegs().a0;
+				console.Putchar((char)ch);
+			});
+	
 
 	psx::gdbstub::Server server(5000, &sys);
 
@@ -122,7 +130,7 @@ int main(int argc, char* argv[]) {
 			bool break_hit = sys.RunInterpreterUntilBreakpoint();
 			renderdoc.EndCapture();
 
-			if (break_hit) {
+			if (break_hit || sys.Stopped()) {
 				sys.SetStopped(true);
 				server.BreakTriggered();
 			}

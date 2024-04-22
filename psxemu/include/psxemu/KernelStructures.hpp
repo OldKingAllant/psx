@@ -8,6 +8,10 @@
 #include <psxemu/include/psxemu/KernelDevices.hpp>
 #include <psxemu/include/psxemu/KernelFiles.hpp>
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <string>
+
 namespace psx::kernel {
 	static constexpr u32 TABLE_OF_TABLES_ADDRESS = 0x100;
 
@@ -38,3 +42,16 @@ namespace psx::kernel {
 #pragma pack(pop)
 	};
 }
+
+template <>
+struct fmt::formatter<psx::kernel::ExceptionChainEntry> {
+	constexpr auto parse(format_parse_context& ctx)
+		-> format_parse_context::iterator {
+		return ctx.begin();
+	}
+	
+	auto format(psx::kernel::ExceptionChainEntry const& entry, fmt::format_context& ctx) const {
+		return fmt::format_to(ctx.out(), "(first = {:#x}, second = {:#x}, next = {:#x})",
+			entry.first_function, entry.second_function, entry.next);
+	}
+};

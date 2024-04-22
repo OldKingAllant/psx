@@ -809,7 +809,5 @@ namespace psx::gdbstub {
 
 		auto const& handler = m_ext_cmd_handlers[command];
 		std::invoke(handler, this, args);
-
-		SendPayload("OK");
 	}
 }

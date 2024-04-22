@@ -13,36 +13,29 @@ namespace psx {
 	System::System() :
 		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}, m_hbreaks{}, m_break_enable{false},
-		m_hle_enable{false}, m_hle_functions{}, 
-		m_putchar{}, m_puts{}, m_stopped{true},
-		m_kernel{}
+		m_hle_enable{ false }, m_kernel_callstack_enable{false},
+		m_stopped {true}, m_kernel{&m_status}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
 		m_status.sysbus->GetGPU().InitEvents();
 
-		m_cpu.SetHLEHandler([this](u32 address) {
+		m_cpu.SetHLEHandler([this](u32 address, bool enter) {
 			if (!m_hle_enable)
-				return false;
-
-			u32 r9 = m_cpu.GetRegs().array[9];
-
-			u32 function_id = (address << 4) | r9;
-
-			LogSyscall(function_id, SyscallLogMode::PARAMETERS, &m_status);
-
-			if (m_hle_functions.contains(function_id)) {
-				m_cpu.FlushLoadDelay(); //Necessary since kernel calls
-										//would receive the NEW values
-				auto hanlder = m_hle_functions[function_id];
-				std::invoke(hanlder, this);
 				return true;
+
+			if (enter) {
+				u32 r9 = m_cpu.GetRegs().array[9];
+				u32 function_id = (address << 4) | r9;
+				LogSyscall(function_id, SyscallLogMode::PARAMETERS, &m_status);
+				return m_kernel.Syscall(m_cpu.GetRegs().ra - 0x8, function_id);
+			}
+			else {
+				m_kernel.ExitSyscall(address);
 			}
 
-			return false;
+			return true;
 		});
-
-		InitHLEHandlers();
 
 		m_kernel.SetRamPointer(
 			m_sysbus.GetGuestBase()
@@ -52,11 +45,6 @@ namespace psx {
 			m_sysbus.GetGuestBase() +
 			memory::region_offsets::PSX_BIOS_OFFSET
 		);
-	}
-
-	void System::InitHLEHandlers() {
-		m_hle_functions.insert(std::pair{ 0xA3C, &System::HLE_Putchar });
-		m_hle_functions.insert(std::pair{ 0xB3D, &System::HLE_Putchar });
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {
@@ -189,7 +177,7 @@ namespace psx {
 
 		bool exit = false;
 
-		while (!exit) {
+		while (!exit && !m_stopped) {
 			InterpreterSingleStep();
 
 			u32 curr_pc = m_cpu.GetPc();

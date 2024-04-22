@@ -233,6 +233,7 @@ namespace psx::gdbstub {
 		/// </summary>
 
 		void HandleExtVer(std::string&);
+		void HandleExtDumpExceptionChains(std::string&);
 
 	private :
 		/// <summary>
