@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
 			.GetInternalTexture();
 
 		vram_view.Blit(handle);
+		vram_view.Present();
 
 		auto const& disp_conf = gpu.GetDispConfig();
 
@@ -159,6 +160,8 @@ int main(int argc, char* argv[]) {
 			);
 			display.Blit(handle);
 		}
+
+		display.Present();
 	}
 
 	server.Shutdown();

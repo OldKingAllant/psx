@@ -32,6 +32,7 @@ namespace psx::video {
 		void SetTextureWindow(u32 start_x, u32 start_y, Rect window_size, Rect texture_size);
 		void Blit(uint32_t m_texture_id);
 		void Clear();
+		void Present();
 
 		bool HandleEvent(SDL_Event* ev);
 

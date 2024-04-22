@@ -118,6 +118,9 @@ namespace psx::video {
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
+	}
+
+	void SdlWindow::Present() {
 		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
@@ -140,25 +143,9 @@ namespace psx::video {
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
-		/*auto sync_object = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,
-			0);
-
-		bool end = false;
-
-		while (!end) {
-			auto result = glClientWaitSync(sync_object,
-				GL_SYNC_FLUSH_COMMANDS_BIT, 10000000);
-
-			if (result == GL_ALREADY_SIGNALED ||
-				result == GL_CONDITION_SATISFIED)
-				end = true;
-		}*/
-
 		m_vert_buf->Unbind();
 
 		glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
-
-		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
 	bool SdlWindow::HandleEvent(SDL_Event* ev) {
