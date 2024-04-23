@@ -76,6 +76,9 @@ namespace psx::video {
 			if (ev.type == SDL_QUIT)
 				return false;
 
+			for (SdlWindow* win : m_unfiltered_windows)
+				win->HandleEvent(&ev);
+
 			if (FilterEvent(&ev)) {
 				if (m_opts.ignore_id)
 					DeliverForceIgnoreID(&ev);
@@ -133,5 +136,14 @@ namespace psx::video {
 			throw std::runtime_error("Invalid event type!");
 			break;
 		}
+	}
+
+	void WindowManager::SetWindowAsUnfiltered(SdlWindow* window) {
+		uint32_t id = window->GetWindowID();
+
+		if (!m_windows.contains(id))
+			return;
+
+		m_unfiltered_windows.insert(window);
 	}
 }

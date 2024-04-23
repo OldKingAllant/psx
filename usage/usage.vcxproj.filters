@@ -19,6 +19,9 @@
     <Filter Include="Source Files\imgui\backends">
       <UniqueIdentifier>{98937947-5236-4729-b8ca-961690f25967}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\imgui\misc">
+      <UniqueIdentifier>{517dfb0b-2c7f-4c15-8179-939734fa9d12}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\psxemu\platform\fastmem.cpp">
@@ -53,6 +56,9 @@
     </ClCompile>
     <ClCompile Include="..\thirdparty\imgui\imgui.cpp">
       <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\thirdparty\imgui\misc\cpp\imgui_stdlib.cpp">
+      <Filter>Source Files\imgui\misc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

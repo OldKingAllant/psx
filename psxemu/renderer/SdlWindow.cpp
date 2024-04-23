@@ -26,7 +26,7 @@ namespace psx::video {
 	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize) 
 		: m_win{ nullptr }, m_gl_ctx{ nullptr }, m_blit{ nullptr },
 		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
-		m_size{ size } {
+		m_forward_ev_handler{}, m_size{ size } {
 		if (reuse_ctx)
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 		else
@@ -155,6 +155,8 @@ namespace psx::video {
 	}
 
 	bool SdlWindow::HandleEvent(SDL_Event* ev) {
+		if (m_forward_ev_handler) m_forward_ev_handler(ev);
+
 			switch (ev->type)
 			{
 			case SDL_WINDOWEVENT:
@@ -252,5 +254,9 @@ namespace psx::video {
 		m_size = sz;
 		SDL_SetWindowSize((SDL_Window*)m_win,
 			(int)sz.w, (int)sz.h);
+	}
+
+	void SdlWindow::ForwardEventHandler(std::function<void(SDL_Event*)> handler) {
+		m_forward_ev_handler = handler;
 	}
 }

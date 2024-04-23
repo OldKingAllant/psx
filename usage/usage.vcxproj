@@ -146,6 +146,7 @@
     <ClCompile Include="..\thirdparty\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\thirdparty\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\thirdparty\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\thirdparty\imgui\misc\cpp\imgui_stdlib.cpp" />
     <ClCompile Include="imgui_debug\DebugView.cpp" />
     <ClCompile Include="tty\TTY_Console.cpp" />
   </ItemGroup>

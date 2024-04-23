@@ -10,6 +10,7 @@
 #include <psxemu/renderer/SdlWindow.hpp>
 #include <psxemu/renderer/Renderdoc.hpp>
 #include <psxemu/renderer/WindowManager.hpp>
+#include <usage/imgui_debug/DebugView.hpp>
 
 int main(int argc, char* argv[]) {
 	psx::video::SdlInit();
@@ -103,7 +104,14 @@ int main(int argc, char* argv[]) {
 				psx::u32 ch = sys.GetCPU().GetRegs().a0;
 				console.Putchar((char)ch);
 			});
-	
+
+	DebugView debug_view{ std::make_shared<psx::video::SdlWindow>(
+		std::string("Debug view"), psx::video::Rect{ .w = 1200, .h = 800 }, 
+		true, true
+	), &sys };
+
+	wm.AddWindow(debug_view.GetRawWindow());
+	wm.SetWindowAsUnfiltered(debug_view.GetRawWindow());
 
 	psx::gdbstub::Server server(5000, &sys);
 
@@ -123,7 +131,7 @@ int main(int argc, char* argv[]) {
 
 	while (server.HandlePackets() && wm.HandleEvents())
 	{
-		if (vram_view.CloseRequest() || display.CloseRequest()) break;
+		if (vram_view.CloseRequest() || display.CloseRequest() || debug_view.CloseRequest()) break;
 
 		if (!sys.Stopped()) {
 			renderdoc.StartCapture();
@@ -162,6 +170,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		display.Present();
+		debug_view.Update();
 	}
 
 	server.Shutdown();

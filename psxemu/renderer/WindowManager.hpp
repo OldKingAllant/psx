@@ -118,6 +118,13 @@ namespace psx::video {
 		/// <param name="window">Pointer to window</param>
 		void RemoveWindow(SdlWindow* window);
 
+		/// <summary>
+		/// If a window is "unfiltered", forward ALL events
+		/// to it, even if their ID is wrong
+		/// </summary>
+		/// <param name="window"></param>
+		void SetWindowAsUnfiltered(SdlWindow* window);
+
 	private :
 		uint32_t SdlEventToEventID(SdlEvent ev) const;
 
@@ -126,5 +133,6 @@ namespace psx::video {
 	private :
 		WindowManagerOpts m_opts{};
 		std::map<uint32_t, SdlWindow*> m_windows{};
+		std::set<SdlWindow*> m_unfiltered_windows;
 	};
 }

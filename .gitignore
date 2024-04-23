@@ -7,3 +7,5 @@ packages/*
 sdk/*
 programs/*
 TTY_Console/x64/*
+
+imgui.ini

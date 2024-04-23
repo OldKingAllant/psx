@@ -11,6 +11,8 @@ namespace psx {
 	struct system_status;
 }
 
+class DebugView;
+
 namespace psx::cpu {
 	union Registers {
 #pragma pack(push, 4)
@@ -90,6 +92,8 @@ namespace psx::cpu {
 
 		void UpdateLoadDelay();
 		void UpdateRegWriteback();
+
+		friend class DebugView;
 
 	private:
 		bool CheckInterrupts();

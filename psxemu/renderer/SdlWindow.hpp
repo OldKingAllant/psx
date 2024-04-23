@@ -45,6 +45,7 @@ namespace psx::video {
 
 		void Listen(SdlEvent ev, EventCallback callback);
 		void DispatchEvent(SdlEvent ev, std::any data);
+		void ForwardEventHandler(std::function<void(SDL_Event*)> handler);
 
 		void* GetGlContext() const {
 			return m_gl_ctx;
@@ -70,6 +71,7 @@ namespace psx::video {
 		VertexBuffer<HostVertex2D>* m_vert_buf;
 		u32 m_tex_id;
 		std::multimap<SdlEvent, EventCallback> m_ev_callbacks;
+		std::function<void(SDL_Event*)> m_forward_ev_handler;
 		Rect m_size;
 	};
 }
