@@ -46,11 +46,11 @@ int main(int argc, char* argv[]) {
 
 	psx::video::SdlWindow vram_view("Vram",
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_view_blit", false, true);
+		"../shaders", "vram_view_blit", false, true, true);
 
 	psx::video::SdlWindow display("PSX-Display",
 		psx::video::Rect{ .w = 640, .h = 480 },
-		"../shaders", "display_blit", true, true);
+		"../shaders", "display_blit", true, true, true);
 
 	renderdoc.SetCurrentWindow(display.GetNativeWindowHandle());
 
@@ -134,6 +134,7 @@ int main(int argc, char* argv[]) {
 		if (vram_view.CloseRequest() || display.CloseRequest() || debug_view.CloseRequest()) break;
 
 		if (!sys.Stopped()) {
+			display.MakeContextCurrent();
 			renderdoc.StartCapture();
 			bool break_hit = sys.RunInterpreterUntilBreakpoint();
 			renderdoc.EndCapture();

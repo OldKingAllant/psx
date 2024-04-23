@@ -23,7 +23,7 @@ namespace psx::video {
 		fmt::println("[OPENGL] {}", msg);
 	}
 
-	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize) 
+	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize, bool enable_debug)
 		: m_win{ nullptr }, m_gl_ctx{ nullptr }, m_blit{ nullptr },
 		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
 		m_forward_ev_handler{}, m_size{ size } {
@@ -32,7 +32,6 @@ namespace psx::video {
 		else
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
 
-		if (!GlIsInit()) {
 			SDL_GL_LoadLibrary(nullptr);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
 				SDL_GL_CONTEXT_PROFILE_CORE);
@@ -40,7 +39,6 @@ namespace psx::video {
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 			SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-		}
 
 		auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
 
@@ -63,9 +61,6 @@ namespace psx::video {
 			if (!GlInit())
 				throw std::runtime_error("GlInit() failed");
 
-			GlEnableDebugOutput();
-			GlSetDebugMessageCallback(DebugCallback, nullptr);
-
 			int32_t major = {};
 			int32_t minor = {};
 
@@ -82,6 +77,11 @@ namespace psx::video {
 				//fmt::println("[RENDERER] Compatibility profile!");
 		}
 
+		if (enable_debug) {
+			GlEnableDebugOutput();
+			GlSetDebugMessageCallback(DebugCallback, nullptr);
+		}
+
 		auto errors = GlGetErrors();
 
 		if (!errors.empty()) {
@@ -91,8 +91,8 @@ namespace psx::video {
 		}
 	}
 
-	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize)
-		: SdlWindow(name, size, reuse_ctx, resize) {
+	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize, bool enable_debug)
+		: SdlWindow(name, size, reuse_ctx, resize, enable_debug) {
 		m_blit = new Shader(blit_loc, blit_name);
 		m_blit->SetLabel(fmt::format("window_{}_blit_shader", name));
 
@@ -124,6 +124,16 @@ namespace psx::video {
 	}
 
 	void SdlWindow::Present() {
+		auto errors = GlGetErrors();
+
+		if (!errors.empty()) {
+			for (auto const& err : errors)
+				fmt::println("[OPENGL] Error : {}",
+					(const char*)glewGetErrorString(err));
+		}
+
+		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+
 		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
@@ -258,5 +268,10 @@ namespace psx::video {
 
 	void SdlWindow::ForwardEventHandler(std::function<void(SDL_Event*)> handler) {
 		m_forward_ev_handler = handler;
+	}
+
+
+	void SdlWindow::MakeContextCurrent() const {
+		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
 	}
 }

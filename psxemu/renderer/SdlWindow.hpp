@@ -27,8 +27,8 @@ namespace psx::video {
 
 	class SdlWindow {
 	public :
-		SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize);
-		SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize);
+		SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize, bool enable_debug = false);
+		SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize, bool enable_debug = false);
 
 		void SetTextureWindow(u32 start_x, u32 start_y, Rect window_size, Rect texture_size);
 		void Blit(uint32_t m_texture_id);
@@ -62,6 +62,8 @@ namespace psx::video {
 		bool HasInputFocus() const;
 
 		void SetSize(Rect sz);
+
+		void MakeContextCurrent() const;
 
 	private :
 		void* m_win;
