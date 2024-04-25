@@ -34,6 +34,7 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	});
 
 	m_enabled_opts.insert(std::pair{ "allow_cpu_state_mod", false });
+	m_enabled_opts.insert(std::pair{ "allow_dma_state_mod", false });
 }
 
 DebugView::~DebugView() {
@@ -51,6 +52,8 @@ void DebugView::Update() {
 	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
 	CpuWindow();
+	DmaWindow();
+	MemoryConfigWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -75,6 +78,7 @@ void DebugView::Update() {
 void DebugView::CpuWindow() {
 	ImGui::Begin("CPU COP0");
 
+	auto& status_ptr = m_psx->GetStatus();
 	auto& cpu_ptr = m_psx->GetCPU();
 	auto& cop0 = cpu_ptr.m_coprocessor0;
 
@@ -328,6 +332,96 @@ void DebugView::CpuWindow() {
 
 	///////////////////////////
 
+	////////////////////////////
+
+	ImGui::BeginChild("Iterrupt masks", ImVec2(0, 0), ImGuiChildFlags_Border);
+
+	if (allow_mods) {
+		auto show_bit_val = [](uint32_t& reg, const char* name, uint32_t bitnum) {
+			bool bitval = (bool)((reg >> bitnum) & 1);
+
+			ImGui::Checkbox(name, &bitval);
+
+			reg &= ~(1 << bitnum);
+			reg |= ((uint32_t)bitval << bitnum);
+		};
+
+		ImGui::Text("Interrupt request");
+		ImGui::InputScalar("IREQ", ImGuiDataType_U32,
+			(void*)&status_ptr.interrupt_request, nullptr, nullptr,
+			"%08X", ImGuiInputTextFlags_CharsHexadecimal);
+
+		show_bit_val(status_ptr.interrupt_request, "VBLANK ", 0);
+		show_bit_val(status_ptr.interrupt_request, "GPU    ", 1);
+		show_bit_val(status_ptr.interrupt_request, "CDROM  ", 2);
+		show_bit_val(status_ptr.interrupt_request, "DMA    ", 3);
+		show_bit_val(status_ptr.interrupt_request, "TMR0   ", 4);
+		show_bit_val(status_ptr.interrupt_request, "TMR1   ", 5);
+		show_bit_val(status_ptr.interrupt_request, "TMR2   ", 6);
+		show_bit_val(status_ptr.interrupt_request, "MEMCARD", 7);
+		show_bit_val(status_ptr.interrupt_request, "SIO    ", 8);
+		show_bit_val(status_ptr.interrupt_request, "SPU    ", 9);
+		show_bit_val(status_ptr.interrupt_request, "IRQ10  ", 10);
+
+		ImGui::Text("Interrupt mask");
+		ImGui::InputScalar("IMASK", ImGuiDataType_U32,
+			(void*)&status_ptr.interrupt_mask, nullptr, nullptr,
+			"%08X", ImGuiInputTextFlags_CharsHexadecimal);
+
+		show_bit_val(status_ptr.interrupt_mask, "VBLANK ", 0);
+		show_bit_val(status_ptr.interrupt_mask, "GPU    ", 1);
+		show_bit_val(status_ptr.interrupt_mask, "CDROM  ", 2);
+		show_bit_val(status_ptr.interrupt_mask, "DMA    ", 3);
+		show_bit_val(status_ptr.interrupt_mask, "TMR0   ", 4);
+		show_bit_val(status_ptr.interrupt_mask, "TMR1   ", 5);
+		show_bit_val(status_ptr.interrupt_mask, "TMR2   ", 6);
+		show_bit_val(status_ptr.interrupt_mask, "MEMCARD", 7);
+		show_bit_val(status_ptr.interrupt_mask, "SIO    ", 8);
+		show_bit_val(status_ptr.interrupt_mask, "SPU    ", 9);
+		show_bit_val(status_ptr.interrupt_mask, "IRQ10  ", 10);
+	}
+	else {
+		auto show_bit_val = [](uint32_t const& reg, const char* name, uint32_t bitnum) {
+			bool bitval = (bool)((reg >> bitnum) & 1);
+
+			ImGui::Text("%s : %s", name, bitval ? "true" : "false");
+		};
+
+		ImGui::Text("Interrupt request : %08X",
+			status_ptr.interrupt_request);
+
+		show_bit_val(status_ptr.interrupt_request, "VBLANK ", 0);
+		show_bit_val(status_ptr.interrupt_request, "GPU    ", 1);
+		show_bit_val(status_ptr.interrupt_request, "CDROM  ", 2);
+		show_bit_val(status_ptr.interrupt_request, "DMA    ", 3);
+		show_bit_val(status_ptr.interrupt_request, "TMR0   ", 4);
+		show_bit_val(status_ptr.interrupt_request, "TMR1   ", 5);
+		show_bit_val(status_ptr.interrupt_request, "TMR2   ", 6);
+		show_bit_val(status_ptr.interrupt_request, "MEMCARD", 7);
+		show_bit_val(status_ptr.interrupt_request, "SIO    ", 8);
+		show_bit_val(status_ptr.interrupt_request, "SPU    ", 9);
+		show_bit_val(status_ptr.interrupt_request, "IRQ10  ", 10);
+
+		ImGui::Text("Interrupt enable : %08X",
+			status_ptr.interrupt_mask);
+
+		show_bit_val(status_ptr.interrupt_mask, "VBLANK ", 0);
+		show_bit_val(status_ptr.interrupt_mask, "GPU    ", 1);
+		show_bit_val(status_ptr.interrupt_mask, "CDROM  ", 2);
+		show_bit_val(status_ptr.interrupt_mask, "DMA    ", 3);
+		show_bit_val(status_ptr.interrupt_mask, "TMR0   ", 4);
+		show_bit_val(status_ptr.interrupt_mask, "TMR1   ", 5);
+		show_bit_val(status_ptr.interrupt_mask, "TMR2   ", 6);
+		show_bit_val(status_ptr.interrupt_mask, "MEMCARD", 7);
+		show_bit_val(status_ptr.interrupt_mask, "SIO    ", 8);
+		show_bit_val(status_ptr.interrupt_mask, "SPU    ", 9);
+		show_bit_val(status_ptr.interrupt_mask, "IRQ10  ", 10);
+	}
+
+	ImGui::EndChild();
+
+	///////////////////////////
+
 	ImGui::End();
 
 	///////////////////
@@ -364,6 +458,428 @@ void DebugView::CpuWindow() {
 		ImGui::Text("Next reg delay : NONE");
 	else
 		ImGui::Text("Next reg delay : r%d", stat->next_delay.dest);
+
+	ImGui::End();
+}
+
+void DebugView::DmaWindow() {
+	auto& status_ptr = m_psx->GetStatus();
+	auto& dma_control = status_ptr.sysbus->GetDMAControl();
+
+	bool& allow_mods = m_enabled_opts["allow_dma_state_mod"];
+
+	ImGui::Begin("DMA");
+
+	ImGui::Checkbox("Allow modifications", &allow_mods);
+
+	ImGui::BeginChild("DPCR", ImVec2(0, 400),
+		ImGuiChildFlags_Border);
+
+	auto& dpcr = dma_control.m_control;
+
+	ImGui::Text("DPCR");
+	ImGui::NewLine();
+
+	if (allow_mods) {
+		auto show_dpcr_channel = [&dpcr](uint32_t id, const char* name) {
+			int priority = (dpcr.raw >> (id * 4)) & 0x7;
+			bool enable = (bool)((dpcr.raw >> (id * 4 + 3)) & 1);
+
+			auto prio = fmt::format("DMA{} Priority", id);
+			auto ena =  fmt::format("DMA{} Enable", id);
+
+			ImGui::Text(name);
+			ImGui::SliderInt(prio.c_str(), &priority, 0, 7);
+			ImGui::Checkbox(ena.c_str(), &enable);
+
+			dpcr.raw &= ~(0x7 << (id * 4));
+			dpcr.raw |= ((uint32_t)priority << (id * 4));
+			dpcr.raw &= ~(1 << (id * 4 + 3));
+			dpcr.raw |= ((uint32_t)enable << (id * 4 + 3));
+ 		};
+
+		ImGui::InputScalar("DPCR", ImGuiDataType_U32,
+			(void*)&dpcr.raw, nullptr, nullptr,
+			"%08X", ImGuiInputTextFlags_CharsDecimal);
+
+		ImGui::NewLine();
+
+		show_dpcr_channel(0, "MDECin");
+		show_dpcr_channel(1, "MDECout");
+		show_dpcr_channel(2, "GPU");
+		show_dpcr_channel(3, "CDROM");
+		show_dpcr_channel(4, "SPU");
+		show_dpcr_channel(5, "PIO");
+		show_dpcr_channel(6, "OTC");
+	}
+	else {
+		auto show_dpcr_channel = [&dpcr](uint32_t id, const char* name) {
+			int priority = (dpcr.raw >> (id * 4)) & 0x7;
+			bool enable = (bool)((dpcr.raw >> (id * 4 + 3)) & 1);
+
+			ImGui::Text(name);
+			ImGui::Text("Priority : %d", priority);
+			ImGui::Text("Enable   : %s", enable ? "true" : "false");
+		};
+
+
+		ImGui::Text("DPCR (Control Register) : %08X",
+			dpcr.raw);
+
+		ImGui::NewLine();
+
+		show_dpcr_channel(0, "MDECin");
+		show_dpcr_channel(1, "MDECout");
+		show_dpcr_channel(2, "GPU");
+		show_dpcr_channel(3, "CDROM");
+		show_dpcr_channel(4, "SPU");
+		show_dpcr_channel(5, "PIO");
+		show_dpcr_channel(6, "OTC");
+	}
+
+	ImGui::EndChild();
+
+	////////////////////////
+
+	auto& dicr = dma_control.m_int_control;
+
+	ImGui::BeginChild("DICR", ImVec2(0, 400),
+		ImGuiChildFlags_Border);
+
+	if (allow_mods) {
+		ImGui::InputScalar("DICR", ImGuiDataType_U32,
+			(void*)&dicr.raw, nullptr, nullptr,
+			"%08X", ImGuiInputTextFlags_CharsDecimal);
+
+		ImGui::NewLine();
+
+		auto show_bit_val = [&dicr](const char* name, uint32_t bitnum) {
+			bool bitval = (bool)((dicr.raw >> bitnum) & 1);
+
+			ImGui::Checkbox(name, &bitval);
+
+			dicr.raw &= ~(1 << bitnum);
+			dicr.raw |= ((uint32_t)bitval << bitnum);
+		};
+
+		show_bit_val("DMA0 REQ on block end", 0);
+		show_bit_val("DMA1 REQ on block end", 1);
+		show_bit_val("DMA2 REQ on block end", 2);
+		show_bit_val("DMA3 REQ on block end", 3);
+		show_bit_val("DMA4 REQ on block end", 4);
+		show_bit_val("DMA5 REQ on block end", 5);
+		show_bit_val("DMA6 REQ on block end", 6);
+
+		ImGui::NewLine();
+
+		show_bit_val("Bus error", 15);
+
+		ImGui::NewLine();
+
+		show_bit_val("DMA0 Interrupt enable", 16);
+		show_bit_val("DMA1 Interrupt enable", 17);
+		show_bit_val("DMA2 Interrupt enable", 18);
+		show_bit_val("DMA3 Interrupt enable", 19);
+		show_bit_val("DMA4 Interrupt enable", 20);
+		show_bit_val("DMA5 Interrupt enable", 21);
+		show_bit_val("DMA6 Interrupt enable", 22);
+
+		ImGui::NewLine();
+
+		show_bit_val("Master interrupt enable", 23);
+
+		ImGui::NewLine();
+
+		show_bit_val("DMA0 Interrupt req", 24);
+		show_bit_val("DMA1 Interrupt req", 25);
+		show_bit_val("DMA2 Interrupt req", 26);
+		show_bit_val("DMA3 Interrupt req", 27);
+		show_bit_val("DMA4 Interrupt req", 28);
+		show_bit_val("DMA5 Interrupt req", 29);
+		show_bit_val("DMA6 Interrupt req", 30);
+
+		ImGui::NewLine();
+
+		show_bit_val("Master interrupt request", 31);
+	}
+	else {
+		ImGui::Text("DICR (Dma Interrupt Control Register) : %08X", 
+			dicr.raw);
+
+		ImGui::NewLine();
+
+		auto show_bit_val = [&dicr](const char* name, uint32_t bitnum) {
+			bool bitval = (bool)((dicr.raw >> bitnum) & 1);
+
+			ImGui::Text("%s : %s", name,
+				bitval ? "true" : "false");
+		};
+
+		show_bit_val("DMA0 REQ on block end", 0);
+		show_bit_val("DMA1 REQ on block end", 1);
+		show_bit_val("DMA2 REQ on block end", 2);
+		show_bit_val("DMA3 REQ on block end", 3);
+		show_bit_val("DMA4 REQ on block end", 4);
+		show_bit_val("DMA5 REQ on block end", 5);
+		show_bit_val("DMA6 REQ on block end", 6);
+
+		ImGui::NewLine();
+
+		show_bit_val("Bus error", 15);
+
+		ImGui::NewLine();
+
+		show_bit_val("DMA0 Interrupt enable", 16);
+		show_bit_val("DMA1 Interrupt enable", 17);
+		show_bit_val("DMA2 Interrupt enable", 18);
+		show_bit_val("DMA3 Interrupt enable", 19);
+		show_bit_val("DMA4 Interrupt enable", 20);
+		show_bit_val("DMA5 Interrupt enable", 21);
+		show_bit_val("DMA6 Interrupt enable", 22);
+
+		ImGui::NewLine();
+
+		show_bit_val("Master interrupt enable", 23);
+
+		ImGui::NewLine();
+
+		show_bit_val("DMA0 Interrupt req", 24);
+		show_bit_val("DMA1 Interrupt req", 25);
+		show_bit_val("DMA2 Interrupt req", 26);
+		show_bit_val("DMA3 Interrupt req", 27);
+		show_bit_val("DMA4 Interrupt req", 28);
+		show_bit_val("DMA5 Interrupt req", 29);
+		show_bit_val("DMA6 Interrupt req", 30);
+
+		ImGui::NewLine();
+
+		show_bit_val("Master interrupt request", 31);
+	}
+
+	ImGui::EndChild();
+
+	///////////////////////
+
+	struct DmaDesc {
+		psx::u32& madr;
+		psx::u32& block_control;
+		psx::CHCR& control;
+	};
+
+	auto show_dma = [allow_mods](uint32_t id, DmaDesc& desc, const char* name) {
+		ImGui::BeginChild(name, ImVec2(0, 300),
+			ImGuiChildFlags_Border);
+		{
+			ImGui::Text(name);
+
+			auto madr = fmt::format("DMA_{} MADR", name);
+			auto bcr = fmt::format("DMA_{} BCR", name);
+			auto ctrl = fmt::format("DMA_{} CONTROL", name);
+
+			if (allow_mods) {
+				ImGui::InputScalar(madr.c_str(),
+					ImGuiDataType_U32, (void*)&desc.madr,
+					nullptr, nullptr, "%08X",
+					ImGuiInputTextFlags_CharsDecimal);
+
+				ImGui::InputScalar(bcr.c_str(),
+					ImGuiDataType_U32, (void*)&desc.block_control,
+					nullptr, nullptr, "%08X",
+					ImGuiInputTextFlags_CharsDecimal);
+
+				ImGui::InputScalar(ctrl.c_str(),
+					ImGuiDataType_U32, (void*)&desc.control.raw,
+					nullptr, nullptr, "%08X",
+					ImGuiInputTextFlags_CharsDecimal);
+
+				const char* prev_value = desc.control.transfer_dir ?
+					"RAM -> DEVICE" : "DEVICE -> RAM";
+
+				bool ram_to_dev = false;
+				bool dev_to_ram = false;
+
+				if (ImGui::BeginCombo("Transfer direction", prev_value)) {
+					if (ImGui::Selectable("RAM -> DEVICE", &ram_to_dev))
+						desc.control.transfer_dir = true;
+					if (ImGui::Selectable("DEVICE -> RAM", &dev_to_ram))
+						desc.control.transfer_dir = false;
+					ImGui::EndCombo();
+				}
+
+				bool decrement = desc.control.decrement;
+				ImGui::Checkbox("Decrement MADR (-4)", &decrement);
+				desc.control.decrement = decrement;
+
+				bool chopping = desc.control.chopping;
+				ImGui::Checkbox("Chopping mode", &chopping);
+				desc.control.chopping = chopping;
+
+				auto curr_sync = magic_enum::enum_name(desc.control.sync);
+
+				if (ImGui::BeginCombo("##sync", curr_sync.data())) {
+					auto names = magic_enum::enum_entries<psx::SyncMode>();
+
+					for (auto const& name : names) {
+						bool selected = desc.control.sync == name.first;
+
+						if (ImGui::Selectable(name.second.data(), &selected)) {
+							desc.control.sync = name.first;
+						}
+					}
+
+					ImGui::EndCombo();
+				}
+				
+				bool start = desc.control.start_busy;
+				ImGui::Checkbox("Start transfer", &start);
+				desc.control.start_busy = start;
+
+				bool force = desc.control.force_start;
+				ImGui::Checkbox("Force start", &force);
+				desc.control.force_start = force;
+
+				bool pause = desc.control.pause;
+				ImGui::Checkbox("Pause transfer", &pause);
+				desc.control.pause = pause;
+			}
+			else {
+				ImGui::Text("%s = %08X", madr.c_str(), desc.madr);
+
+				if (desc.control.sync == psx::SyncMode::BURST) {
+					ImGui::Text("Wordcount : %04X", (uint16_t)desc.block_control);
+				}
+				else if (desc.control.sync == psx::SyncMode::SLICE) {
+					ImGui::Text("Wordcount        : %04X", (uint16_t)desc.block_control);
+					ImGui::Text("Number of blocks : %04X", (uint16_t)(desc.block_control >> 16));
+				}
+				else {
+					ImGui::Text("Unused block control");
+				}
+
+				ImGui::Text("Transfer direction : %s", desc.control.transfer_dir ?
+					"RAM -> DEVICE" : "DEVICE -> RAM");
+				ImGui::Text("Increment step : %s", desc.control.decrement ? "-4" : "+4");
+				ImGui::Text("Chopping enable : %s", desc.control.chopping ? "true" : "false");
+
+				auto sync_name = magic_enum::enum_name(desc.control.sync);
+
+				ImGui::Text("Sync mode : %s", sync_name.data());
+				ImGui::Text("Start transfer : %s", desc.control.start_busy ?
+					"stopped/completed" : "start/busy");
+				ImGui::Text("Force start : %s", desc.control.force_start ?
+					"true" : "false");
+				ImGui::Text("Pause (?) : %s", desc.control.pause ? "true" : "false");
+				ImGui::Text("Bus snooping : %s", (desc.control.raw >> 30) & 1 ? "true" : "false");
+			}
+
+			ImGui::EndChild();
+		}
+	};
+
+	 {
+		auto gpu_dma = dynamic_cast<psx::DmaBase*>(&dma_control.m_gpu_dma);
+
+		DmaDesc dma2{
+			.madr = gpu_dma->m_base_address,
+			.block_control = gpu_dma->m_block_control,
+			.control = gpu_dma->m_control
+		};
+
+		show_dma(0, dma2, "GPU");
+	}
+	
+	{
+		auto ot_dma = dynamic_cast<psx::DmaBase*>(&dma_control.m_ot_dma);
+
+		DmaDesc dma6{
+			.madr = ot_dma->m_base_address,
+			.block_control = ot_dma->m_block_control,
+			.control = ot_dma->m_control
+		};
+
+		show_dma(6, dma6, "OT CLEAR");
+	}
+
+	/////////////////////
+
+	ImGui::End();
+}
+
+void DebugView::MemoryConfigWindow() {
+	ImGui::Begin("Memory configuration");
+
+	auto sysbus = m_psx->GetStatus().sysbus;
+
+	ImGui::Text("EXP1 Base : %08X", sysbus->m_exp1_config.base);
+	ImGui::Text("EXP2 Base : %08X", sysbus->m_exp2_config.base);
+
+	auto show_delay_conf = [](psx::RegionConfig const& conf, const char* name) {
+		ImGui::NewLine();
+		ImGui::NewLine();
+
+		ImGui::Text("%s Delay/Size", name);
+
+		ImGui::Text("Write delay : %02X", conf.delay_size.write_delay);
+		ImGui::Text("Read delay : %02X", conf.delay_size.read_delay);
+		ImGui::Text("Data bus width : %s", conf.delay_size.bus_width ?
+			"16 bits" : "8 bits");
+		ImGui::Text("Size : %08X", (1 << conf.delay_size.size_shift));
+	};
+
+	show_delay_conf(sysbus->m_bios_config, "BIOS");
+	show_delay_conf(sysbus->m_exp1_config, "EXP1");
+	show_delay_conf(sysbus->m_exp2_config, "EXP2");
+	show_delay_conf(sysbus->m_exp3_config, "EXP3");
+	show_delay_conf(sysbus->m_cdrom_config, "CDROM");
+	show_delay_conf(sysbus->m_spu_config, "SPU");
+
+	ImGui::NewLine();
+	ImGui::NewLine();
+
+	ImGui::Text("COM Delays");
+	ImGui::Text("COM0 : %d", sysbus->m_com_delays.com0);;
+	ImGui::Text("COM1 : %d", sysbus->m_com_delays.com1);
+	ImGui::Text("COM2 : %d", sysbus->m_com_delays.com2);
+	ImGui::Text("COM3 : %d", sysbus->m_com_delays.com3);
+
+	ImGui::NewLine();
+
+	const char* ram_sz = "8MB";
+
+	using RamSize = psx::RamSize;
+
+	switch (sysbus->m_curr_ram_sz)
+	{
+	case RamSize::_1MB_7MB:
+		ram_sz = "1MB + 7MB Locked";
+		break;
+	case RamSize::_4MB_4MB:
+		ram_sz = "4MB + 4MB Locked";
+		break;
+	case RamSize::_1MB_1HIGHZ_6MB:
+		ram_sz = "1MB + 1MB HZ + 6MB Locked";
+		break;
+	case RamSize::_4MB_4HIGHZ:
+		ram_sz = "4MB + 4MB HZ";
+		break;
+	case RamSize::_2MB_6MB:
+		ram_sz = "2MB + 6MB Locked";
+		break;
+	case RamSize::_2MB_2HIGHZ_4MB:
+		ram_sz = "2MB + 2MB HZ + 4MB Locked";
+		break;
+	default:
+		break;
+	}
+
+	ImGui::Text("Ram size : %s", ram_sz);
+
+	ImGui::NewLine();
+
+	ImGui::Text("Cache Control");
+	ImGui::Text("Scratchpad enable 1 : %d", sysbus->m_cache_control.scratch_en1);
+	ImGui::Text("Scratchpad enable 2 : %d", sysbus->m_cache_control.scratch_en2);
+	ImGui::Text("I-Cache enable : %d", sysbus->m_cache_control.cache_en);
 
 	ImGui::End();
 }

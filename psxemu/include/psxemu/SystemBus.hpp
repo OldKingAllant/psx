@@ -12,6 +12,8 @@
 
 #include <fmt/format.h>
 
+class DebugView;
+
 namespace psx::memory {
 	class MemoryMapper;
 }
@@ -780,6 +782,8 @@ namespace psx {
 			return m_dma_controller;
 		}
 
+		friend class DebugView;
+
 	private :
 		/// <summary>
 		/// Called only once at the beginning,
@@ -859,6 +863,8 @@ namespace psx {
 		RegionConfig m_exp1_config;
 		RegionConfig m_exp2_config;
 		RegionConfig m_exp3_config;
+		RegionConfig m_spu_config;
+		RegionConfig m_cdrom_config;
 
 		bool m_exp2_enable;
 

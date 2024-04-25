@@ -5,6 +5,8 @@
 #include <psxemu/include/psxemu/OTDma.hpp>
 #include <psxemu/include/psxemu/GpuDma.hpp>
 
+class DebugView;
+
 namespace psx {
 	struct system_status;
 
@@ -105,6 +107,8 @@ namespace psx {
 		bool ChannelEnabled(u8 dma_id) const {
 			return (bool)((m_control.raw >> (dma_id * 4 + 3)) & 1);
 		}
+
+		friend class DebugView;
 
 	private :
 		system_status* m_sys_status;

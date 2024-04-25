@@ -12,6 +12,7 @@ namespace psx {
 		m_guest_base{ nullptr }, m_curr_ram_sz{}, m_ram_end{},
 		m_ram_config{}, m_cache_control{}, m_bios_config{},
 		m_exp1_config{}, m_exp2_config{}, m_exp3_config{},
+		m_spu_config{}, m_cdrom_config{},
 		m_exp2_enable{ true }, m_com_delays{}, m_curr_cycles{},
 		m_count1{ 0, sys_status }, m_count2{ 1, sys_status }, 
 		m_count3{ 2, sys_status }, m_dma_controller{sys_status}, 

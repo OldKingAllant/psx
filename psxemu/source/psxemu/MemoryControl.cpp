@@ -1,6 +1,9 @@
 #include <psxemu/include/psxemu/SystemBus.hpp>
 
 namespace psx {
+	static constexpr u32 SPU_CONFIG = 0x14;
+	static constexpr u32 CDROM_CONFIG = 0x18;
+
 	void SystemBus::WriteMemControl(u32 address, u32 value) {
 		if (address >= memory::IO::BIOS_CONFIG_CONTROL && address < 
 			memory::IO::BIOS_CONFIG_CONTROL + 4) {
@@ -59,6 +62,18 @@ namespace psx {
 			memory::IO::EXP3_CONFIG + 4) {
 			fmt::println("EXP3 Reconfigured");
 			WriteConf(m_exp3_config, value);
+			return;
+		}
+
+		if (address >= SPU_CONFIG && address < SPU_CONFIG + 4) {
+			fmt::println("SPU Reconfigured");
+			WriteConf(m_spu_config, value);
+			return;
+		}
+
+		if (address >= CDROM_CONFIG && address < CDROM_CONFIG + 4) {
+			fmt::println("CDROM Reconfigured");
+			WriteConf(m_cdrom_config, value);
 			return;
 		}
 
@@ -156,6 +171,14 @@ namespace psx {
 		if (address >= memory::IO::EXP3_CONFIG && address <
 			memory::IO::EXP3_CONFIG + 4) {
 			return m_exp3_config.delay_size.raw;
+		}
+
+		if (address >= SPU_CONFIG && address < SPU_CONFIG + 4) {
+			return m_spu_config.delay_size.raw;
+		}
+
+		if (address >= CDROM_CONFIG && address < CDROM_CONFIG + 4) {
+			return m_cdrom_config.delay_size.raw;
 		}
 
 #ifdef DEBUG_IO

@@ -36,6 +36,8 @@ private :
 	/// COP0 registers
 	/// </summary>
 	void CpuWindow();
+	void DmaWindow();
+	void MemoryConfigWindow();
 
 private :
 	std::shared_ptr<Window> m_win;

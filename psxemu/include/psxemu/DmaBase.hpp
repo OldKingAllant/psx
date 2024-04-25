@@ -2,6 +2,8 @@
 
 #include <psxemu/include/psxemu/DmaCommon.hpp>
 
+class DebugView;
+
 namespace psx {
 	struct system_status;
 	class DmaController;
@@ -29,6 +31,8 @@ namespace psx {
 		}
 
 		virtual u32 GetPort() const = 0;
+
+		friend class DebugView;
 
 	protected:
 		system_status* m_sys_status;
