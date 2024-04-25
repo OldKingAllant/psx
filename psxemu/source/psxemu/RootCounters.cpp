@@ -589,4 +589,10 @@ namespace psx {
 
 		return (u64)target_diff * m_cycles_per_inc;
 	}
+
+	void RootCounter::UpdateFromTimestamp() {
+		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
+		u64 diff = curr_time - m_last_update_timestamp;
+		UpdateCounter(diff);
+	}
 }

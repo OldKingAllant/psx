@@ -38,6 +38,9 @@ private :
 	void CpuWindow();
 	void DmaWindow();
 	void MemoryConfigWindow();
+	void TimersWindow();
+
+	void ShowTimerImpl(uint32_t tmr_id);
 
 private :
 	std::shared_ptr<Window> m_win;

@@ -3,6 +3,8 @@
 #include <common/Defs.hpp>
 #include <common/Macros.hpp>
 
+class DebugView;
+
 //System clock
 //Dotclock
 //Hblank
@@ -103,8 +105,12 @@ namespace psx {
 		/// </summary>
 		void VBlankEnd();
 
+		void UpdateFromTimestamp();
+
 		friend void overflow_callback(void* counter, u64 cycles_late);
 		friend void target_callback(void* counter, u64 cycles_late);
+
+		friend class DebugView;
 
 	private :
 		/// <summary>

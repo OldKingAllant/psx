@@ -54,6 +54,7 @@ void DebugView::Update() {
 	CpuWindow();
 	DmaWindow();
 	MemoryConfigWindow();
+	TimersWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -880,6 +881,124 @@ void DebugView::MemoryConfigWindow() {
 	ImGui::Text("Scratchpad enable 1 : %d", sysbus->m_cache_control.scratch_en1);
 	ImGui::Text("Scratchpad enable 2 : %d", sysbus->m_cache_control.scratch_en2);
 	ImGui::Text("I-Cache enable : %d", sysbus->m_cache_control.cache_en);
+
+	ImGui::End();
+}
+
+void DebugView::ShowTimerImpl(uint32_t tmr_id) {
+	psx::RootCounter* tmr = nullptr;
+
+	auto sysbus = m_psx->GetStatus()
+		.sysbus;
+
+	switch (tmr_id)
+	{
+	case 0:
+		tmr = &sysbus->m_count1;
+		break;
+	case 1:
+		tmr = &sysbus->m_count2;
+		break;
+	case 2:
+		tmr = &sysbus->m_count3;
+		break;
+	default:
+		return;
+		break;
+	}
+
+	tmr->UpdateFromTimestamp();
+
+	auto tmr_string = fmt::format("TMR{}", tmr_id);
+
+	if (ImGui::BeginTabItem(tmr_string.c_str())) {
+		ImGui::Text("Current timer value : %04X", 
+			tmr->m_count_value & 0xFFFF);
+		ImGui::Text("Counter target : %04X",
+			tmr->m_count_target & 0xFFFF);
+
+		ImGui::NewLine();
+		ImGui::Text("Control");
+		ImGui::NewLine();
+
+		ImGui::Text("Sync enable : %d", tmr->m_mode.m_sync_enable);
+
+		std::string_view sync_text = "<INVALID>";
+
+		switch (tmr_id)
+		{
+		case 0: {
+			auto sync_mode = static_cast<psx::SyncMode0>(tmr->m_mode.sync_mode);
+			sync_text = magic_enum::enum_name(sync_mode);
+		}
+			break;
+		case 1: {
+			auto sync_mode = static_cast<psx::SyncMode1>(tmr->m_mode.sync_mode);
+			sync_text = magic_enum::enum_name(sync_mode);
+		}
+			break;
+		case 2: {
+			auto sync_mode = static_cast<psx::SyncMode2>(tmr->m_mode.sync_mode);
+			sync_text = magic_enum::enum_name(sync_mode);
+		}
+			break;
+		default:
+			break;
+		}
+
+		ImGui::Text("Sync mode : %s", sync_text.data());
+
+		ImGui::Text("Reset counter at target : %d", tmr->m_mode.reset_on_target);
+		ImGui::Text("IRQ on target   : %d", tmr->m_mode.irq_on_target);
+		ImGui::Text("IRQ on overflow : %d", tmr->m_mode.irq_on_ov);
+		ImGui::Text("IRQ repeat      : %d", tmr->m_mode.irq_repeat);
+		ImGui::Text("IRQ toggle      : %d", tmr->m_mode.irq_toggle);
+		
+		std::string_view source_txt = "<INVALID>";
+
+		switch (tmr_id)
+		{
+		case 0: {
+			auto src = static_cast<psx::ClockSource0>(tmr->m_mode.clock_src);
+			source_txt = magic_enum::enum_name(src);
+		}
+			  break;
+		case 1: {
+			auto src = static_cast<psx::ClockSource1>(tmr->m_mode.clock_src);
+			source_txt = magic_enum::enum_name(src);
+		}
+			  break;
+		case 2: {
+			auto src = static_cast<psx::ClockSource2>(tmr->m_mode.clock_src);
+			source_txt = magic_enum::enum_name(src);
+		}
+			  break;
+		default:
+			break;
+		}
+
+		ImGui::Text("Clock source : %s", source_txt.data());
+		ImGui::Text("Interrupt request : %d", tmr->m_mode.irq);
+		ImGui::Text("Reached target : %d", tmr->m_mode.target_reached);
+		ImGui::Text("Reached overflow : %d", tmr->m_mode.ov_reached);
+
+		ImGui::EndTabItem();
+	}
+}
+
+void DebugView::TimersWindow() {
+	if (!ImGui::Begin("Timers")) {
+		ImGui::End();
+		return;
+	}
+
+	ImGui::BeginTabBar("##timers");
+
+	ShowTimerImpl(0);
+	ShowTimerImpl(1);
+	ShowTimerImpl(2);
+
+	ImGui::EndTabBar();
 
 	ImGui::End();
 }
