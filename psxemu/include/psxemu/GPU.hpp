@@ -3,6 +3,8 @@
 #include <common/Defs.hpp>
 #include <common/Queue.hpp>
 
+class DebugView;
+
 namespace psx {
 	static constexpr u64 GP0_ADD = 0x810;
 	static constexpr u64 GP1_ADD = 0x814;
@@ -167,6 +169,8 @@ namespace psx {
 		DisplayConfig& GetDispConfig() {
 			return m_disp_conf;
 		}
+
+		friend class DebugView;
 
 	private :
 		void CommandStart(u32 cmd);

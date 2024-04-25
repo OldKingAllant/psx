@@ -39,6 +39,7 @@ private :
 	void DmaWindow();
 	void MemoryConfigWindow();
 	void TimersWindow();
+	void GpuWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
 
