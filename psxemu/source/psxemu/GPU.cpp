@@ -447,4 +447,18 @@ namespace psx {
 			}
 		}
 	}
+
+	void Gpu::TryUpdateTexpage(u16 params) {
+		u32 x_base = params & 0xF;
+		u32 y_base = (params >> 4) & 1;
+		u32 semi_trans = (params >> 5) & 3;
+		u32 texpage_colors = (params >> 7) & 0x3;
+		u32 y_base2 = (params >> 11) & 1;
+
+		m_stat.texture_page_x_base = (u8)x_base;
+		m_stat.texture_page_y_base = (u8)y_base;
+		m_stat.semi_transparency = (SemiTransparency)semi_trans;
+		m_stat.tex_page_colors = (TexPageColors)texpage_colors;
+		m_stat.texture_page_y_base2 = (bool)y_base2;
+	}
 }

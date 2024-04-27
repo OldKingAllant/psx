@@ -14,7 +14,8 @@
 
 DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sys) 
 	: m_win{ win }, m_psx{ sys }, m_gl_ctx{ nullptr }, 
-	m_first_frame{ true }, m_enabled_opts{} {
+	m_first_frame{ true }, m_enabled_opts{}, 
+	m_except_init{ false }, m_except_init_hook{ 0xFFFFF } {
 	m_gl_ctx = m_win->GetGlContext();
 
 	ImGui::CreateContext();
@@ -35,6 +36,14 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 
 	m_enabled_opts.insert(std::pair{ "allow_cpu_state_mod", false });
 	m_enabled_opts.insert(std::pair{ "allow_dma_state_mod", false });
+
+	auto& kernel = m_psx->GetKernel();
+
+	m_except_init_hook = kernel.InsertExitHook("InstallExceptionHandlers",
+		[this, &kernel](psx::u32 pc, psx::u32 id) {
+			m_except_init = true;
+			kernel.ScheduleExitHookRemoval(m_except_init_hook);
+	}).value();
 }
 
 DebugView::~DebugView() {
@@ -56,6 +65,7 @@ void DebugView::Update() {
 	MemoryConfigWindow();
 	TimersWindow();
 	GpuWindow();
+	KernelWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -1079,6 +1089,178 @@ void DebugView::GpuWindow() {
 		ImGui::Text("Draw offset Y : %d", gpu.m_y_off);
 		ImGui::Text("Display start X : %d", gpu.m_disp_x_start);
 		ImGui::Text("Display start Y : %d", gpu.m_disp_y_start);
+		ImGui::EndTabItem();
+	}
+
+	ImGui::EndTabBar();
+
+	ImGui::End();
+}
+
+void DebugView::KernelWindow() {
+	if (!ImGui::Begin("Kernel")) {
+		ImGui::End();
+		return;
+	}
+
+	auto const& kernel = m_psx->GetKernel();
+
+	auto bcd = kernel.DumpKernelBcdDate();
+	auto maker = kernel.DumpKernelMaker();
+	auto version = kernel.DumpKernelVersion();
+
+	ImGui::Text("Kernel BCD Date : %s", bcd.c_str());
+	ImGui::Text("Kernel Maker    : %s", maker.data());
+	ImGui::Text("Kernel Version  : %s", version.data());
+
+	ImGui::BeginTabBar("##kernel");
+
+	if (ImGui::BeginTabItem("Exceptions")) {
+		if (!m_except_init) {
+			ImGui::Text("Exception handlers not init!");
+		}
+		else {
+			auto except_chains = kernel.DumpAllExceptionChains();
+			ImGui::Text("Total exception chains : %d", except_chains.size());
+
+			for (uint32_t i = 0; auto const& chain : except_chains) {
+				auto header_name = fmt::format("Chain {}", i);
+				if (ImGui::CollapsingHeader(header_name.c_str())) {
+					if (!chain.empty()) {
+						uint32_t j = 0;
+						for (auto const& entry : chain) {
+							ImGui::Indent();
+
+							if (entry.first_function)
+								ImGui::Text("First function : %08X", entry.first_function);
+							else
+								ImGui::Text("First function : <NULL>");
+
+							if (entry.second_function)
+								ImGui::Text("Second function : %08X", entry.second_function);
+							else
+								ImGui::Text("Second function : <NULL>");
+
+							if (entry.next)
+								ImGui::Text("Next : %08X", entry.next);
+							else
+								ImGui::Text("Next : <NULL>");
+
+							j++;
+						}
+
+						while (j--)
+							ImGui::Unindent();
+					}
+					else {
+						ImGui::Text("Empty chain");
+					}
+				}
+				i++;
+			}
+		}
+
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Events")) {
+		auto evcbs = kernel.DumpEventControlBlocks();
+
+		ImGui::Text("Total events : %d", evcbs.size());
+
+		for (uint32_t i = 0; auto const& evcb : evcbs) {
+			auto name = fmt::format("Event {}", i);
+			if (ImGui::CollapsingHeader(name.c_str(), ImGuiTreeNodeFlags_Framed)) {
+				auto class_name = psx::kernel::EventClassName(evcb.ev_class);
+				auto status_name = psx::kernel::EventStatusName(evcb.status);
+				auto spec_name = psx::kernel::EventSpecName(evcb.spec);
+				auto mode_name = psx::kernel::EventModeName(evcb.mode);
+
+				ImGui::Indent();
+				ImGui::Text("Class    : %s", class_name.data());
+				ImGui::Text("Status   : %s", status_name.data());
+				ImGui::Text("Spec     : %s", spec_name.data());
+				ImGui::Text("Mode     : %s", mode_name.data());
+				ImGui::Text("Function : %08X", evcb.func_pointer);
+				ImGui::Unindent();
+			}
+			i++;
+		}
+
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Threads")) {
+		ImGui::Text("Current TCB : %08X", kernel.GetCurrentThread());
+
+		auto tcbs = kernel.DumpThreadControlBlocks();
+
+		for (uint32_t i = 0; auto const& tcb : tcbs) {
+			auto tcb_name = fmt::format("Thread {}", i);
+
+			if (ImGui::CollapsingHeader(tcb_name.c_str())) {
+				ImGui::Indent();
+
+				if (ImGui::CollapsingHeader("GP Registers")) {
+					ImGui::Indent();
+					for (uint32_t index = 0; index < 32; index++)
+						ImGui::Text("r%d = %08X", index, tcb.regs[index]);
+					ImGui::Unindent();
+				}
+
+				ImGui::Text("EPC    : %08X", tcb.epc);
+				ImGui::Text("HI     : %08X", tcb.hi);
+				ImGui::Text("LO     : %08X", tcb.lo);
+				ImGui::Text("SR     : %08X", tcb.sr);
+				ImGui::Text("CAUSE  : %08X", tcb.cause);
+
+				ImGui::Unindent();
+			}
+
+			i++;
+		}
+
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Devices")) {
+		auto dcbs = kernel.DumpDeviceControlBlocks();
+
+		ImGui::Text("Device control blocks : %d", dcbs.size());
+
+		auto ram_base = m_psx->GetStatus()
+			.sysbus->GetGuestBase();
+
+		for (uint32_t i = 0; auto const& dcb : dcbs) {
+			auto dcb_name = fmt::format("Device {}", i);
+			if (ImGui::CollapsingHeader(dcb_name.c_str())) {
+				ImGui::Indent();
+				ImGui::Text("Lowercase name : %s", ram_base + dcb.lowercase_name_ptr);
+
+				switch (dcb.flags)
+				{
+				case psx::kernel::DeviceFlags::CDROM_BU:
+					ImGui::Text("Flags : CDROM/BU");
+					break;
+				case psx::kernel::DeviceFlags::TTY_DUART:
+					ImGui::Text("Flags : TTY DUART");
+					break;
+				case psx::kernel::DeviceFlags::TTY_DUMMY:
+					ImGui::Text("Flags : TTY DUMMY");
+					break;
+				default:
+					ImGui::Text("Flags : <INVALID>");
+					break;
+				}
+
+				ImGui::Text("Sector size : %X", dcb.sect_size);
+				ImGui::Text("Uppercase name : %s", ram_base + dcb.uppercase_name_ptr);
+
+				ImGui::Unindent();
+			}
+			i++;
+		}
+
 		ImGui::EndTabItem();
 	}
 

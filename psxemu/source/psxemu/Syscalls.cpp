@@ -9,8 +9,8 @@
 #include <ranges>
 
 namespace psx {
-	std::map<u32, Syscall> InitSyscallTable() {
-		std::map<u32, Syscall> the_table{};
+	std::unordered_map<u32, Syscall> InitSyscallTable() {
+		std::unordered_map<u32, Syscall> the_table{};
 
 		//using SyscallParam = std::pair<std::string, SyscallParamType>;
 		//using ParamList = std::vector<SyscallParam>
@@ -343,7 +343,7 @@ namespace psx {
 		{}
 	};
 
-	static const std::map<u32, Syscall> table = InitSyscallTable();
+	static const std::unordered_map<u32, Syscall> table = InitSyscallTable();
 
 	Syscall const& GetSyscallDescriptor(u32 syscall_num) {
 		if (!table.contains(syscall_num))

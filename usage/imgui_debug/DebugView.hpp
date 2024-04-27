@@ -3,7 +3,7 @@
 #include <psxemu/renderer/SdlWindow.hpp>
 
 #include <memory>
-#include <map>
+#include <unordered_map>
 
 namespace psx {
 	class System;
@@ -40,6 +40,7 @@ private :
 	void MemoryConfigWindow();
 	void TimersWindow();
 	void GpuWindow();
+	void KernelWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
 
@@ -49,5 +50,14 @@ private :
 	void* m_gl_ctx;
 
 	bool m_first_frame;
-	std::map<std::string, bool> m_enabled_opts;
+	std::unordered_map<std::string, bool> m_enabled_opts;
+
+	/// <summary>
+	/// Flag is set to true when kernel's
+	/// exception chains are init 
+	/// (using an exit hook on 
+	/// InstallExceptionHandlers)
+	/// </summary>
+	bool m_except_init;
+	uint64_t m_except_init_hook;
 };

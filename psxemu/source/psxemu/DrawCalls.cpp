@@ -246,6 +246,10 @@ namespace psx {
 		triangle2.v1 = vertices[2];
 		triangle2.v2 = vertices[3];
 
+		u16 page = (u16)clut_and_page;
+
+		TryUpdateTexpage(page);
+
 		m_renderer->DrawTexturedTriangle(triangle1);
 		m_renderer->DrawTexturedTriangle(triangle2);
 	}

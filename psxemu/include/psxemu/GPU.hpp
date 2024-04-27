@@ -208,6 +208,8 @@ namespace psx {
 
 		void FinalizeCpuVramBlit();
 
+		void TryUpdateTexpage(u16 params);
+
 	private :
 		Queue<u32, 16> m_cmd_fifo;
 		GpuStat m_stat;

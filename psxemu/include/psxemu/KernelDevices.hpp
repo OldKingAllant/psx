@@ -4,7 +4,7 @@
 
 namespace psx::kernel {
 	enum class DeviceFlags : u32 {
-		CDROM = 0x14,
+		CDROM_BU = 0x14,
 		TTY_DUMMY = 0x1,
 		TTY_DUART = 0x3
 	};

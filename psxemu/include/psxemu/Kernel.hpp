@@ -7,8 +7,9 @@
 #include <string_view>
 #include <vector>
 #include <list>
-#include <map>
+#include <unordered_map>
 #include <functional>
+#include <optional>
 
 namespace psx {
 	struct system_status;
@@ -93,6 +94,32 @@ namespace psx::kernel {
 		/// <returns></returns>
 		std::vector<ExceptionChain> DumpAllExceptionChains() const;
 
+		/// <summary>
+		/// Dump all EvCB as an high level view
+		/// </summary>
+		/// <returns>All ACTIVE control blocks</returns>
+		std::vector<EventControlBlock> DumpEventControlBlocks() const;
+
+		/// <summary>
+		/// Only one PCB = only
+		/// one active thread
+		/// </summary>
+		/// <returns>ID of current thread</returns>
+		u32 GetCurrentThread() const;
+
+		/// <summary>
+		/// Dump all TCBs
+		/// </summary>
+		/// <returns>All ACTIVE TCBs</returns>
+		std::vector<ThreadControlBlock> DumpThreadControlBlocks() const;
+
+		/// <summary>
+		/// Dump alld DCBs
+		/// </summary>
+		/// <returns>All ACTIVE DCBs</returns>
+		std::vector<DeviceControlBlock> DumpDeviceControlBlocks() const;
+
+
 		FORCE_INLINE void SetHooksEnable(bool en) {
 			m_enable_hooks = en;
 		}
@@ -101,11 +128,33 @@ namespace psx::kernel {
 			return m_enable_hooks;
 		}
 
-		void InsertEnterHook(u32 syscall_id, SyscallHook hook);
-		void InsertExitHook(u32 syscall_id, SyscallHook hook);
+		/*
+		Hook functions return the ID of the
+		hook (which is simply an incrementing
+		positive number)
+		*/
 
-		bool InsertEnterHook(std::string const& syscall_name, SyscallHook hook);
-		bool InsertExitHook(std::string const& syscall_name, SyscallHook hook);
+		u64 InsertEnterHook(u32 syscall_id, SyscallHook hook);
+		u64 InsertExitHook(u32 syscall_id, SyscallHook hook);
+
+		std::optional<u64> InsertEnterHook(std::string const& syscall_name, SyscallHook hook);
+		std::optional<u64> InsertExitHook(std::string const& syscall_name, SyscallHook hook);
+
+		void RemoveEnterHook(u64 hook_id);
+		void RemoveExitHook(u64 hook_id);
+
+		/*
+		Use these methods for auto-removing
+		hooks. Using the normal remove
+		methods will result in invalid 
+		iterators during hook invocations
+		*/
+
+		void ScheduleEnterHookRemoval(u64 hook_id);
+		void ScheduleExitHookRemoval(u64 hook_id);
+
+		void CleanupEntryHooks();
+		void CleanupExitHooks();
 
 		/// <summary>
 		/// Try and handle syscall.
@@ -140,15 +189,24 @@ namespace psx::kernel {
 		u8* m_rom_pointer;
 		u8* m_ram_pointer;
 
-		std::map<u32, SyscallHook> m_syscall_entry_hooks;
-		std::map<u32, SyscallHook> m_syscall_exit_hooks;
-		std::map<u32, HleHandler> m_hle;
+		std::unordered_multimap<u32, std::pair<u64, SyscallHook>> m_syscall_entry_hooks;
+		std::unordered_multimap<u32, std::pair<u64, SyscallHook>> m_syscall_exit_hooks;
+		std::unordered_map<u32, HleHandler> m_hle;
 
 		bool m_enable_hooks;
 
 		system_status* m_sys_status;
+
+		u64 m_hook_id;
+
+		std::list<u64> m_entry_hooks_scheduled_for_removal;
+		std::list<u64> m_exit_hooks_scheduled_for_removal;
 	};
 
 	std::string FormatExceptionChain(ExceptionChain const& chain);
 	std::string FormatExceptionChains(std::vector<ExceptionChain> const& chains);
+	std::string_view EventClassName(EventClass evclass);
+	std::string_view EventStatusName(EventStatus status);
+	std::string_view EventModeName(EventMode mode);
+	std::string_view EventSpecName(EventSpec spec);
 }

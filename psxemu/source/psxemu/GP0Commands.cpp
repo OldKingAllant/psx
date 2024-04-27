@@ -226,8 +226,8 @@ namespace psx {
 		m_x_off = cmd & 0x7FF;
 		m_y_off = (cmd >> 11) & 0x7FF;
 
-		m_x_off = (i32)m_x_off;
-		m_y_off = (i32)m_y_off;
+		m_x_off = (u32)sign_extend<i32, 10>(m_x_off);
+		m_y_off = (u32)sign_extend<i32, 10>(m_y_off);
 
 		fmt::println("      X = {}, Y = {}", (i32)m_x_off,
 			(i32)m_y_off);
