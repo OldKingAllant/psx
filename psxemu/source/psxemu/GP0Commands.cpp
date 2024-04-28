@@ -90,6 +90,12 @@ namespace psx {
 			FlushDrawOps();
 			m_renderer->SyncTextures();
 			break;
+		case 0x2:
+			m_cmd_fifo.queue(cmd);
+			m_required_params = 2;
+			m_rem_params = m_required_params;
+			m_cmd_status = Status::WAITING_PARAMETERS;
+			break;
 		case 0x3:
 			fmt::println("[GPU] NOP FIFO");
 			break;
@@ -301,8 +307,16 @@ namespace psx {
 
 		switch (cmd_type)
 		{
-		case psx::CommandType::MISC:
-			error::DebugBreak();
+		case psx::CommandType::MISC: {
+			u8 upper = u8(cmd >> 24);
+			if (upper != 0x2) {
+				error::DebugBreak();
+			}
+			else {
+				QuickFill();
+				m_cmd_status = Status::IDLE;
+			}
+		}
 			break;
 		case psx::CommandType::POLYGON: {
 			bool quad = (cmd >> 27) & 1;

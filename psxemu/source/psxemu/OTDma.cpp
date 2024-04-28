@@ -53,10 +53,9 @@ namespace psx {
 		block_control->word_count--;
 
 		u32 address = (block_control->word_count == 0) ?
-			0x00FFFFFF : m_shadow_base_address;
+			0x00FFFFFF : (m_shadow_base_address - 0x4);
 
-		sysbus->Write<u32, true, false>(m_shadow_base_address, (address - 0x4) 
-		& 0xFFFFFF);
+		sysbus->Write<u32, true, false>(m_shadow_base_address, address & 0xFFFFFF);
 
 		if (m_sys_status->exception)
 			m_controller->SignalException();

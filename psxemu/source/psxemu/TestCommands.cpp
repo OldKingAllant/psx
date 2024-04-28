@@ -37,6 +37,6 @@ namespace psx {
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE,
 			{ date_and_ver[0], date_and_ver[1], 
-			  date_and_ver[2], date_and_ver[3] });
+			  date_and_ver[2], date_and_ver[3] }, 0);
 	}
 }

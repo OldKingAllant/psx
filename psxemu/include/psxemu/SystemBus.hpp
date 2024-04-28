@@ -180,7 +180,8 @@ namespace psx {
 				if ((address & (sizeof(Ty) - 1)) != 0) {
 					//Unaligned access!
 #ifdef DEBUG
-					fmt::print("Unaligned access at 0x{:x}\n", address);
+					fmt::print("Unaligned access at 0x{:x}, PC = {:#x}\n", address, 
+						m_sys_status->cpu->GetPc());
 #endif // DEBUG
 
 					if constexpr (Except) {
@@ -803,6 +804,12 @@ namespace psx {
 				}
 
 				return 0x00;
+			}
+
+			if (address == 0x44) {
+				fmt::println("HACK address {:#x}",
+					m_sys_status->cpu->GetPc());
+				return Ty(-1);
 			}
 
 #ifdef DEBUG_IO

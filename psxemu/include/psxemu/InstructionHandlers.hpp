@@ -368,7 +368,7 @@ namespace psx::cpu {
 			}
 		}
 		else if constexpr (CopNumber == Opcode::COP2) {
-			error::DebugBreak();
+			fmt::println("COP2 opcode {:#x}", instruction);
 		}
 		else {
 			u8 coprocessor_num = CopNumber == Opcode::COP1 ? 1 : 3;

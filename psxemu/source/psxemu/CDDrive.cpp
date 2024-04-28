@@ -14,7 +14,7 @@ namespace psx {
 		m_volume{}, m_mute_adpcm{true}, m_sound_coding{},
 		m_read_paused{false}, m_motor_on{false},
 		m_mode{}, m_stat{}, m_sys_status {sys_status},
-		m_idle{ true }, m_has_next_cmd{false} {
+		m_idle{ true }, m_has_next_cmd{ false }, m_event_id{INVALID_EVENT} {
 		m_index_reg.param_fifo_empty = true;
 
 		//Yes, this does not really make sense
@@ -101,16 +101,12 @@ namespace psx {
 				m_curr_cmd = value;
 				m_idle = false;
 				CommandExecute();
-
-				if (m_idle && m_has_next_cmd) {
-					m_curr_cmd = m_new_cmd;
-					m_has_next_cmd = false;
-					CommandExecute();
-				}
+				m_index_reg.transmission_busy = false;
 			}
 			else {
 				m_new_cmd = value;
 				m_has_next_cmd = true;
+				m_index_reg.transmission_busy = true;
 			}
 			break;
 		case 1:
@@ -217,7 +213,18 @@ namespace psx {
 	}
 
 	u8 CDDrive::ReadReg2() {
-		error::DebugBreak();
+		switch (m_index_reg.index)
+		{
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+			fmt::println("[CDROM] Data FIFO read");
+			break;
+		default:
+			error::DebugBreak();
+			break;
+		}
 		return 0;
 	}
 
@@ -244,6 +251,7 @@ namespace psx {
 	}
 
 	enum DriveCommands {
+		GETSTAT = 0x1,
 		TEST = 0x19
 	};
 
@@ -255,6 +263,9 @@ namespace psx {
 
 		switch (m_curr_cmd)
 		{
+		case DriveCommands::GETSTAT:
+			Command_GetStat();
+			break;
 		case DriveCommands::TEST:
 			CommandTest(m_curr_cmd);
 			break;
@@ -281,13 +292,13 @@ namespace psx {
 		m_sys_status->Interrupt(u32(Interrupts::CDROM));
 	}
 
-	void CDDrive::PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args) {
+	void CDDrive::PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args, u64 delay) {
 		ResponseFifo response{};
 
 		for (u8 val : args)
 			response.fifo[response.num_bytes++] = val;
 
-		if (m_response_fifo.empty()) {
+		if (m_response_fifo.empty() && delay == 0) {
 			RequestInterrupt(interrupt);
 		}
 		else if (m_response_fifo.full()) {
@@ -296,13 +307,23 @@ namespace psx {
 			return;
 		}
 
-		m_response_fifo.queue({.fifo= response, .interrupt= interrupt});
+		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
+
+		m_response_fifo.queue({
+			.fifo= response, 
+			.interrupt= interrupt, 
+			.delay= delay,
+			.timestamp= curr_time
+			});
+
+		if (delay != 0)
+			ScheduleInterrupt(delay);
 	}
 
 	bool CDDrive::ValidateParams(u32 num_params) {
 		if (num_params != m_param_fifo.len()) {
 			m_stat.err = true;
-			PushResponse(CdInterrupt::INT5_ERR, { m_stat.reg, u8(CommandError::WRONG_NUM_OF_PARAMS) });
+			PushResponse(CdInterrupt::INT5_ERR, { m_stat.reg, u8(CommandError::WRONG_NUM_OF_PARAMS) }, 0);
 			return false;
 		}
 
@@ -316,7 +337,13 @@ namespace psx {
 		(void)m_response_fifo.deque();
 
 		if (!m_response_fifo.empty()) {
-			RequestInterrupt(m_response_fifo.peek().interrupt);
+			auto const& response = m_response_fifo.peek();
+			u64 curr_time = m_sys_status->scheduler.GetTimestamp();
+			i64 diff = (i64)curr_time - (response.timestamp + response.delay);
+			if (response.delay == 0 || diff >= 0)
+				RequestInterrupt(response.interrupt);
+			else
+				ScheduleInterrupt(std::abs(diff));
 		}
 	}
 
@@ -344,5 +371,29 @@ namespace psx {
 		response.fifo.curr_index %= 16;
 
 		return return_value;
+	}
+
+	void CDDrive::HandlePendingCommand() {
+		if (m_idle && m_has_next_cmd) {
+			m_index_reg.transmission_busy = false;
+			m_curr_cmd = m_new_cmd;
+			m_has_next_cmd = false;
+			m_idle = false;
+			CommandExecute();
+		}
+	}
+
+	void event_callback(void* userdata, u64 cycles_late) {
+		std::bit_cast<CDDrive*>(userdata)->DeliverInterrupt(cycles_late);
+	}
+
+	void CDDrive::ScheduleInterrupt(u64 cycles) {
+		m_event_id = m_sys_status->scheduler.Schedule(cycles,
+			event_callback, this);
+	}
+
+	void CDDrive::DeliverInterrupt(u64 cycles_late) {
+		auto const& response = m_response_fifo.peek();
+		RequestInterrupt(response.interrupt);
 	}
 }

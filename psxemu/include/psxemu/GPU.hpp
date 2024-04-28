@@ -203,6 +203,8 @@ namespace psx {
 		void DrawBasicGouraudTriangle();
 		void DrawTexturedQuad();
 
+		void QuickFill();
+
 		void CheckIfDrawNeeded();
 		void FlushDrawOps();
 

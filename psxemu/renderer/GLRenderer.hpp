@@ -150,6 +150,8 @@ namespace psx::video {
 		void CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h);
 		void EndBlit();
 
+		void Fill(i32 xoff, i32 yoff, u32 w, u32 h, u32 color);
+
 		void FlushCommands();
 		void SyncTextures();
 		void UpdateUbo();

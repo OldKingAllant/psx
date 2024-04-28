@@ -323,6 +323,26 @@ namespace psx::video {
 		m_uniform_buf.Upload();
 	}
 
+	void Renderer::Fill(i32 xoff, i32 yoff, u32 w, u32 h, u32 color) {
+		m_need_gpu_to_host_copy = true;
+
+		float r = (color & 0xFF) / 255.0f;
+		float g = ((color >> 8) & 0xFF) / 255.0f;
+		float b = ((color >> 16) & 0xFF) / 255.0f;
+
+		m_framebuffer.Bind();
+
+		glViewport(0, 0, 1024, 512);
+		glScissor(xoff, yoff, (GLsizei)w, (GLsizei)h);
+
+		glEnable(GL_SCISSOR_TEST);
+		glClearColor(r, g, b, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glDisable(GL_SCISSOR_TEST);
+
+		m_framebuffer.Unbind();
+	}
+
 	Renderer::~Renderer() {
 		m_uniform_buf.Unbind();
 	}

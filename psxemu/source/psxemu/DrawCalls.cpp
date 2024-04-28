@@ -328,4 +328,31 @@ namespace psx {
 
 		CheckIfDrawNeeded();
 	}
+
+	void Gpu::QuickFill() {
+		FlushDrawOps();
+		m_renderer->SyncTextures();
+
+		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
+		u32 top_left = m_cmd_fifo.deque();
+
+		i32 x_off = i16((top_left & 0xFFFF) * 16);
+		i32 y_off = i16((top_left >> 16) * 16);
+
+		x_off += i32(m_x_off);
+		y_off += i32(m_y_off);
+
+		u32 size = m_cmd_fifo.deque();
+
+		u32 w = u32(size & 0xFFFF);
+		u32 h = u32(size >> 16);
+
+		if (x_off < 0 || y_off < 0)
+			fmt::println("[GPU] QUICK-FILL offsets less than zero");
+
+		if (x_off + w >= VRAM_X_SIZE || y_off + h >= VRAM_Y_SIZE)
+			fmt::println("[GPU] QUICK-FILL size goes out of bounds");
+
+		m_renderer->Fill(x_off, y_off, w, h, color);
+	}
 }

@@ -53,6 +53,8 @@ namespace psx {
 	struct Response {
 		ResponseFifo fifo;
 		CdInterrupt interrupt;
+		u64 delay;
+		u64 timestamp;
 	};
 
 	union InterruptFlag {
@@ -187,12 +189,16 @@ namespace psx {
 		u8 ReadReg2();
 		u8 ReadReg3();
 
+		friend void event_callback(void* userdata, u64 cycles_late);
+
 	private :
+		void HandlePendingCommand();
 		void CommandExecute();
 
 		//////////
 
 		void CommandTest(u8 cmd);
+		void Command_GetStat();
 
 		///////////
 
@@ -204,8 +210,10 @@ namespace psx {
 
 		void InterruptAckd();
 		void RequestInterrupt(CdInterrupt interrupt);
-		void PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args);
+		void PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args, u64 delay);
 		u8 PopResponseByte();
+		void DeliverInterrupt(u64 cycles_late);
+		void ScheduleInterrupt(u64 cycles);
 
 	private :
 		IndexRegister m_index_reg;
@@ -233,5 +241,7 @@ namespace psx {
 		system_status* m_sys_status;
 		bool m_idle;
 		bool m_has_next_cmd;
+
+		u64 m_event_id;
 	};
 }
