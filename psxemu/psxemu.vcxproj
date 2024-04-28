@@ -143,6 +143,7 @@
     <ClInclude Include="..\common\Macros.hpp" />
     <ClInclude Include="..\common\Queue.hpp" />
     <ClInclude Include="..\common\Stack.hpp" />
+    <ClInclude Include="include\psxemu\CDDrive.hpp" />
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
@@ -206,11 +207,13 @@
     <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="renderer\WindowManager.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
+    <ClCompile Include="source\psxemu\CDDrive.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
     <ClCompile Include="source\psxemu\DmaBase.cpp" />
     <ClCompile Include="source\psxemu\DmaController.cpp" />
     <ClCompile Include="source\psxemu\DrawCalls.cpp" />
+    <ClCompile Include="source\psxemu\DriveCommands.cpp" />
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />
     <ClCompile Include="source\psxemu\GPU.cpp" />
@@ -231,6 +234,7 @@
     <ClCompile Include="source\psxemu\Syscalls.cpp" />
     <ClCompile Include="source\psxemu\System.cpp" />
     <ClCompile Include="source\psxemu\SystemBus.cpp" />
+    <ClCompile Include="source\psxemu\TestCommands.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\basic_gouraud.fragment" />

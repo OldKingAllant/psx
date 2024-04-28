@@ -18,6 +18,10 @@ namespace psx {
 			return arr[0];
 		}
 
+		constexpr Ty& peek() {
+			return arr[0];
+		}
+
 		constexpr Ty deque() {
 			Ty item = arr[0];
 			std::shift_left(arr, arr + m_curr_size, 1);

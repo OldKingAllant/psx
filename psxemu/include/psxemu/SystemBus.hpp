@@ -9,6 +9,7 @@
 #include <psxemu/include/psxemu/RootCounters.hpp>
 #include <psxemu/include/psxemu/DmaController.hpp>
 #include <psxemu/include/psxemu/GPU.hpp>
+#include <psxemu/include/psxemu/CDDrive.hpp>
 
 #include <fmt/format.h>
 
@@ -309,7 +310,7 @@ namespace psx {
 					m_curr_cycles += 1;
 
 				if (!memory::IO::LOCKED[address & (memory::region_sizes::PSX_IO_SIZE - 1)]) {
-					return ReadIO<Ty>(address);
+					return ReadIO<Ty, AddCycles>(address);
 				}
 				else {
 					if constexpr (Except) {
@@ -482,7 +483,7 @@ namespace psx {
 				&& lower < memory::region_offsets::PSX_IO_OFFSET +
 				memory::region_sizes::PSX_IO_SIZE) {
 				if (!memory::IO::LOCKED[address & (memory::region_sizes::PSX_IO_SIZE - 1)]) {
-					WriteIO<Ty>(address, value);
+					WriteIO<Ty, AddCycles>(address, value);
 				}
 				else {
 					if constexpr (Except) {
@@ -511,9 +512,10 @@ namespace psx {
 		/// Write to the IO region
 		/// </summary>
 		/// <typeparam name="Ty">Type with size of write</typeparam>
+		/// <typeparam name="AddCycles">Add access cycles</typeparam>
 		/// <param name="address">Full address (not offset in IO)</param>
 		/// <param name="value">Value to write</param>
-		template <typename Ty>
+		template <typename Ty, bool AddCycles = false>
 		void WriteIO(u32 address, Ty value) {
 			address &= 0xFFF;
 
@@ -665,13 +667,43 @@ namespace psx {
 				return;
 			}
 
+			auto compute_access_time = [this](RegionConfig const& reg) {
+				auto bus_width_byes = (u32)reg.delay_size.bus_width + 1;
+				auto seq_access_count = sizeof(Ty) / bus_width_byes - 1;
+
+				//Add first access
+				m_curr_cycles += reg.write_nonseq;
+
+				//Add as many seq. accesses as needed
+				m_curr_cycles += reg.write_seq * seq_access_count;
+			};
+
+			if (address >= CDROM_REGS_BASE && address <= CDROM_REGS_END) {
+				if constexpr (AddCycles)
+					compute_access_time(m_cdrom_config);
+
+				address -= CDROM_REGS_BASE;
+
+				if constexpr (sizeof(Ty) == 1) {
+					m_cdrom.Write8(address, value);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					m_cdrom.Write16(address, value);
+				}
+				else {
+					m_cdrom.Write32(address, value);
+				}
+
+				return;
+			}
+
 #ifdef DEBUG_IO
 			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
 #endif // DEBUG_IO
 
 		}
 
-		template <typename Ty>
+		template <typename Ty, bool AddCycles = false>
 		Ty ReadIO(u32 address) {
 			address &= 0xFFF;
 
@@ -741,6 +773,36 @@ namespace psx {
 				u32 shift = (address & 3) * 8;
 
 				return (Ty)(m_gpu.ReadStat() >> shift);
+			}
+
+			auto compute_access_time = [this](RegionConfig const& reg) {
+				auto bus_width_byes = (u32)reg.delay_size.bus_width + 1;
+				auto seq_access_count = sizeof(Ty) / bus_width_byes - 1;
+
+				//Add first access
+				m_curr_cycles += reg.read_nonseq;
+
+				//Add as many seq. accesses as needed
+				m_curr_cycles += reg.read_seq * seq_access_count;
+			};
+
+			if (address >= CDROM_REGS_BASE && address <= CDROM_REGS_END) {
+				if constexpr (AddCycles)
+					compute_access_time(m_cdrom_config);
+
+				address -= CDROM_REGS_BASE;
+
+				if constexpr (sizeof(Ty) == 1) {
+					return m_cdrom.Read8(address);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					return m_cdrom.Read16(address);
+				}
+				else {
+					return m_cdrom.Read32(address);
+				}
+
+				return 0x00;
 			}
 
 #ifdef DEBUG_IO
@@ -877,5 +939,7 @@ namespace psx {
 		DmaController m_dma_controller;
 
 		Gpu m_gpu;
+
+		CDDrive m_cdrom;
 	};
 }

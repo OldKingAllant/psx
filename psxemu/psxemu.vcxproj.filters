@@ -64,6 +64,12 @@
     <Filter Include="shaders">
       <UniqueIdentifier>{5d0aaaf9-a8cd-4e45-a9d8-e6140f54e379}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev\cdrom">
+      <UniqueIdentifier>{189bb4a5-8797-4ae0-a56d-89dc1754cc49}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\cdrom">
+      <UniqueIdentifier>{709caf5e-0dd3-4725-a6af-0c6e594359f0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -222,6 +228,9 @@
     <ClInclude Include="..\common\Stack.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\CDDrive.hpp">
+      <Filter>Header Files\dev\cdrom</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -343,6 +352,15 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\ServerExtensionPackets.cpp">
       <Filter>Resource Files\gdbstub</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\CDDrive.cpp">
+      <Filter>Resource Files\dev\cdrom</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\DriveCommands.cpp">
+      <Filter>Resource Files\dev\cdrom</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\TestCommands.cpp">
+      <Filter>Resource Files\dev\cdrom</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

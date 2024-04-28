@@ -4,7 +4,7 @@
 #include <common/Macros.hpp>
 
 namespace psx {
-	using EventCallback = void(*)(void*, u64);
+	using EventCallback = void(__cdecl *)(void*, u64);
 
 	struct psx_event {
 		u64 event_id;
