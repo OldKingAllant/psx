@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 		psx::video::Rect{ .w = 640, .h = 480 },
 		"../shaders", "display_blit", true, true, true);
 
-	renderdoc.SetCurrentWindow(display.GetNativeWindowHandle());
+	renderdoc.SetCurrentWindow(vram_view.GetNativeWindowHandle());
 
 	using SdlEvent = psx::video::SdlEvent;
 
@@ -104,6 +104,10 @@ int main(int argc, char* argv[]) {
 				psx::u32 ch = sys.GetCPU().GetRegs().a0;
 				console.Putchar((char)ch);
 			});
+
+	sys.GetStatus()
+		.sysbus->GetGPU()
+		.GetRenderer()->SetRenderdocAPI(&renderdoc);
 
 	DebugView debug_view{ std::make_shared<psx::video::SdlWindow>(
 		std::string("Debug view"), psx::video::Rect{ .w = 1200, .h = 800 }, 

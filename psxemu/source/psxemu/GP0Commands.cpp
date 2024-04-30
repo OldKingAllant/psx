@@ -78,6 +78,10 @@ namespace psx {
 	}
 
 	void Gpu::MiscCommand(u32 cmd) {
+		if (m_read_status == GPUREAD_Status::READ_VRAM) {
+			fmt::println("[GPU] ********GPU-COMMAND DURING VRAM READ!*******");
+		}
+
 		u8 upper_byte = (u8)(cmd >> 24);
 
 		switch (upper_byte)
@@ -144,12 +148,15 @@ namespace psx {
 		}
 			break;
 		case psx::CommandType::LINE:
+			fmt::println("[GPU] UNIMPLEMENTED: LINE RENDER");
 			error::DebugBreak();
 			break;
 		case psx::CommandType::RECTANGLE:
+			fmt::println("[GPU] UNIMPLEMENTED: RECT RENDER");
 			error::DebugBreak();
 			break;
 		case psx::CommandType::VRAM_BLIT:
+			fmt::println("[GPU] UNIMPLEMENTED: VRAM-VRAM BLIT");
 			error::DebugBreak();
 			break;
 		case psx::CommandType::CPU_VRAM_BLIT: {
@@ -295,6 +302,9 @@ namespace psx {
 		uniforms.set_mask = m_stat.set_mask;
 		uniforms.check_mask = m_stat.draw_over_mask_disable;
 		m_renderer->RequestUniformBufferUpdate();
+
+		if (m_stat.set_mask || m_stat.draw_over_mask_disable)
+			fmt::println("[GPU] Mask enabled in one way or another");
 	}
 
 	void Gpu::CommandEnd() {

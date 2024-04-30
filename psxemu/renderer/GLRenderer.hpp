@@ -6,6 +6,7 @@
 #include "VertexBuffer.hpp"
 #include "Shader.hpp"
 #include "UniformBuffer.hpp"
+#include "Renderdoc.hpp"
 
 #include <list>
 
@@ -198,6 +199,10 @@ namespace psx::video {
 			m_update_scissor = true;
 		}
 
+		void SetRenderdocAPI(Renderdoc* renderdoc) {
+			m_renderdoc = renderdoc;
+		}
+
 		~Renderer();
 
 	private :
@@ -219,5 +224,6 @@ namespace psx::video {
 		UniformBuffer<GlobalUniforms> m_uniform_buf;
 		ScissorBox m_scissor;
 		std::list<DrawCommand> m_commands;
+		Renderdoc* m_renderdoc;
 	};
 }

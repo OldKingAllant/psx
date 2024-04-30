@@ -336,15 +336,12 @@ namespace psx {
 		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
 		u32 top_left = m_cmd_fifo.deque();
 
-		i32 x_off = i16((top_left & 0xFFFF) * 16);
-		i32 y_off = i16((top_left >> 16) * 16);
-
-		x_off += i32(m_x_off);
-		y_off += i32(m_y_off);
+		i32 x_off = u16(top_left & 0x3F0); //Aligned to 16 pixels
+		i32 y_off = u16(top_left >> 16) & 0x1FF;
 
 		u32 size = m_cmd_fifo.deque();
 
-		u32 w = u32(size & 0xFFFF);
+		u32 w = (u32(size & 0x3FF) + 0xF) & ~0xF;
 		u32 h = u32(size >> 16);
 
 		if (x_off < 0 || y_off < 0)

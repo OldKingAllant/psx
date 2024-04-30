@@ -186,6 +186,24 @@ namespace psx::cpu {
 				break;
 			}
 
+			/*switch (address % 4)
+			{
+			case 0x3:
+				to_write = (value_at & 0x00'FF'FF'FF) | (value & 0xFF'00'00'00);
+				break;
+			case 0x2:
+				to_write = (value_at & 0x00'00'FF'FF) | (value & 0xFF'FF'00'00);
+				break;
+			case 0x1:
+				to_write = (value_at & 0x00'00'00'FF) | (value & 0xFF'FF'FF'00);
+				break;
+			case 0x0:
+				to_write = value;
+				break;
+			default:
+				break;
+			}*/
+
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
 		else if constexpr (StoreOpcode == Opcode::SWR) {
@@ -212,6 +230,24 @@ namespace psx::cpu {
 			default:
 				break;
 			}
+
+			/*switch (address % 4)
+			{
+			case 0x3:
+				to_write = value;
+				break;
+			case 0x2:
+				to_write = (value_at & 0xFF'00'00'00) | (value & 0x00'FF'FF'FF);
+				break;
+			case 0x1:
+				to_write = (value_at & 0xFF'FF'00'00) | (value & 0x00'00'FF'FF);
+				break;
+			case 0x0:
+				to_write = (value_at & 0xFF'FF'FF'00) | (value & 0x00'00'00'FF);
+				break;
+			default:
+				break;
+			}*/
 
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
@@ -514,6 +550,24 @@ namespace psx::cpu {
 			default:
 				break;
 			}
+
+			/*switch (address % 4)
+			{
+			case 0x3:
+				value = (rt_val & 0x00'FF'FF'FF) | (data & 0xFF'00'00'00);
+				break;
+			case 0x2:
+				value = (rt_val & 0x00'00'FF'FF) | (data & 0xFF'FF'00'00);
+				break;
+			case 0x1:
+				value = (rt_val & 0x00'00'00'FF) | (data & 0xFF'FF'FF'00);
+				break;
+			case 0x0:
+				value = data;
+				break;
+			default:
+				break;
+			}*/
 		}
 		else if constexpr (LoadOpcode == Opcode::LWR) {
 			if (status->curr_delay.dest == rt) {
@@ -545,6 +599,24 @@ namespace psx::cpu {
 			default:
 				break;
 			}
+
+			/*switch (address % 4)
+			{
+			case 0x3:
+				value = data;
+				break;
+			case 0x2:
+				value = (rt_val & 0xFF'00'00'00) | (data & 0x00'FF'FF'FF);
+				break;
+			case 0x1:
+				value = (rt_val & 0xFF'FF'00'00) | (data & 0x00'00'FF'FF);
+				break;
+			case 0x0:
+				value = (rt_val & 0xFF'FF'FF'00) | (data & 0x00'00'00'FF);
+				break;
+			default:
+				break;
+			}*/
 		}
 		else {
 			error::DebugBreak();

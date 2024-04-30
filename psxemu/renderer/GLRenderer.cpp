@@ -22,7 +22,7 @@ namespace psx::video {
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_uniform_buf{},
 		m_scissor{},
-		m_commands{}
+		m_commands{}, m_renderdoc{nullptr}
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_blit_shader.SetLabel("vram_blit_shader");
@@ -54,6 +54,8 @@ namespace psx::video {
 			m_framebuffer.UpdateInternalTexture(m_vram.GetTextureHandle());
 			m_need_host_to_gpu_copy = false;
 		}
+
+		glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
 
 	void Renderer::VBlank() {
@@ -192,6 +194,9 @@ namespace psx::video {
 		m_untextured_opaque_flat_pipeline.ClearPrimitiveData();
 		m_untextured_opaque_flat_pipeline.ClearVertices();
 
+		m_textured_pipeline.ClearPrimitiveData();
+		m_textured_pipeline.ClearVertices();
+
 		glDisable(GL_SCISSOR_TEST);
 
 		m_processing_cmd = true;
@@ -268,6 +273,7 @@ namespace psx::video {
 		CommandFenceSync();
 		SyncTextures();
 
+		glDisable(GL_SCISSOR_TEST);
 		glViewport(0, 0, 1024, 512);
 
 		m_framebuffer.Bind();
@@ -326,9 +332,9 @@ namespace psx::video {
 	void Renderer::Fill(i32 xoff, i32 yoff, u32 w, u32 h, u32 color) {
 		m_need_gpu_to_host_copy = true;
 
-		float r = (color & 0xFF) / 255.0f;
-		float g = ((color >> 8) & 0xFF) / 255.0f;
-		float b = ((color >> 16) & 0xFF) / 255.0f;
+		float r = ((color >> 3) & 0x1F) / 31.0f;
+		float g = ((color >> 11) & 0x1F) / 31.0f;
+		float b = ((color >> 19) & 0x1F) / 31.0f;
 
 		m_framebuffer.Bind();
 

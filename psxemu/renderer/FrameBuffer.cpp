@@ -22,6 +22,8 @@ namespace psx::video {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 512,
 			0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
 
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 1024);
+
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
@@ -70,10 +72,13 @@ namespace psx::video {
 
 	void FrameBuffer::DownloadSubImage(u8* dest_buf, u32 xoff, u32 yoff, u32 w, u32 h) {
 		u32 pointer_offset = ((yoff * 1024) + xoff) * 2;
+		/*glGetTextureSubImage(m_fbo_tex, 0, xoff, yoff, 0, w, h, 1,
+			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,
+			(u64)1024 * 1024, dest_buf + pointer_offset);*/
+
 		glBindTexture(GL_TEXTURE_2D, m_fbo_tex);
-		glGetTextureSubImage(m_fbo_tex, 0, xoff, yoff, 0, w, h, 1,
-			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, 
-			(u64)1024 * 1024, dest_buf + pointer_offset);
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, dest_buf);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
