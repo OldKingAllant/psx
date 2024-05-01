@@ -100,6 +100,9 @@ namespace psx::video {
 		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
 
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, 1024);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
+		glPixelStorei(GL_PACK_ROW_LENGTH, 1024);
+		glPixelStorei(GL_PACK_ALIGNMENT, 2);
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 512, 0,
 			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
