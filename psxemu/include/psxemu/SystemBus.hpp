@@ -324,10 +324,9 @@ namespace psx {
 				return 0x0;
 			}
 
+			fmt::print("Reading unused memory at 0x{:x}\n", address);
+
 			if constexpr (Except) {
-#ifdef DEBUG
-				fmt::print("Reading unused memory at 0x{:x}\n", address);
-#endif // DEBUG
 				m_sys_status->exception = true;
 				m_sys_status->exception_number =
 					cpu::Excode::DBE;
@@ -499,10 +498,9 @@ namespace psx {
 				return;
 			}
 
+			fmt::print("Writing unused memory at 0x{:x}\n", address);
+
 			if constexpr (Except) {
-#ifdef DEBUG
-				fmt::print("Writing unused memory at 0x{:x}\n", address);
-#endif // DEBUG
 				m_sys_status->exception = true;
 				m_sys_status->exception_number =
 					cpu::Excode::DBE;

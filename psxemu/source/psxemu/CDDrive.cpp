@@ -19,6 +19,8 @@ namespace psx {
 
 		//Yes, this does not really make sense
 		m_index_reg.param_fifo_full = true;
+		m_stat.shell_open = false;
+		m_motor_on = true;
 	}
 
 
@@ -172,6 +174,7 @@ namespace psx {
 			break;
 		case 1:
 			m_int_flag.reg &= ~value;
+			
 			if ((value >> 6) & 1) {
 				fmt::println("[CDROM] Param FIFO reset");
 				m_param_fifo.clear();
@@ -202,8 +205,10 @@ namespace psx {
 		case 0:
 		case 1:
 		case 2:
-		case 3:
-			return PopResponseByte();
+		case 3: {
+			u8 resp = PopResponseByte();
+			return resp;
+		}
 			break;
 		default:
 			error::DebugBreak();
@@ -252,7 +257,8 @@ namespace psx {
 
 	enum DriveCommands {
 		GETSTAT = 0x1,
-		TEST = 0x19
+		TEST = 0x19,
+		GETID = 0x1A
 	};
 
 	void CDDrive::CommandExecute() {
@@ -269,6 +275,9 @@ namespace psx {
 		case DriveCommands::TEST:
 			CommandTest(m_curr_cmd);
 			break;
+		case DriveCommands::GETID:
+			Command_GetID();
+			break;
 		default:
 			fmt::println("[CDROM] Unknown/invalid command {:#x}",
 				m_curr_cmd);
@@ -276,12 +285,12 @@ namespace psx {
 			break;
 		}
 
-		m_index_reg.param_fifo_empty = true;
-		m_index_reg.param_fifo_full = true;
+		m_index_reg.param_fifo_empty = m_param_fifo.empty();
+		m_index_reg.param_fifo_full = !m_param_fifo.full();
 	}
 
 	void CDDrive::RequestInterrupt(CdInterrupt interrupt) {
-		m_index_reg.response_fifo_empty = true;
+		m_index_reg.response_fifo_empty = !m_response_fifo.empty();
 		m_int_flag.irq = interrupt;
 
 		if ((m_int_enable.enable_bits & u8(interrupt)) != u8(interrupt)) {
@@ -293,28 +302,29 @@ namespace psx {
 	}
 
 	void CDDrive::PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args, u64 delay) {
-		ResponseFifo response{};
-
-		for (u8 val : args)
-			response.fifo[response.num_bytes++] = val;
-
-		if (m_response_fifo.empty() && delay == 0) {
-			RequestInterrupt(interrupt);
-		}
-		else if (m_response_fifo.full()) {
+		if (m_response_fifo.full()) {
 			fmt::println("[CDROM] Response FIFO is full!");
 			error::DebugBreak();
 			return;
 		}
 
+		ResponseFifo response{};
+
+		for (u8 val : args)
+			response.fifo[response.num_bytes++] = val;
+
 		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 
 		m_response_fifo.queue({
-			.fifo= response, 
-			.interrupt= interrupt, 
-			.delay= delay,
-			.timestamp= curr_time
+			.fifo = response,
+			.interrupt = interrupt,
+			.delay = delay,
+			.timestamp = curr_time
 			});
+
+		if (m_response_fifo.len() == 1 && delay == 0) {
+			RequestInterrupt(interrupt);
+		}
 
 		if (delay != 0)
 			ScheduleInterrupt(delay);
@@ -336,14 +346,26 @@ namespace psx {
 
 		(void)m_response_fifo.deque();
 
+		m_index_reg.response_fifo_empty = false;
+
 		if (!m_response_fifo.empty()) {
 			auto const& response = m_response_fifo.peek();
 			u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 			i64 diff = (i64)curr_time - (response.timestamp + response.delay);
-			if (response.delay == 0 || diff >= 0)
+			if (response.delay == 0 || diff >= 0) {
+				fmt::println("[CDROM] Immediate INT request {:#x}", 
+					(u8)response.interrupt);
 				RequestInterrupt(response.interrupt);
-			else
+			}
+			else {
+				fmt::println("[CDROM] Schedule {} clocks starting from now", 
+					std::abs(diff));
 				ScheduleInterrupt(std::abs(diff));
+			}
+		}
+		else {
+			m_idle = true;
+			HandlePendingCommand();
 		}
 	}
 

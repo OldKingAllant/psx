@@ -199,6 +199,7 @@ namespace psx {
 
 		void CommandTest(u8 cmd);
 		void Command_GetStat();
+		void Command_GetID();
 
 		///////////
 
