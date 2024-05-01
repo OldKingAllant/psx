@@ -341,6 +341,35 @@ namespace psx {
 			}
 		);
 
+		the_table.insert(
+			std::pair{ 0xB07, std::pair{
+				"DeliverEvent",
+				ParamList{
+					std::pair{ "class", SyscallParamType::EVENT_CLASS },
+					std::pair{ "spec", SyscallParamType::UINT }
+				}
+			} }
+		);
+
+		the_table.insert(
+			std::pair{ 0xB13, std::pair{
+				"StartPAD2",
+				ParamList{}
+			} }
+		);
+
+		the_table.insert(
+			std::pair{ 0xB12, std::pair{
+				"InitPAD2",
+				ParamList{
+					std::pair{ "buf1", SyscallParamType::VOID_PTR },
+					std::pair{ "size1", SyscallParamType::UINT },
+					std::pair{ "buf2", SyscallParamType::VOID_PTR },
+					std::pair{ "size2", SyscallParamType::UINT }
+				}
+			} }
+		);
+
 		return the_table;
 	}
 
