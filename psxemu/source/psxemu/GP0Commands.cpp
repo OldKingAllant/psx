@@ -151,9 +151,19 @@ namespace psx {
 			fmt::println("[GPU] UNIMPLEMENTED: LINE RENDER");
 			error::DebugBreak();
 			break;
-		case psx::CommandType::RECTANGLE:
-			fmt::println("[GPU] UNIMPLEMENTED: RECT RENDER");
-			error::DebugBreak();
+		case psx::CommandType::RECTANGLE: {
+			m_cmd_fifo.queue(cmd);
+			u8 rect_size = (cmd >> 27) & 3;
+			u32 tot_params = 1; //Add vertex1 x+y
+			if (rect_size == 0)
+				tot_params += 1; //Add w+h
+			bool textured = (cmd >> 26) & 1;
+			if (textured)
+				tot_params += 1; //Add Clut+U+V
+			m_required_params = tot_params;
+			m_rem_params = tot_params;
+			m_cmd_status = Status::WAITING_PARAMETERS;
+		}
 			break;
 		case psx::CommandType::VRAM_BLIT:
 			fmt::println("[GPU] UNIMPLEMENTED: VRAM-VRAM BLIT");
@@ -342,8 +352,10 @@ namespace psx {
 		case psx::CommandType::LINE:
 			error::DebugBreak();
 			break;
-		case psx::CommandType::RECTANGLE:
-			error::DebugBreak();
+		case psx::CommandType::RECTANGLE: {
+			DrawRect();
+			m_cmd_status = Status::IDLE;
+		}
 			break;
 		case psx::CommandType::VRAM_BLIT:
 			error::DebugBreak();

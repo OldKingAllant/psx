@@ -195,6 +195,7 @@ namespace psx {
 
 		void DrawQuad();
 		void DrawTriangle();
+		void DrawRect();
 
 		void PerformCpuVramBlit(u32 data);
 
@@ -202,6 +203,7 @@ namespace psx {
 		void DrawBasicGouraudQuad();
 		void DrawBasicGouraudTriangle();
 		void DrawTexturedQuad();
+		void DrawTexturedRect();
 
 		void QuickFill();
 

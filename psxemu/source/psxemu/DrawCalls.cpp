@@ -312,18 +312,13 @@ namespace psx {
 			error::DebugBreak();
 		}
 		else {
-			m_cmd_fifo.deque();
-
-			while (curr_params--) {
-				u32 param = m_cmd_fifo.deque();
-			}
-
-			/*fmt::println("[GPU] DRAW TRIANGLE");
+			fmt::println("[GPU] DRAW TRIANGLE");
 			fmt::println("      Gouraud          = {}", gouraud);
 			fmt::println("      Textured         = {}", tex);
 			fmt::println("      Semi-transparent = {}", transparent);
 			fmt::println("      Raw texture      = {}", raw);
-			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);*/
+			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);
+			error::DebugBreak();
 		}
 
 		CheckIfDrawNeeded();
@@ -351,5 +346,153 @@ namespace psx {
 			fmt::println("[GPU] QUICK-FILL size goes out of bounds");
 
 		m_renderer->Fill(x_off, y_off, w, h, color);
+	}
+
+	void Gpu::DrawTexturedRect() {
+		u32 cmd = m_cmd_fifo.deque();
+		u32 color = cmd & 0xFFFFFF;
+		//Manually form texpage attribute
+		u16 texpage = 0;
+
+		texpage |= m_stat.texture_page_x_base;
+		texpage |= ((u16)m_stat.texture_page_y_base << 4);
+		texpage |= ((u16)m_stat.semi_transparency << 5);
+		texpage |= ((u16)m_stat.tex_page_colors << 7);
+		texpage |= ((u16)m_stat.texture_page_y_base2 << 11);
+
+		uint32_t flags{ 0 };
+
+		bool semi_trans = bool((cmd >> 25) & 1);
+		bool raw = bool((cmd >> 24) & 1);
+
+		if (semi_trans)
+			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
+
+		if (raw)
+			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
+
+		u32 vertex1 = m_cmd_fifo.deque();
+
+		i32 x1 = sign_extend<i32, 15>(vertex1 & 0xFFFF);
+		i32 y1 = sign_extend<i32, 15>((vertex1 >> 16) & 0xFFFF);
+
+		u32 clutuv = m_cmd_fifo.deque();
+		u16 clut = (clutuv >> 16) & 0xFFFF;
+
+		u8 u1 = u8(clutuv & 0xFF);
+		u8 v1 = u8((clutuv >> 8) & 0xFF);
+
+		u32 tex_and_clut = (clut << 16) | texpage;
+
+		u8 size = (cmd >> 27) & 3;
+		u32 sizes[] = { 0, 1, 8, 16 };
+
+		u32 sizex = 0;
+		u32 sizey = 0;
+
+		if (size == 0) {
+			//variable
+			u32 wh = m_cmd_fifo.deque();
+			sizex = (wh & 0xFFFF);
+			sizey = (wh >> 16) & 0xFFFF;
+
+			if (sizex > 1023 || sizey > 511) {
+				return;
+			}
+		}
+		else {
+			sizex = sizes[size];
+			sizey = sizex;
+		}
+
+		//Bottom left
+		i32 x2 = x1;
+		i32 y2 = y1 + sizey;
+
+		u8 u2 = u1;
+		u8 v2 = v1 + sizey;
+
+		//Top right
+		i32 x3 = x1 + sizex;
+		i32 y3 = y1;
+
+		u8 u3 = u1 + sizex;
+		u8 v3 = v1;
+
+		//Bottom right
+		i32 x4 = x1 + sizex;
+		i32 y4 = y1 + sizey;
+
+		u8 u4 = u1 + sizex;
+		u8 v4 = v1 + sizey;
+
+		if (m_tex_x_flip) {
+			std::swap(u1, u3);
+			std::swap(u2, u4);
+		}
+
+		if (m_tex_y_flip) {
+			std::swap(v1, v2);
+			std::swap(v3, v4);
+		}
+
+		video::TexturedVertex vertices[4] = {};
+
+		vertices[0].clut_page = tex_and_clut;
+		vertices[0].color = color;
+		vertices[0].flags = flags;
+		vertices[0].x = x1;
+		vertices[0].y = y1;
+		vertices[0].uv = u1 | ((u16)v1 << 8);
+
+		vertices[1].clut_page = tex_and_clut;
+		vertices[1].color = color;
+		vertices[1].flags = flags;
+		vertices[1].x = x2;
+		vertices[1].y = y2;
+		vertices[1].uv = u2 | ((u16)v2 << 8);
+
+		vertices[2].clut_page = tex_and_clut;
+		vertices[2].color = color;
+		vertices[2].flags = flags;
+		vertices[2].x = x3;
+		vertices[2].y = y3;
+		vertices[2].uv = u3 | ((u16)v3 << 8);
+
+		vertices[3].clut_page = tex_and_clut;
+		vertices[3].color = color;
+		vertices[3].flags = flags;
+		vertices[3].x = x4;
+		vertices[3].y = y4;
+		vertices[3].uv = u4 | ((u16)v4 << 8);
+
+		video::TexturedTriangle triangle1 = {};
+		video::TexturedTriangle triangle2 = {};
+
+		triangle1.v0 = vertices[0];
+		triangle1.v1 = vertices[1];
+		triangle1.v2 = vertices[2];
+
+		triangle2.v0 = vertices[1];
+		triangle2.v1 = vertices[2];
+		triangle2.v2 = vertices[3];
+
+		m_renderer->DrawTexturedTriangle(triangle1);
+		m_renderer->DrawTexturedTriangle(triangle2);
+	}
+
+	void Gpu::DrawRect() {
+		u32 cmd = m_cmd_fifo.peek();
+		bool tex = (cmd >> 26) & 1;
+
+		if (tex) {
+			DrawTexturedRect();
+		}
+		else {
+			fmt::println("[GPU] RECT");
+			error::DebugBreak();
+		}
+
+		CheckIfDrawNeeded();
 	}
 }

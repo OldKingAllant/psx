@@ -203,6 +203,10 @@ namespace psx::video {
 			m_renderdoc = renderdoc;
 		}
 
+		FORCE_INLINE Renderdoc* GetRenderDoc() const {
+			return m_renderdoc;
+		}
+
 		~Renderer();
 
 	private :

@@ -119,7 +119,9 @@ void main() {
 	} else if(texpage_colors == 1) {
 		color = vec4(1.0, 1.0, 0.0, 0.0);
 	} else if(texpage_colors == 2) {
-		color = vec4(1.0, 1.0, 0.0, 0.0);
+		uint effective_u = texpage_x + u;
+		uint effective_v = texpage_y + v;
+		vram_fetch(effective_u, effective_v, color);
 	} else {
 		color = vec4(1.0, 1.0, 0.0, 0.0);
 	}
@@ -145,13 +147,13 @@ void main() {
 			uint(selected_vertex_color.b)
 	   );
 
+	   vec3 modulated;
+
 	   uvec3 texel_color = uvec3(
 	        uint(color.r * 255.0),
 			uint(color.g * 255.0),
 			uint(color.b * 255.0)
-	   );
-
-	   vec3 modulated;
+		);
 
 	   modulate(texel_color, vert_color, modulated);
 
@@ -159,12 +161,14 @@ void main() {
 
 	   if(use_dither) {
 	       dither(coords, vec4(modulated, 0.0), color);
+	   } else {
+		   color.rgb = modulated;
 	   }
 
 		color = vec4(color.rgb / 255.0, a_channel);
 	}
 
 	if((flags & SEMI_TRANSPARENT) != 0) {
-		color = vec4(255.0, 0.0, 0.0, 1.0);
+		color = vec4(1.0, 0.0, 0.0, 0.0);
 	}
 }

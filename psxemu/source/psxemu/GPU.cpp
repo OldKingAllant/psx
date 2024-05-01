@@ -419,6 +419,7 @@ namespace psx {
 
 			curr_index = (m_cpu_vram_blit.curr_y * VRAM_X_SIZE) +
 				m_cpu_vram_blit.curr_x;
+			curr_index *= 2;
 
 			if (m_cpu_vram_blit.curr_y == end_y) {
 				m_cmd_status = Status::IDLE;
