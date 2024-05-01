@@ -335,6 +335,12 @@ namespace psx {
 			} }
 		});
 
+		the_table.insert(
+			std::pair{ 0xA2F, 
+				std::pair{ "rand", ParamList{} }
+			}
+		);
+
 		return the_table;
 	}
 

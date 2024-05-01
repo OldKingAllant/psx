@@ -14,7 +14,8 @@ namespace psx {
 		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}, m_hbreaks{}, m_break_enable{false},
 		m_hle_enable{ false }, m_kernel_callstack_enable{false},
-		m_stopped {true}, m_kernel{&m_status}
+		m_stopped {true}, m_kernel{&m_status},
+		m_silenced_syscalls{}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
@@ -27,7 +28,10 @@ namespace psx {
 			if (enter) {
 				u32 r9 = m_cpu.GetRegs().array[9];
 				u32 function_id = (address << 4) | r9;
-				LogSyscall(function_id, SyscallLogMode::PARAMETERS, &m_status);
+
+				if(!m_silenced_syscalls.contains(function_id))
+					LogSyscall(function_id, SyscallLogMode::PARAMETERS, &m_status);
+
 				return m_kernel.Syscall(m_cpu.GetRegs().ra - 0x8, function_id);
 			}
 			else {
@@ -45,6 +49,8 @@ namespace psx {
 			m_sysbus.GetGuestBase() +
 			memory::region_offsets::PSX_BIOS_OFFSET
 		);
+
+		SilenceSyscallsDefault();
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {
@@ -214,5 +220,21 @@ namespace psx {
 
 		if (pos != m_hbreaks.end())
 			m_hbreaks.erase(pos);
+	}
+
+	bool System::IsSyscallSilent(u32 syscall_num) {
+		return m_silenced_syscalls.contains(syscall_num);
+	}
+
+	void System::SetSyscallSilent(u32 syscall_num, bool silent) {
+		if (m_silenced_syscalls.contains(syscall_num) && silent)
+			m_silenced_syscalls.erase(syscall_num);
+	}
+
+	void System::SilenceSyscallsDefault() {
+		auto rand_ids = GetSyscallIdsByName("rand");
+
+		for (u32 id : rand_ids)
+			m_silenced_syscalls.insert(id);
 	}
 }

@@ -9,7 +9,7 @@
 #include <span>
 #include <optional>
 #include <vector>
-#include <map>
+#include <set>
 #include <functional>
 
 namespace psx {
@@ -102,8 +102,26 @@ namespace psx {
 			m_kernel_callstack_enable = en;
 		}
 
+		/// <summary>
+		/// Returns true if logging is disabled
+		/// for the requested syscall
+		/// </summary>
+		/// <param name="syscall_num"></param>
+		/// <returns></returns>
+		bool IsSyscallSilent(u32 syscall_num);
+
+		/// <summary>
+		/// Prevent spam on console when some
+		/// syscalls are used too much 
+		/// </summary>
+		/// <param name="syscall_num">Syscall to silent</param>
+		/// <param name="silent">Enable/disable log</param>
+		void SetSyscallSilent(u32 syscall_num, bool silent);
+
 	private :
 		void InterpreterSingleStep();
+
+		void SilenceSyscallsDefault();
 
 	private :
 		cpu::MIPS1 m_cpu;
@@ -117,5 +135,6 @@ namespace psx {
 		bool m_stopped;
 
 		kernel::Kernel m_kernel;
+		std::set<u32> m_silenced_syscalls;
 	};
 }
