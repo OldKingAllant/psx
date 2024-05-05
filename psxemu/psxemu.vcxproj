@@ -184,6 +184,8 @@
     <ClInclude Include="include\psxemu\System.hpp" />
     <ClInclude Include="include\psxemu\SystemBus.hpp" />
     <ClInclude Include="include\psxemu\SystemStatus.hpp" />
+    <ClInclude Include="input\IInputManager.hpp" />
+    <ClInclude Include="input\KeyboardManager.hpp" />
     <ClInclude Include="renderer\Buffer.hpp" />
     <ClInclude Include="renderer\FrameBuffer.hpp" />
     <ClInclude Include="renderer\GlLoad.hpp" />
@@ -200,6 +202,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\Errors.cpp" />
+    <ClCompile Include="input\KeyboardManager.cpp" />
     <ClCompile Include="renderer\Buffer.cpp" />
     <ClCompile Include="renderer\FrameBuffer.cpp" />
     <ClCompile Include="renderer\GlLoad.cpp" />

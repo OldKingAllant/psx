@@ -82,6 +82,12 @@
     <Filter Include="Resource Files\dev\sio\controllers">
       <UniqueIdentifier>{d002c856-d338-4ac7-b5e8-42350aceec13}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\input">
+      <UniqueIdentifier>{2857d3aa-046b-42ed-8a06-c9931af6130a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\input">
+      <UniqueIdentifier>{07b15b84-8313-4dd2-92d0-634911b777c1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -264,6 +270,12 @@
     <ClInclude Include="include\psxemu\NullController.hpp">
       <Filter>Header Files\dev\sio\controllers</Filter>
     </ClInclude>
+    <ClInclude Include="input\IInputManager.hpp">
+      <Filter>Header Files\input</Filter>
+    </ClInclude>
+    <ClInclude Include="input\KeyboardManager.hpp">
+      <Filter>Header Files\input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -406,6 +418,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\NullController.cpp">
       <Filter>Resource Files\dev\sio\controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="input\KeyboardManager.cpp">
+      <Filter>Resource Files\input</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

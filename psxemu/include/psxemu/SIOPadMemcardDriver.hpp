@@ -32,6 +32,10 @@ namespace psx {
 			m_controller.swap(controller);
 		}
 
+		FORCE_INLINE AbstractController* GetController() const {
+			return m_controller.get();
+		}
+
 	private :
 		SelectedDevice m_selected;
 		std::unique_ptr<AbstractController> m_controller;

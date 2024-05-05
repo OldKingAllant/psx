@@ -6,6 +6,7 @@ namespace psx {
 	u8 NullController::Send(u8 value) { return 0xFF;  }
 	bool NullController::Ack() { return false; }
 	void NullController::Reset() {}
+	void NullController::UpdateStatus(ButtonStatus status) {}
 
 	NullController::~NullController() {}
 }

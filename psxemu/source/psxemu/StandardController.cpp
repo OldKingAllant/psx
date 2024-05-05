@@ -8,8 +8,10 @@ namespace psx {
 	StandardController::StandardController() :
 		m_status{ControllerStatus::IDLE}, 
 		m_mode{ControllerMode::DIGITAL},
-		m_response{}
-	{}
+		m_response{}, m_btn_status{}
+	{
+		m_btn_status.reg = 0xFFFF;
+	}
 
 	u8 StandardController::Send(u8 value) {
 		if (m_status == ControllerStatus::IDLE) {
@@ -61,13 +63,25 @@ namespace psx {
 
 		m_response.queue(u8(DIGITAL_ID));
 		m_response.queue(u8(DIGITAL_ID >> 8));
-		m_response.queue(0xFF);
-		m_response.queue(0xFF);
+		m_response.queue(u8(m_btn_status.reg & 0xFF));
+		m_response.queue(u8((m_btn_status.reg >> 8) & 0xFF));
 	}
 
 	void StandardController::Reset() {
 		m_response.clear();
 		m_status = ControllerStatus::IDLE;
+	}
+
+	void StandardController::UpdateStatus(ButtonStatus status) {
+		if (m_mode == ControllerMode::ANALOG && status.ty != ButtonType::NORMAL)
+			return;
+
+		if (status.name == "DPAD-UP") {
+			m_btn_status.up = !status.normal.pressed;
+		}
+		else if(status.name == "DPAD-DOWN") {
+			m_btn_status.down = !status.normal.pressed;
+		}
 	}
 
 	StandardController::~StandardController() {}

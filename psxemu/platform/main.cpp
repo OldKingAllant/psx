@@ -2,6 +2,7 @@
 
 #include <psxemu/include/psxemu/Server.hpp>
 #include <psxemu/include/psxemu/System.hpp>
+#include <psxemu/include/psxemu/SIOPadMemcardDriver.hpp>
 #include <psxemu/renderer/GLRenderer.hpp>
 
 #include <usage/tty/TTY_Console.hpp>
@@ -10,6 +11,8 @@
 #include <psxemu/renderer/SdlWindow.hpp>
 #include <psxemu/renderer/Renderdoc.hpp>
 #include <psxemu/renderer/WindowManager.hpp>
+#include <psxemu/input/KeyboardManager.hpp>
+
 #include <usage/imgui_debug/DebugView.hpp>
 
 int main(int argc, char* argv[]) {
@@ -58,6 +61,8 @@ int main(int argc, char* argv[]) {
 
 	bool ov_enable = true;
 
+	std::shared_ptr<psx::input::IInputManager> input_manager{std::make_shared<psx::input::KeyboardManager>()};
+
 	vram_view.Listen(SdlEvent::KeyPressed, [&renderdoc, &ov_enable, &vram_view](SdlEvent ev_type, std::any data) {
 		auto key_name = std::any_cast<std::string_view>(data);
 		
@@ -76,6 +81,26 @@ int main(int argc, char* argv[]) {
 		else if (key_name == "R") {
 			vram_view.SetSize(psx::video::Rect{.w = 1024, .h = 512});
 		}
+	});
+
+	display.Listen(SdlEvent::KeyPressed, [input_manager](SdlEvent ev_type, std::any data) {
+		auto key_name = std::any_cast<std::string_view>(data);
+
+		using ButtonStatus = psx::input::KeyboardButtonStatus;
+
+		ButtonStatus status{ .key = key_name, .pressed = true };
+
+		input_manager->Deliver(std::any{ status });
+	});
+
+	display.Listen(SdlEvent::KeyReleased, [input_manager](SdlEvent ev_type, std::any data) {
+		auto key_name = std::any_cast<std::string_view>(data);
+
+		using ButtonStatus = psx::input::KeyboardButtonStatus;
+
+		ButtonStatus status{ .key = key_name, .pressed = false };
+
+		input_manager->Deliver(std::any{ status });
 	});
 
 	psx::video::WindowManager wm{};
@@ -108,6 +133,13 @@ int main(int argc, char* argv[]) {
 	sys.GetStatus()
 		.sysbus->GetGPU()
 		.GetRenderer()->SetRenderdocAPI(&renderdoc);
+
+	auto controller = dynamic_cast<psx::SIOPadCardDriver*>(
+		sys.GetStatus().sysbus->GetSIO0()
+		.GetDevice1()
+	)->GetController();
+
+	input_manager->AttachController(controller);
 
 	DebugView debug_view{ std::make_shared<psx::video::SdlWindow>(
 		std::string("Debug view"), psx::video::Rect{ .w = 1200, .h = 800 }, 

@@ -10,6 +10,7 @@ namespace psx {
 		u8 Send(u8 value) override;
 		bool Ack() override;
 		void Reset() override;
+		void UpdateStatus(ButtonStatus status) override;
 
 		ControllerType GetType() const override {
 			return ControllerType::NONE;

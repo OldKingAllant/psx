@@ -41,6 +41,14 @@ namespace psx {
 			m_port2.swap(dev);
 		}
 
+		FORCE_INLINE SIOAbstractDevice* GetDevice1() const {
+			return m_port1.get();
+		}
+
+		FORCE_INLINE SIOAbstractDevice* GetDevice2() const {
+			return m_port2.get();
+		}
+
 		friend void transfer_end_callback(void* port, u64 cycles_late);
 
 	private :
