@@ -110,6 +110,8 @@ namespace psx::video {
 	struct DrawCommand {
 		PipelineType type;
 		u32 vertex_count;
+		bool semi_transparent;
+		u8 semi_transparency_type;
 	};
 
 	struct Color {

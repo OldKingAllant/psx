@@ -4,8 +4,6 @@
 
 #include <fmt/format.h>
 #include <array>
-#include <thread>
-#include <chrono>
 
 namespace psx::video {
 	Renderer::Renderer() :
@@ -69,8 +67,17 @@ namespace psx::video {
 		else {
 			auto& back = m_commands.back();
 
-			if (back.type == cmd.type)
-				back.vertex_count += cmd.vertex_count;
+			if (back.type == cmd.type) {
+				bool semi_transparency_check = cmd.semi_transparent && back.semi_transparent &&
+					(cmd.semi_transparency_type == back.semi_transparency_type);
+				bool opaque_check = !cmd.semi_transparent && !back.semi_transparent;
+				if (semi_transparency_check || opaque_check) {
+					back.vertex_count += cmd.vertex_count;
+				}
+				else {
+					m_commands.push_back(cmd);
+				}
+			}
 			else
 				m_commands.push_back(cmd);
 		}
@@ -87,6 +94,7 @@ namespace psx::video {
 
 		cmd.vertex_count = 3;
 		cmd.type = PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
+		cmd.semi_transparent = false;
 
 		AppendCommand(cmd);
 	}
@@ -102,6 +110,7 @@ namespace psx::video {
 
 		cmd.vertex_count = 3;
 		cmd.type = PipelineType::BASIC_GOURAUD_TRIANGLE;
+		cmd.semi_transparent = false;
 
 		AppendCommand(cmd);
 	}
@@ -117,6 +126,11 @@ namespace psx::video {
 
 		cmd.vertex_count = 3;
 		cmd.type = PipelineType::TEXTURED_TRIANGLE;
+		cmd.semi_transparent = (triangle.v0.flags & TexturedVertexFlags::SEMI_TRANSPARENT) != 0;
+
+		u16 page = u16(triangle.v0.clut_page);
+		u8 semi_transparency = u8((page >> 5) & 0x3);
+		cmd.semi_transparency_type = semi_transparency;
 
 		AppendCommand(cmd);
 	}
@@ -132,12 +146,9 @@ namespace psx::video {
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
 
-		if (m_update_scissor) {
-			m_update_scissor = false;
-			glScissor(m_scissor.top_x, m_scissor.top_y,
-				m_scissor.bottom_x - m_scissor.top_x,
-				m_scissor.bottom_y - m_scissor.top_y);
-		}
+		glScissor(m_scissor.top_x, m_scissor.top_y,
+			m_scissor.bottom_x - m_scissor.top_x,
+			m_scissor.bottom_y - m_scissor.top_y);
 
 		glEnable(GL_SCISSOR_TEST);
 
@@ -148,8 +159,60 @@ namespace psx::video {
 
 		m_framebuffer.Bind();
 
+		bool blend_enabled = glIsEnabled(GL_BLEND);
+
 		while (!m_commands.empty()) {
 			auto const& cmd = m_commands.front();
+
+			if (cmd.semi_transparent) {
+				if (!blend_enabled)
+					glEnable(GL_BLEND);
+
+				blend_enabled = true;
+
+				if(cmd.semi_transparency_type == 2)
+					glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+				else 
+					glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+
+				glBlendColor(0.25f, 0.25f, 0.25f, 0.5f);
+
+				switch (cmd.semi_transparency_type)
+				{
+				case 0:
+					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
+						glBlendFuncSeparate(GL_ONE, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
+					else
+						glBlendFuncSeparate(GL_CONSTANT_ALPHA, GL_CONSTANT_ALPHA, GL_ONE, GL_ZERO);
+					break;
+				case 1:
+					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
+						glBlendFuncSeparate(GL_ONE, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
+					else
+						glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
+					break;
+				case 2:
+					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
+						glBlendFuncSeparate(GL_ONE, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
+					else 
+						glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
+					break;
+				case 3:
+					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
+						glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
+					else
+						glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE, GL_ONE, GL_ZERO);
+					break;
+				default:
+					break;
+				}
+			}
+			else {
+				if (blend_enabled)
+					glDisable(GL_BLEND);
+
+				blend_enabled = false;
+			}
 
 			auto pipeline_id = cmd.type;
 			auto count = cmd.vertex_count;
@@ -198,6 +261,9 @@ namespace psx::video {
 		m_textured_pipeline.ClearVertices();
 
 		glDisable(GL_SCISSOR_TEST);
+
+		if (blend_enabled)
+			glDisable(GL_BLEND);
 
 		m_processing_cmd = true;
 	}

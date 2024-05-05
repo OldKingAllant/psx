@@ -168,7 +168,5 @@ void main() {
 		color = vec4(color.rgb / 255.0, a_channel);
 	}
 
-	if((flags & SEMI_TRANSPARENT) != 0) {
-		color = vec4(0.0, 0.0, 1.0, 0.0);
-	}
+	if((flags & SEMI_TRANSPARENT) != 0) {}
 }
