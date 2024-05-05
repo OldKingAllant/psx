@@ -462,4 +462,16 @@ namespace psx {
 		m_stat.tex_page_colors = (TexPageColors)texpage_colors;
 		m_stat.texture_page_y_base2 = (bool)y_base2;
 	}
+
+	DisplayRange Gpu::ComputeDisplayRange() const {
+		u32 size = (m_vert_disp_end - m_vert_disp_start);
+		if (m_stat.vertical_interlace)
+			size *= 2;
+		DisplayRange range{};
+		range.x = 0;
+		range.xsize = m_disp_conf.hoz_res;
+		range.y = m_vert_disp_start;
+		range.ysize = size;
+		return range;
+	}
 }

@@ -197,10 +197,12 @@ int main(int argc, char* argv[]) {
 			display.Clear();
 		}
 		else {
+			auto disp_range = gpu.ComputeDisplayRange();
+
 			display.SetTextureWindow(
 				disp_conf.disp_x,
 				disp_conf.disp_y,
-				psx::video::Rect{ .w = disp_conf.hoz_res - 1, .h = disp_conf.vert_res - 1 },
+				psx::video::Rect{ .w = disp_range.xsize, .h = disp_range.ysize },
 				psx::video::Rect{ .w = 1024, .h = 512 }
 			);
 			display.Blit(handle);

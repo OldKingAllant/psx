@@ -129,6 +129,13 @@ namespace psx {
 		u32 vert_res;
 	};
 
+	struct DisplayRange {
+		u32 x;
+		u32 y;
+		u32 xsize;
+		u32 ysize;
+	};
+
 	static constexpr u32 VRAM_X_SIZE = 1024;
 	static constexpr u32 VRAM_Y_SIZE = 512;
 
@@ -169,6 +176,8 @@ namespace psx {
 		DisplayConfig& GetDispConfig() {
 			return m_disp_conf;
 		}
+
+		DisplayRange ComputeDisplayRange() const;
 
 		friend class DebugView;
 
