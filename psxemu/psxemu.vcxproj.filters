@@ -70,6 +70,18 @@
     <Filter Include="Resource Files\dev\cdrom">
       <UniqueIdentifier>{709caf5e-0dd3-4725-a6af-0c6e594359f0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev\sio">
+      <UniqueIdentifier>{d8a1aaa9-66f1-46a0-8621-f5609d473e76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\sio">
+      <UniqueIdentifier>{777da68c-984c-4d39-b915-526a991729fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\dev\sio\controllers">
+      <UniqueIdentifier>{3b76a502-f1cc-445c-9ca6-fb6a42c63219}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\sio\controllers">
+      <UniqueIdentifier>{d002c856-d338-4ac7-b5e8-42350aceec13}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -231,6 +243,27 @@
     <ClInclude Include="include\psxemu\CDDrive.hpp">
       <Filter>Header Files\dev\cdrom</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\SIOPort.hpp">
+      <Filter>Header Files\dev\sio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SIOStructs.hpp">
+      <Filter>Header Files\dev\sio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SIOAbstractDevice.hpp">
+      <Filter>Header Files\dev\sio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SIOPadMemcardDriver.hpp">
+      <Filter>Header Files\dev\sio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\AbstractController.hpp">
+      <Filter>Header Files\dev\sio\controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\StandardController.hpp">
+      <Filter>Header Files\dev\sio\controllers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\NullController.hpp">
+      <Filter>Header Files\dev\sio\controllers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -361,6 +394,18 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\TestCommands.cpp">
       <Filter>Resource Files\dev\cdrom</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\SIOPort.cpp">
+      <Filter>Resource Files\dev\sio</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\SIOPadMemcardDriver.cpp">
+      <Filter>Resource Files\dev\sio</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\StandardController.cpp">
+      <Filter>Resource Files\dev\sio\controllers</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\NullController.cpp">
+      <Filter>Resource Files\dev\sio\controllers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

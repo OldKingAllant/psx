@@ -3,6 +3,9 @@
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/cop0.hpp>
 #include <psxemu/include/psxemu/SyscallTables.hpp>
+#include <psxemu/include/psxemu/SIOPadMemcardDriver.hpp>
+#include <psxemu/include/psxemu/StandardController.hpp>
+#include <psxemu/include/psxemu/NullController.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -51,6 +54,17 @@ namespace psx {
 		);
 
 		SilenceSyscallsDefault();
+
+		auto make_driver = [](std::unique_ptr<AbstractController> controller) {
+			std::unique_ptr<SIOAbstractDevice> driver{ std::make_unique<SIOPadCardDriver>()};
+			dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectController(std::move(controller));
+			return driver;
+		};
+
+		m_sysbus.GetSIO0()
+			.Port1Connect(make_driver(std::make_unique<StandardController>()));
+		m_sysbus.GetSIO0()
+			.Port2Connect(make_driver(std::make_unique<NullController>()));
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {

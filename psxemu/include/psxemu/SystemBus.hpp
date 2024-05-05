@@ -10,6 +10,7 @@
 #include <psxemu/include/psxemu/DmaController.hpp>
 #include <psxemu/include/psxemu/GPU.hpp>
 #include <psxemu/include/psxemu/CDDrive.hpp>
+#include <psxemu/include/psxemu/SIOPort.hpp>
 
 #include <fmt/format.h>
 
@@ -696,6 +697,38 @@ namespace psx {
 				return;
 			}
 
+			if (address >= SIO0_START && address < SIO0_END) {
+				address -= SIO0_START;
+
+				if constexpr (sizeof(Ty) == 1) {
+					m_sio0.Write8(address, value);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					m_sio0.Write16(address, value);
+				}
+				else {
+					m_sio0.Write32(address, value);
+				}
+
+				return;
+			}
+
+			if (address >= SIO1_START && address < SIO1_END) {
+				address -= SIO1_START;
+
+				if constexpr (sizeof(Ty) == 1) {
+					m_sio1.Write8(address, value);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					m_sio1.Write16(address, value);
+				}
+				else {
+					m_sio1.Write32(address, value);
+				}
+
+				return;
+			}
+
 #ifdef DEBUG_IO
 			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
 #endif // DEBUG_IO
@@ -804,10 +837,36 @@ namespace psx {
 				return 0x00;
 			}
 
-			if (address == 0x44) {
-				fmt::println("HACK address {:#x}",
-					m_sys_status->cpu->GetPc());
-				return Ty(-1);
+			if (address >= SIO0_START && address < SIO0_END) {
+				address -= SIO0_START;
+
+				if constexpr (sizeof(Ty) == 1) {
+					return m_sio0.Read8(address);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					return m_sio0.Read16(address);
+				}
+				else {
+					return m_sio0.Read32(address);
+				}
+
+				return 0x00;
+			}
+
+			if (address >= SIO1_START && address < SIO1_END) {
+				address -= SIO1_START;
+
+				if constexpr (sizeof(Ty) == 1) {
+					return m_sio1.Read8(address);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					return m_sio1.Read16(address);
+				}
+				else {
+					return m_sio1.Read32(address);
+				}
+
+				return 0x00;
 			}
 
 #ifdef DEBUG_IO
@@ -847,6 +906,14 @@ namespace psx {
 
 		DmaController& GetDMAControl() {
 			return m_dma_controller;
+		}
+
+		SIOPort& GetSIO0() {
+			return m_sio0;
+		}
+
+		SIOPort& GetSIO1() {
+			return m_sio1;
 		}
 
 		friend class DebugView;
@@ -946,5 +1013,8 @@ namespace psx {
 		Gpu m_gpu;
 
 		CDDrive m_cdrom;
+
+		SIOPort m_sio0;
+		SIOPort m_sio1;
 	};
 }

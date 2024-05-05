@@ -20,10 +20,15 @@ namespace psx::gdbstub {
 		fmt::println("{}", psx::kernel::FormatExceptionChains(except_chains));
 	}
 
-	void Server::InitExtHandlers() {
-		m_ext_cmd_handlers.insert(std::pair{ std::string{"version"}, &Server::HandleExtVer });
-		m_ext_cmd_handlers.insert(std::pair{ std::string{"except_chains"}, &Server::HandleExtDumpExceptionChains });
+	void Server::HandleExtTimestamp(std::string&) {
+		u64 time = m_sys->GetStatus().scheduler.GetTimestamp();
+		std::string payload = fmt::format("{}", time);
+		SendPayload(payload);
 	}
 
-	
+	void Server::InitExtHandlers() {
+		m_ext_cmd_handlers.insert(std::pair{ std::string{"version"}, &Server::HandleExtVer });
+		m_ext_cmd_handlers.insert(std::pair{ std::string{"time"}, &Server::HandleExtTimestamp });
+		m_ext_cmd_handlers.insert(std::pair{ std::string{"except_chains"}, &Server::HandleExtDumpExceptionChains });
+	}
 }

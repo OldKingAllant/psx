@@ -497,9 +497,6 @@ namespace psx::cpu {
 		u32 rt = (instruction >> 16) & 0x1F;
 		i32 imm = (i16)instruction;
 
-		if (rt == 0)
-			return;
-
 		auto& cpu = *status->cpu;
 
 		u32 address = (u32)(cpu.GetRegs().array[rs] + imm);
@@ -622,7 +619,7 @@ namespace psx::cpu {
 			error::DebugBreak();
 		}
 
-		if (status->exception)
+		if (status->exception || rt == 0)
 			return;
 
 		

@@ -16,7 +16,8 @@ namespace psx {
 		m_exp2_enable{ true }, m_com_delays{}, m_curr_cycles{},
 		m_count1{ 0, sys_status }, m_count2{ 1, sys_status }, 
 		m_count3{ 2, sys_status }, m_dma_controller{sys_status}, 
-		m_gpu{ sys_status }, m_cdrom{ sys_status } {
+		m_gpu{ sys_status }, m_cdrom{ sys_status }, 
+		m_sio0{ sys_status, 0 }, m_sio1{ sys_status, 1 } {
 		m_bios_config.base = memory::region_offsets::PSX_BIOS_OFFSET;
 		m_exp1_config.base = memory::region_offsets::PSX_EXPANSIONS1_OFFSET;
 		m_exp2_config.base = memory::region_offsets::PSX_EXPANSION2_OFFSET;
