@@ -282,12 +282,7 @@ namespace psx {
 				u32 param = m_cmd_fifo.deque();
 			}
 
-			/*fmt::println("[GPU] DRAW QUAD");
-			fmt::println("      Gouraud          = {}", gouraud);
-			fmt::println("      Textured         = {}", tex);
-			fmt::println("      Semi-transparent = {}", transparent);
-			fmt::println("      Raw texture      = {}", raw);
-			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);*/
+			error::DebugBreak();
 		}
 
 		CheckIfDrawNeeded();
@@ -481,6 +476,94 @@ namespace psx {
 		m_renderer->DrawTexturedTriangle(triangle2);
 	}
 
+	void Gpu::DrawUntexturedRect() {
+		u32 cmd = m_cmd_fifo.deque();
+		u32 color = cmd & 0xFFFFFF;
+
+		bool semi_trans = bool((cmd >> 25) & 1);
+		
+		if (semi_trans)
+			error::DebugBreak();
+
+		u32 vertex1 = m_cmd_fifo.deque();
+
+		i32 x1 = sign_extend<i32, 15>(vertex1 & 0xFFFF);
+		i32 y1 = sign_extend<i32, 15>((vertex1 >> 16) & 0xFFFF);
+
+		u8 size = (cmd >> 27) & 3;
+		u32 sizes[] = { 0, 1, 8, 16 };
+
+		u32 sizex = 0;
+		u32 sizey = 0;
+
+		if (size == 0) {
+			//variable
+			u32 wh = m_cmd_fifo.deque();
+			sizex = (wh & 0xFFFF);
+			sizey = (wh >> 16) & 0xFFFF;
+
+			if (sizex > 1023 || sizey > 511) {
+				return;
+			}
+		}
+		else {
+			sizex = sizes[size];
+			sizey = sizex;
+		}
+
+		//Bottom left
+		i32 x2 = x1;
+		i32 y2 = y1 + sizey;
+
+		//Top right
+		i32 x3 = x1 + sizex;
+		i32 y3 = y1;
+
+		//Bottom right
+		i32 x4 = x1 + sizex;
+		i32 y4 = y1 + sizey;
+
+		video::UntexturedOpaqueFlatVertex vertices[4] = {};
+
+		vertices[0].x = x1;
+		vertices[0].y = y1;
+		vertices[0].r = (color & 0xFF);
+		vertices[0].g = ((color >> 8) & 0xFF);
+		vertices[0].b = ((color >> 16) & 0xFF);
+
+		vertices[1].x = x2;
+		vertices[1].y = y2;
+		vertices[1].r = (color & 0xFF);
+		vertices[1].g = ((color >> 8) & 0xFF);
+		vertices[1].b = ((color >> 16) & 0xFF);
+		
+		vertices[2].x = x3;
+		vertices[2].y = y3;
+		vertices[2].r = (color & 0xFF);
+		vertices[2].g = ((color >> 8) & 0xFF);
+		vertices[2].b = ((color >> 16) & 0xFF);
+		
+		vertices[3].x = x4;
+		vertices[3].y = y4;
+		vertices[3].r = (color & 0xFF);
+		vertices[3].g = ((color >> 8) & 0xFF);
+		vertices[3].b = ((color >> 16) & 0xFF);
+
+		video::UntexturedOpaqueFlatTriangle triangle1 = {};
+		video::UntexturedOpaqueFlatTriangle triangle2 = {};
+
+		triangle1.v0 = vertices[0];
+		triangle1.v1 = vertices[1];
+		triangle1.v2 = vertices[2];
+
+		triangle2.v0 = vertices[1];
+		triangle2.v1 = vertices[2];
+		triangle2.v2 = vertices[3];
+
+		m_renderer->DrawFlatUntexturedOpaque(triangle1);
+		m_renderer->DrawFlatUntexturedOpaque(triangle2);
+	}
+
 	void Gpu::DrawRect() {
 		u32 cmd = m_cmd_fifo.peek();
 		bool tex = (cmd >> 26) & 1;
@@ -489,8 +572,7 @@ namespace psx {
 			DrawTexturedRect();
 		}
 		else {
-			fmt::println("[GPU] RECT");
-			error::DebugBreak();
+			DrawUntexturedRect();
 		}
 
 		CheckIfDrawNeeded();

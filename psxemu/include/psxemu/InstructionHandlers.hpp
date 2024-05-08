@@ -13,6 +13,11 @@ namespace psx::cpu {
 		return ((~(l ^ r) & (l ^ sum)) & 0x80000000);
 	}
 
+	FORCE_INLINE bool SubOverflow(u32 l, u32 r) {
+		u32 res = l - r;
+		return ((l ^ r) & (l ^ res)) >> 31;
+	}
+
 	//LUI <reg>, <imm16> load immediate value to upper 16
 	//bits of registers <reg>
 	void LoadUpperImmediate(system_status* status, u32 instruction) {
@@ -71,8 +76,9 @@ namespace psx::cpu {
 		else if constexpr (AluOpcode == Opcode::ADDI) {
 			i32 imm_sign_extend = (i16)imm;
 
-			if (AddOverflow(rs_val, imm)) {
-				status->Exception(Excode::OV, false);
+			if (AddOverflow(rs_val, imm_sign_extend)) {
+				status->exception = true;
+				status->exception_number = Excode::OV;
 				return;
 			}
 			
@@ -171,13 +177,13 @@ namespace psx::cpu {
 			switch (address % 4)
 			{
 			case 0x0:
-				to_write = (value_at & 0x00'FF'FF'FF) | (value & 0xFF'00'00'00);
+				to_write = (value_at & 0xFF'FF'FF'00) | ((value >> 24) & 0xFF);
 				break;
 			case 0x1:
-				to_write = (value_at & 0x00'00'FF'FF) | (value & 0xFF'FF'00'00);
+				to_write = (value_at & 0xFF'FF'00'00) | ((value >> 16) & 0xFFFF);
 				break;
 			case 0x2:
-				to_write = (value_at & 0x00'00'00'FF) | (value & 0xFF'FF'FF'00);
+				to_write = (value_at & 0xFF'00'00'00) | ((value >> 8) & 0xFFFFFF);
 				break;
 			case 0x3:
 				to_write = value;
@@ -185,24 +191,6 @@ namespace psx::cpu {
 			default:
 				break;
 			}
-
-			/*switch (address % 4)
-			{
-			case 0x3:
-				to_write = (value_at & 0x00'FF'FF'FF) | (value & 0xFF'00'00'00);
-				break;
-			case 0x2:
-				to_write = (value_at & 0x00'00'FF'FF) | (value & 0xFF'FF'00'00);
-				break;
-			case 0x1:
-				to_write = (value_at & 0x00'00'00'FF) | (value & 0xFF'FF'FF'00);
-				break;
-			case 0x0:
-				to_write = value;
-				break;
-			default:
-				break;
-			}*/
 
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
@@ -219,35 +207,17 @@ namespace psx::cpu {
 				to_write = value;
 				break;
 			case 0x1:
-				to_write = (value_at & 0xFF'00'00'00) | (value & 0x00'FF'FF'FF);
+				to_write = (value_at & 0x00'00'00'FF) | ((value & 0x00'FF'FF'FF) << 8);
 				break;
 			case 0x2:
-				to_write = (value_at & 0xFF'FF'00'00) | (value & 0x00'00'FF'FF);
+				to_write = (value_at & 0x00'00'FF'FF) | ((value & 0x00'00'FF'FF) << 16);
 				break;
 			case 0x3:
-				to_write = (value_at & 0xFF'FF'FF'00) | (value & 0x00'00'00'FF);
+				to_write = (value_at & 0x00'FF'FF'FF) | ((value & 0x00'00'00'FF) << 24);
 				break;
 			default:
 				break;
 			}
-
-			/*switch (address % 4)
-			{
-			case 0x3:
-				to_write = value;
-				break;
-			case 0x2:
-				to_write = (value_at & 0xFF'00'00'00) | (value & 0x00'FF'FF'FF);
-				break;
-			case 0x1:
-				to_write = (value_at & 0xFF'FF'00'00) | (value & 0x00'00'FF'FF);
-				break;
-			case 0x0:
-				to_write = (value_at & 0xFF'FF'FF'00) | (value & 0x00'00'00'FF);
-				break;
-			default:
-				break;
-			}*/
 
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
@@ -314,7 +284,8 @@ namespace psx::cpu {
 		}
 		else if constexpr (AluOpcode == Opcode::ADD) {
 			if (AddOverflow(rs_val, rt_val)) {
-				status->Exception(Excode::OV, false);
+				status->exception = true;
+				status->exception_number = Excode::OV;
 				return;
 			}
 
@@ -341,6 +312,16 @@ namespace psx::cpu {
 		}
 		else if constexpr (AluOpcode == Opcode::SUBU) {
 			status->AddWriteback(rs_val - rt_val, rd);
+		}
+		else if constexpr (AluOpcode == Opcode::SUB) {
+			if (SubOverflow(rs_val, rt_val)) {
+				status->exception = true;
+				status->exception_number = Excode::OV;
+				return;
+			}
+
+			i32 res = i32(rs_val) - i32(rt_val);
+			status->AddWriteback(u32(res), rd);
 		}
 		else if constexpr (AluOpcode == Opcode::NOR) {
 			constexpr u32 CONSTANT = 0xFFFFFFFF;
@@ -455,9 +436,12 @@ namespace psx::cpu {
 			u32 type = (instruction >> 16) & 0x1F;
 			u32 dest = (u32)(pc_val + imm);
 
+			type &= 0b10001;
+
 			switch (type)
 			{
 			case 0x0: //BLTZ
+			case 0x2: //BLTZL
 				if ((i32)rs_val < 0)
 					status->Jump(dest);
 				break;
@@ -466,6 +450,7 @@ namespace psx::cpu {
 					status->Jump(dest);
 				break;
 			case 0x10: //BLTZAL
+			case 0x12: //BLTZALL
 				if ((i32)rs_val < 0) {
 					status->Jump(dest);
 				}
@@ -518,17 +503,17 @@ namespace psx::cpu {
 			value = (u32)((i32)status->sysbus->Read<i8, true, true>(address));
 		}
 		else if constexpr (LoadOpcode == Opcode::LWL) {
+			u32 rt_val = status->cpu->GetRegs()
+				.array[rt];
+
 			if (status->curr_delay.dest == rt) {
-				cpu.GetRegs()
-					.array[rt] = status->curr_delay.value;
+				rt_val = status->curr_delay.value;
 				status->curr_delay.dest = InvalidReg;
 			}
 
 			u32 data = status->sysbus
 				->Read<u32, false, true>(address & ~3);
-
-			u32 rt_val = status->cpu->GetRegs()
-				.array[rt];
+			
 
 			switch (address % 4)
 			{
@@ -547,37 +532,18 @@ namespace psx::cpu {
 			default:
 				break;
 			}
-
-			/*switch (address % 4)
-			{
-			case 0x3:
-				value = (rt_val & 0x00'FF'FF'FF) | (data & 0xFF'00'00'00);
-				break;
-			case 0x2:
-				value = (rt_val & 0x00'00'FF'FF) | (data & 0xFF'FF'00'00);
-				break;
-			case 0x1:
-				value = (rt_val & 0x00'00'00'FF) | (data & 0xFF'FF'FF'00);
-				break;
-			case 0x0:
-				value = data;
-				break;
-			default:
-				break;
-			}*/
 		}
 		else if constexpr (LoadOpcode == Opcode::LWR) {
+			u32 rt_val = status->cpu->GetRegs()
+				.array[rt];
+
 			if (status->curr_delay.dest == rt) {
-				cpu.GetRegs()
-					.array[rt] = status->curr_delay.value;
+				rt_val = status->curr_delay.value;
 				status->curr_delay.dest = InvalidReg;
 			}
 
 			u32 data = status->sysbus
 				->Read<u32, false, true>(address & ~3);
-
-			u32 rt_val = status->cpu->GetRegs()
-				.array[rt];
 
 			switch (address % 4)
 			{
@@ -622,7 +588,9 @@ namespace psx::cpu {
 		if (status->exception || rt == 0)
 			return;
 
-		
+		if (status->curr_delay.dest == rt)
+			status->curr_delay.dest = InvalidReg;
+			
 		status->AddLoadDelay(value, rt);
 	}
 
@@ -647,7 +615,7 @@ namespace psx::cpu {
 				+ 36;
 
 			if (rt_val == 0x0) [[unlikely]] {
-				if (rs_val >= 0) {
+				if (i32(rs_val) >= 0) {
 					status->cpu->GetHI() = rs_val;
 					status->cpu->GetLO() = -1;
 				}
@@ -656,9 +624,9 @@ namespace psx::cpu {
 					status->cpu->GetLO() = 1;
 				}
 			} else if((i32)rt_val == -1 &&
-				(i32)rs_val == -(i32)0x80000000) [[unlikely]] {
+				      rs_val == 0x80000000) [[unlikely]] {
 					status->cpu->GetHI() = 0x0;
-					status->cpu->GetLO() = -(i32)0x80000000;
+					status->cpu->GetLO() = 0x80000000;
 			}
 			else {
 				status->cpu->GetHI() = (i32)rs_val % (i32)rt_val;
@@ -699,6 +667,15 @@ namespace psx::cpu {
 				+ 9;
 
 			u64 res = (u64)rs_val * (u64)rt_val;
+
+			status->cpu->GetLO() = (u32)res;
+			status->cpu->GetHI() = (u32)(res >> 32);
+		}
+		else if constexpr (MulDivOpcode == Opcode::MULT) {
+			status->hi_lo_ready_timestamp = status->scheduler.GetTimestamp()
+				+ 9;
+
+			u64 res = u64(i64(i32(rs_val)) * i32(rt_val));
 
 			status->cpu->GetLO() = (u32)res;
 			status->cpu->GetHI() = (u32)(res >> 32);

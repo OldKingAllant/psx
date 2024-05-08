@@ -31,7 +31,6 @@ namespace psx {
 
 	void Gpu::ResetFifo() {
 		m_cmd_fifo.clear();
-		fmt::println("[GPU] FIFO Reset");
 	}
 
 	void Gpu::DispEnable(bool enable) {
@@ -181,6 +180,10 @@ namespace psx {
 		case 0x5:
 			fmt::println("[GPU] Latch for draw offset");
 			m_gpu_read_latch = m_raw_conf.draw_offset;
+			break;
+		case 0x6:
+		case 0x7:
+			fmt::println("[GPU] Read GPU version (returning v0)");
 			break;
 		default:
 			return;

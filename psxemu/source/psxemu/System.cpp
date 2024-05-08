@@ -85,6 +85,22 @@ namespace psx {
 		if(size <= 0x800)
 			throw std::exception("Invalid executable!");
 
+		fmt::println("[SYSTEM] Loading {}", path);
+		fmt::println("         Hooking EnqueueTimerAndBlankIrqs()");
+		
+		bool hook_flag = false;
+		auto hook = m_kernel.InsertExitHook(0xc00, [this, &hook_flag](psx::u32, psx::u32) {
+			SetStopped(true);
+			hook_flag = true;
+		});
+
+		while (!hook_flag) {
+			m_stopped = false;
+			RunInterpreterUntilBreakpoint();
+		}
+
+		m_kernel.RemoveExitHook(hook);
+
 		u8* buf = new u8[size];
 
 		file.read(std::bit_cast<char*>(buf), size);
@@ -133,13 +149,13 @@ namespace psx {
 			m_sysbus.CopyRaw(data.data(), ARGS_DEST, (u32)data.size());
 		}
 
-		fmt::print("Successfully loaded executable\n");
-		fmt::print("Destination in memory : 0x{:x}\n", dest);
-		fmt::print("Program counter : 0x{:x}\n", pc);
-		fmt::print("Global pointer : 0x{:x}\n", gp);
-		fmt::print("Stack pointer : 0x{:x}\n", sp);
-		fmt::print("Memfill start : 0x{:x}, Size : 0x{:x}\n", memfill_start, memfill_sz);
-		fmt::print("Size : 0x{:x}\n", exe_size);
+		fmt::print("[SYSTEM] Successfully loaded executable\n");
+		fmt::print("         Destination in memory : 0x{:x}\n", dest);
+		fmt::print("         Program counter : 0x{:x}\n", pc);
+		fmt::print("         Global pointer : 0x{:x}\n", gp);
+		fmt::print("         Stack pointer : 0x{:x}\n", sp);
+		fmt::print("         Memfill start : 0x{:x}, Size : 0x{:x}\n", memfill_start, memfill_sz);
+		fmt::print("         Size : 0x{:x}\n", exe_size);
 	}
 
 	void System::LoadBios(std::string const& path) {

@@ -263,6 +263,8 @@ namespace psx::cpu {
 	}
 
 	bool MIPS1::HLE_Bios(u32 address) {
+		address &= 0x1FFFFFFF;
+
 		switch (address)
 		{
 		case 0xA0:
@@ -282,7 +284,7 @@ namespace psx::cpu {
 				if (function_id != 0xb17) {
 					m_syscall_frames.push(
 						SyscallCallstackEntry{
-							.exitpoint = m_regs.ra,
+							.exitpoint = m_regs.ra & 0x1FFFFFFF,
 							.syscall_id = function_id,
 							.caller = m_pc - 0x4
 						}

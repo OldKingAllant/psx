@@ -84,6 +84,9 @@ namespace psx::video {
 	}
 
 	void Renderer::DrawFlatUntexturedOpaque(UntexturedOpaqueFlatTriangle triangle) {
+		if (m_untextured_opaque_flat_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+		
 		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v0);
 		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v1);
 		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v2);
@@ -100,6 +103,9 @@ namespace psx::video {
 	}
 
 	void Renderer::DrawBasicGouraud(BasicGouraudTriangle triangle) {
+		if (m_basic_gouraud_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
 		m_basic_gouraud_pipeline.PushVertex(triangle.v0);
 		m_basic_gouraud_pipeline.PushVertex(triangle.v1);
 		m_basic_gouraud_pipeline.PushVertex(triangle.v2);
@@ -116,6 +122,9 @@ namespace psx::video {
 	}
 
 	void Renderer::DrawTexturedTriangle(TexturedTriangle triangle) {
+		if (m_textured_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
 		m_textured_pipeline.PushVertex(triangle.v0);
 		m_textured_pipeline.PushVertex(triangle.v1);
 		m_textured_pipeline.PushVertex(triangle.v2);

@@ -112,6 +112,9 @@ namespace psx {
 		case 0x8:
 			DisplayMode(value);
 			break;
+		case 0x10:
+			GpuReadInternal(value);
+			break;
 		default:
 			fmt::println("[GPU] Unimplemented ENV command 0x{:x}", (u32)upper);
 			error::DebugBreak();
