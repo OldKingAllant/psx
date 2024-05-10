@@ -1268,3 +1268,7 @@ void DebugView::KernelWindow() {
 
 	ImGui::End();
 }
+
+void DebugView::DriveWindow() {
+	//
+}

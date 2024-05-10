@@ -141,7 +141,7 @@ int main(int argc, char* argv[]) {
 
 	input_manager->AttachController(controller);
 
-	sys.LoadExe(std::string("../programs/amidogs/psxtest_cpu.psxexe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/amidogs/psxtest_cpu.psxexe"), std::nullopt);
 
 	DebugView debug_view{ std::make_shared<psx::video::SdlWindow>(
 		std::string("Debug view"), psx::video::Rect{ .w = 1200, .h = 800 }, 

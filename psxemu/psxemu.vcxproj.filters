@@ -276,6 +276,9 @@
     <ClInclude Include="input\KeyboardManager.hpp">
       <Filter>Header Files\input</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\CDDriveStructs.hpp">
+      <Filter>Header Files\dev\cdrom</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">

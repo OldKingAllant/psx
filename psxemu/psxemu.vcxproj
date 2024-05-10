@@ -145,6 +145,7 @@
     <ClInclude Include="..\common\Stack.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
     <ClInclude Include="include\psxemu\CDDrive.hpp" />
+    <ClInclude Include="include\psxemu\CDDriveStructs.hpp" />
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
