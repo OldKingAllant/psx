@@ -66,6 +66,7 @@ void DebugView::Update() {
 	TimersWindow();
 	GpuWindow();
 	KernelWindow();
+	DriveWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -1270,5 +1271,121 @@ void DebugView::KernelWindow() {
 }
 
 void DebugView::DriveWindow() {
-	//
+	if (!ImGui::Begin("CD-DRIVE")) {
+		ImGui::End();
+		return;
+	}
+
+	auto& drive = m_psx->GetStatus().sysbus->m_cdrom;
+
+	auto yellow = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+
+	ImGui::TextColored(yellow, "IDLE         :");
+	ImGui::SameLine();
+	ImGui::Text("%d", drive.m_idle);
+	ImGui::TextColored(yellow, "Cmd pending  :");
+	ImGui::SameLine();
+	ImGui::Text("%d", drive.m_has_next_cmd);
+	ImGui::TextColored(yellow, "Curr command :");
+	ImGui::SameLine();
+	ImGui::Text("%d", drive.m_curr_cmd);
+	ImGui::TextColored(yellow, "Next command :");
+	ImGui::SameLine();
+	ImGui::Text("%d", drive.m_new_cmd);
+
+	if (ImGui::CollapsingHeader("Index register")) {
+		ImGui::TextColored(yellow, "Selected index      :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.index);
+		ImGui::TextColored(yellow, "XADPCM fifo empty   :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.xa_adpcm_fifo_empty);
+		ImGui::TextColored(yellow, "Param fifo empty    :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.param_fifo_empty);
+		ImGui::TextColored(yellow, "Param fifo full     :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.param_fifo_full);
+		ImGui::TextColored(yellow, "Response fifo empty :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.response_fifo_empty);
+		ImGui::TextColored(yellow, "Data fifo empty     :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.data_fifo_empty);
+		ImGui::TextColored(yellow, "Transmission busy   :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_index_reg.transmission_busy);
+	}
+
+	if (ImGui::CollapsingHeader("Interrupt control")) {
+		ImGui::TextColored(yellow, "Interrupt enable  :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_int_enable.enable_bits);
+		ImGui::TextColored(yellow, "Current interrupt :");
+		auto int_text = magic_enum::enum_name(drive.m_int_flag.irq);
+		ImGui::SameLine();
+		ImGui::Text("%s", int_text.data());
+		ImGui::TextColored(yellow, "Cmd start irq     :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_int_flag.cmd_start);
+		ImGui::TextColored(yellow, "Want cmd start irq:");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_cmd_start_interrupt);
+	}
+
+	if (ImGui::CollapsingHeader("Mode")) {
+		ImGui::TextColored(yellow, "Allow read CD-DA    :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.allow_cd_da);
+		ImGui::TextColored(yellow, "Pause on track end     :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.autopause);
+		ImGui::TextColored(yellow, "Report                 :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.report);
+		ImGui::TextColored(yellow, "XA filter enable       :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.xa_filter_enable);
+		ImGui::TextColored(yellow, "(undocumented) Ignore  :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.ignore);
+		ImGui::TextColored(yellow, "Read whole sector      :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.read_whole_sector);
+		ImGui::TextColored(yellow, "Enable XA-ADPCM        :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.enable_xa_adpcm);
+		ImGui::TextColored(yellow, "Motor double speed     :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_mode.double_speed);
+	}
+
+	if (ImGui::CollapsingHeader("Stat")) {
+		ImGui::TextColored(yellow, "General error    :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.err);
+		ImGui::TextColored(yellow, "Motor on         :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.motor_on);
+		ImGui::TextColored(yellow, "Seek error       :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.seek_err);
+		ImGui::TextColored(yellow, "GetID() error    :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.id_err);
+		ImGui::TextColored(yellow, "Shell open       :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.shell_open);
+		ImGui::TextColored(yellow, "Reading          :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.reading);
+		ImGui::TextColored(yellow, "Seeking          :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.seeking);
+		ImGui::TextColored(yellow, "Playing          :");
+		ImGui::SameLine();
+		ImGui::Text("%d", drive.m_stat.playing);
+	}
+
+	ImGui::End();
 }
