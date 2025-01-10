@@ -65,7 +65,7 @@ namespace psx::video {
 		VertexBuffer(u32 max_vertices) :
 			m_max_verts{max_vertices},
 			m_curr_verts{}, 
-			m_buf{true, BufferMap::READWRITE, sizeof(Vert) * (max_vertices) },
+			m_buf{true, BufferMap::READWRITE, u32(sizeof(Vert) * (max_vertices)) },
 			m_vertex_arr{} {
 			m_vertex_arr = CreateVertexArray();
 			MakeCurrentArrayBuffer(m_buf.BufID());

@@ -300,6 +300,7 @@ namespace psx::video {
 				flag = false;
 		}
 
+		glDeleteSync(sync);
 		glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
 
 		m_processing_cmd = false;
