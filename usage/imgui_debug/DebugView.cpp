@@ -1387,5 +1387,58 @@ void DebugView::DriveWindow() {
 		ImGui::Text("%d", drive.m_stat.playing);
 	}
 
+	if (ImGui::CollapsingHeader("Command history")) {
+		ImGui::BeginChild("#cmds", ImVec2(0, 400), ImGuiChildFlags_Border);
+		bool clear = ImGui::Button("Clear", ImVec2(60, 30));
+
+		if (clear) {
+			drive.m_history.clear();
+		}
+
+		ImGui::Checkbox("Enable history", &drive.m_keep_history);
+
+		for (uint64_t i = 0; auto const& cmd : drive.m_history) {
+			auto cmd_header = fmt::format("{} - {}", i, cmd.command_name);
+			if (ImGui::CollapsingHeader(cmd_header.c_str())) {
+				ImGui::Text("Command ID: %d", cmd.command_id);
+				ImGui::Text("Timestamp : %ld", cmd.issue_timestamp);
+				ShowDriveCommand(&cmd);
+			}
+		}
+
+		ImGui::EndChild();
+	}
+
 	ImGui::End();
+}
+
+static void ShowTestCommand(psx::DriveCommand const* cmd) {
+	const auto yellow = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+
+	switch (cmd->params[0])
+	{
+	case 0x20:
+	{
+		ImGui::TextColored(yellow, "Bios date : %X/%X/%X, Version : %X",
+			cmd->responses[0].fifo.fifo[0], cmd->responses[0].fifo.fifo[1], 
+			cmd->responses[0].fifo.fifo[2], cmd->responses[0].fifo.fifo[3]);
+	}
+		break;
+	default:
+		ImGui::TextColored(yellow, "Unknown test command");
+		break;
+	}
+}
+
+void DebugView::ShowDriveCommand(psx::DriveCommand const* cmd) {
+	switch (cmd->command_id)
+	{
+	case 0x1A: {
+		//Test commands
+		ShowTestCommand(cmd);
+	}
+		break;
+	default:
+		break;
+	}
 }

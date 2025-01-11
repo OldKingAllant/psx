@@ -118,6 +118,13 @@ namespace psx {
 		/// <param name="silent">Enable/disable log</param>
 		void SetSyscallSilent(u32 syscall_num, bool silent);
 
+		/// <summary>
+		/// Connects a memory card to the selected slot
+		/// </summary>
+		/// <param name="slot">0 or 1, in which slot the card should be inserted</param>
+		/// <param name="path">path to the memory card, creates the file if not exists</param>
+		void ConnectCard(u32 slot, std::string const& path);
+
 	private :
 		void InterpreterSingleStep();
 

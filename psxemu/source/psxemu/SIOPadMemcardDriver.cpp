@@ -7,7 +7,7 @@
 namespace psx {
 	SIOPadCardDriver::SIOPadCardDriver() 
 		: m_selected{SelectedDevice::NONE}, 
-		  m_controller{}
+		  m_controller{}, m_card{}
 	{}
 
 	u8 SIOPadCardDriver::Send(u8 value, bool& has_data) {
@@ -23,12 +23,11 @@ namespace psx {
 			return m_controller->Send(value);
 		}
 		else if(m_selected == SelectedDevice::MEMCARD) {
-			fmt::println("[PAD/CARD DRIVER] Memory card not implemented");
-			return 0xFF;
+			has_data = true;
+			return m_card->Send(value);
 		}
 
 		fmt::println("[PAD/CARD DRIVER] UNREACHABLE");
-		error::DebugBreak();
 		return 0xFF;
 	}
 
@@ -37,6 +36,9 @@ namespace psx {
 
 		if (m_selected == SelectedDevice::PAD) {
 			ack = m_controller->Ack();
+		}
+		else if(m_selected == SelectedDevice::MEMCARD) {
+			ack = m_card->Ack();
 		}
 
 		if (!ack)
@@ -48,6 +50,7 @@ namespace psx {
 	void SIOPadCardDriver::Unselect() {
 		m_selected = SelectedDevice::NONE;
 		m_controller->Reset();
+		m_card->Reset();
 	}
 
 	void SIOPadCardDriver::SelectDevice(u8 address) {

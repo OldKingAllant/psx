@@ -3,6 +3,7 @@
 
 #include <fmt/format.h>
 #include <ranges>
+#include <unordered_set>
 
 namespace psx::input {
 	KeyboardManager::KeyboardManager() :
@@ -23,8 +24,28 @@ namespace psx::input {
 			btn_status.ty = ButtonType::NORMAL;
 			btn_status.normal.pressed = status.pressed;
 		}
+		else if (uppercase_name == "RIGHT") {
+			btn_status.name = "DPAD-RIGHT";
+			btn_status.ty = ButtonType::NORMAL;
+			btn_status.normal.pressed = status.pressed;
+		}
+		else if (uppercase_name == "LEFT") {
+			btn_status.name = "DPAD-LEFT";
+			btn_status.ty = ButtonType::NORMAL;
+			btn_status.normal.pressed = status.pressed;
+		}
 		else if(uppercase_name == "DOWN") {
 			btn_status.name = "DPAD-DOWN";
+			btn_status.ty = ButtonType::NORMAL;
+			btn_status.normal.pressed = status.pressed;
+		}
+		else if(uppercase_name == "RETURN") {
+			btn_status.name = "START";
+			btn_status.ty = ButtonType::NORMAL;
+			btn_status.normal.pressed = status.pressed;
+		}
+		else if (uppercase_name == "X") {
+			btn_status.name = "CROSS";
 			btn_status.ty = ButtonType::NORMAL;
 			btn_status.normal.pressed = status.pressed;
 		}

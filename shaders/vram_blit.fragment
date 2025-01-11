@@ -14,7 +14,9 @@ void main() {
         vec4 curr_color = texture(vram, sample_coords);
 
         if(curr_color.a == 0.0) {
-            curr_color = texture(blit_texture, sample_coords);
+            color = texture(blit_texture, sample_coords);
+        } else {
+            color = curr_color;
         }
     } else {
         color = texture(blit_texture, sample_coords);

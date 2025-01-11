@@ -6,6 +6,8 @@
 #include <psxemu/include/psxemu/SIOPadMemcardDriver.hpp>
 #include <psxemu/include/psxemu/StandardController.hpp>
 #include <psxemu/include/psxemu/NullController.hpp>
+#include <psxemu/include/psxemu/NullMemcard.hpp>
+#include <psxemu/include/psxemu/OfficialMemcard.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -55,16 +57,24 @@ namespace psx {
 
 		SilenceSyscallsDefault();
 
-		auto make_driver = [](std::unique_ptr<AbstractController> controller) {
+		auto make_driver = [](std::unique_ptr<AbstractController> controller,
+			std::unique_ptr<AbstractMemcard> card) {
 			std::unique_ptr<SIOAbstractDevice> driver{ std::make_unique<SIOPadCardDriver>()};
 			dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectController(std::move(controller));
+			dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectCard(std::move(card));
 			return driver;
 		};
 
 		m_sysbus.GetSIO0()
-			.Port1Connect(make_driver(std::make_unique<StandardController>()));
+			.Port1Connect(make_driver(
+				std::make_unique<StandardController>(),
+				std::make_unique<NullMemcard>()
+			));
 		m_sysbus.GetSIO0()
-			.Port2Connect(make_driver(std::make_unique<NullController>()));
+			.Port2Connect(make_driver(
+				std::make_unique<NullController>(),
+				std::make_unique<NullMemcard>()
+			));
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {
@@ -266,5 +276,80 @@ namespace psx {
 
 		for (u32 id : rand_ids)
 			m_silenced_syscalls.insert(id);
+
+		auto test_event_ids = GetSyscallIdsByName("TestEvent");
+
+		for (u32 id : test_event_ids)
+			m_silenced_syscalls.insert(id);
+	}
+
+	void System::ConnectCard(u32 slot, std::string const& path) {
+		if (slot != 0 && slot != 1) {
+			fmt::println("[SYSTEM] Invalid mc slot {}", slot);
+			return;
+		}
+
+		auto fs_path = std::filesystem::path{ path };
+
+		if (!fs_path.has_extension()) {
+			fmt::println("[SYSTEM] Missing extension from {}, cannot infer type",
+				path);
+			return;
+		}
+
+		std::unordered_map<std::string, MemcardType> mc_types = {
+			{ std::string{".MC"}, MemcardType::OFFICIAL},
+			{ std::string{".mc"}, MemcardType::OFFICIAL}
+		};
+
+		auto extension = fs_path.extension().string();
+
+		if (!mc_types.contains(extension)) {
+			fmt::println("[SYSTEM] Invalid mc extension {}",
+				extension);
+			return;
+		}
+
+		auto type = mc_types[extension];
+
+		if (!std::filesystem::exists(path)) {
+			std::fstream create_file{ path, std::ios::out };
+
+			if (!create_file.is_open()) {
+				fmt::println("[SYSTEM] Failed creating {}",
+					path);
+				return;
+			}
+		}
+
+		std::unique_ptr<AbstractMemcard> memcard{std::make_unique<NullMemcard>()};
+
+		switch (type)
+		{
+		case MemcardType::OFFICIAL: {
+			decltype(memcard) new_card = std::make_unique<OfficialMemcard>();
+			memcard.swap(new_card);
+		}
+			break;
+		default:
+			break;
+		}
+
+		if (!memcard->LoadFile(path)) {
+			fmt::println("[SYSTEM] Failed loading {}",
+				path);
+			return;
+		}
+
+		if (slot == 0) {
+			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
+				.GetDevice1())->ConnectCard(std::move(memcard));
+		}
+		else {
+			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
+				.GetDevice2())->ConnectCard(std::move(memcard));
+		}
+
+		fmt::println("[SYSTEM] Successfully inserted MC in slot {}", slot);
 	}
 }

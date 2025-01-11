@@ -144,6 +144,7 @@
     <ClInclude Include="..\common\Queue.hpp" />
     <ClInclude Include="..\common\Stack.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
+    <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
     <ClInclude Include="include\psxemu\CDDrive.hpp" />
     <ClInclude Include="include\psxemu\CDDriveStructs.hpp" />
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
@@ -170,6 +171,8 @@
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
     <ClInclude Include="include\psxemu\NullController.hpp" />
+    <ClInclude Include="include\psxemu\NullMemcard.hpp" />
+    <ClInclude Include="include\psxemu\OfficialMemcard.hpp" />
     <ClInclude Include="include\psxemu\OTDma.hpp" />
     <ClInclude Include="include\psxemu\psxexe.hpp" />
     <ClInclude Include="include\psxemu\Recompiler.hpp" />
@@ -237,6 +240,8 @@
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\NullController.cpp" />
+    <ClCompile Include="source\psxemu\NullMemcard.cpp" />
+    <ClCompile Include="source\psxemu\OfficialMemcard.cpp" />
     <ClCompile Include="source\psxemu\OTDma.cpp" />
     <ClCompile Include="source\psxemu\psxexe.cpp" />
     <ClCompile Include="source\psxemu\RootCounters.cpp" />

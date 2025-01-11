@@ -6,6 +6,8 @@
 
 #include "CDDriveStructs.hpp"
 
+#include <list>
+
 class DebugView;
 
 namespace psx {
@@ -103,5 +105,8 @@ namespace psx {
 		bool m_has_next_cmd;
 
 		u64 m_event_id;
+
+		bool m_keep_history;
+		std::list<DriveCommand> m_history;
 	};
 }

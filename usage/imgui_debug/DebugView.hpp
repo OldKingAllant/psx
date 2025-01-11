@@ -7,6 +7,7 @@
 
 namespace psx {
 	class System;
+	struct DriveCommand;
 }
 
 class DebugView {
@@ -44,6 +45,8 @@ private :
 	void DriveWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
+
+	void ShowDriveCommand(psx::DriveCommand const* cmd);
 
 private :
 	std::shared_ptr<Window> m_win;

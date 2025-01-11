@@ -370,6 +370,46 @@ namespace psx {
 			} }
 		);
 
+		the_table.insert(
+			std::pair{ 0xB4E, std::pair{
+				"_card_write",
+				ParamList{
+					std::pair{ "port", SyscallParamType::UINT },
+					std::pair{ "sector", SyscallParamType::UINT },
+					std::pair{ "src", SyscallParamType::VOID_PTR }
+				}
+			} }
+		);
+
+		the_table.insert(
+			std::pair{ 0xB4F, std::pair{
+				"_card_read",
+				ParamList{
+					std::pair{ "port", SyscallParamType::UINT },
+					std::pair{ "sector", SyscallParamType::UINT },
+					std::pair{ "dst", SyscallParamType::VOID_PTR }
+				}
+			} }
+		);
+
+		the_table.insert(
+			std::pair{ 0xB5C, std::pair{
+				"_card_status",
+				ParamList{
+					std::pair{ "port", SyscallParamType::UINT }
+				}
+			} }
+		);
+
+		the_table.insert(
+			std::pair{ 0xB5D, std::pair{
+				"_card_wait",
+				ParamList{
+					std::pair{ "port", SyscallParamType::UINT }
+				}
+			} }
+		);
+
 		return the_table;
 	}
 

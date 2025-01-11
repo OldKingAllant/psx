@@ -88,6 +88,12 @@
     <Filter Include="Resource Files\input">
       <UniqueIdentifier>{07b15b84-8313-4dd2-92d0-634911b777c1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev\sio\memcard">
+      <UniqueIdentifier>{c3a00846-d22f-4b24-816b-4b8ba5139725}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\sio\memcard">
+      <UniqueIdentifier>{2e5a775b-ba9b-4d13-a3da-a592c5e371d9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -279,6 +285,15 @@
     <ClInclude Include="include\psxemu\CDDriveStructs.hpp">
       <Filter>Header Files\dev\cdrom</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\AbstractMemcard.hpp">
+      <Filter>Header Files\dev\sio\memcard</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\OfficialMemcard.hpp">
+      <Filter>Header Files\dev\sio\memcard</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\NullMemcard.hpp">
+      <Filter>Header Files\dev\sio\memcard</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -424,6 +439,12 @@
     </ClCompile>
     <ClCompile Include="input\KeyboardManager.cpp">
       <Filter>Resource Files\input</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\NullMemcard.cpp">
+      <Filter>Resource Files\dev\sio\memcard</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\OfficialMemcard.cpp">
+      <Filter>Resource Files\dev\sio\memcard</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

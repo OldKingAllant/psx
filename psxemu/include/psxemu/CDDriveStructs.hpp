@@ -4,6 +4,8 @@
 #include <common/Macros.hpp>
 #include <common/Queue.hpp>
 
+#include <string_view>
+
 namespace psx {
 	union IndexRegister {
 #pragma pack(push, 1)
@@ -150,5 +152,15 @@ namespace psx {
 		};
 
 		u8 reg;
+	};
+
+	struct DriveCommand {
+		u8 command_id;
+		u8 params[16];
+		u8 num_params;
+		std::string_view command_name;
+		Response responses[3];
+		u8 num_responses;
+		u64 issue_timestamp;
 	};
 }

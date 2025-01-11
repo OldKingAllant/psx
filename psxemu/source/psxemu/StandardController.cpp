@@ -82,6 +82,18 @@ namespace psx {
 		else if(status.name == "DPAD-DOWN") {
 			m_btn_status.down = !status.normal.pressed;
 		}
+		else if (status.name == "DPAD-RIGHT") {
+			m_btn_status.right = !status.normal.pressed;
+		}
+		else if (status.name == "DPAD-LEFT") {
+			m_btn_status.left = !status.normal.pressed;
+		}
+		else if (status.name == "START") {
+			m_btn_status.start = !status.normal.pressed;
+		}
+		else if (status.name == "CROSS") {
+			m_btn_status.cross = !status.normal.pressed;
+		}
 	}
 
 	StandardController::~StandardController() {}

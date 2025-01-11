@@ -141,6 +141,8 @@ int main(int argc, char* argv[]) {
 
 	input_manager->AttachController(controller);
 
+	sys.ConnectCard(0, "../memcards/mc1.mc");
+
 	//sys.LoadExe(std::string("../programs/amidogs/psxtest_cpu.psxexe"), std::nullopt);
 
 	DebugView debug_view{ std::make_shared<psx::video::SdlWindow>(

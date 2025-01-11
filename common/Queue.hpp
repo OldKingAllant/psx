@@ -22,6 +22,14 @@ namespace psx {
 			return arr[0];
 		}
 
+		constexpr Ty& back() {
+			return arr[m_curr_size - 1];
+		}
+
+		constexpr Ty const& back() const {
+			return arr[m_curr_size - 1];
+		}
+
 		constexpr Ty deque() {
 			Ty item = arr[0];
 			std::shift_left(arr, arr + m_curr_size, 1);

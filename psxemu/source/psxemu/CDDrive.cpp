@@ -14,7 +14,8 @@ namespace psx {
 		m_volume{}, m_mute_adpcm{true}, m_sound_coding{},
 		m_read_paused{false}, m_motor_on{false},
 		m_mode{}, m_stat{}, m_sys_status {sys_status},
-		m_idle{ true }, m_has_next_cmd{ false }, m_event_id{INVALID_EVENT} {
+		m_idle{ true }, m_has_next_cmd{ false }, m_event_id{INVALID_EVENT},
+		m_keep_history{ false }, m_history{} {
 		m_index_reg.param_fifo_empty = true;
 
 		//Yes, this does not really make sense
