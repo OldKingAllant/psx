@@ -7,8 +7,19 @@
 
 namespace psx::input {
 	KeyboardManager::KeyboardManager() :
-		m_controller{nullptr}
-	{}
+		m_controller{nullptr}, m_key_map{}
+	{
+		KeyMapDefault();
+	}
+
+	void KeyboardManager::KeyMapDefault() {
+		m_key_map.insert({ "UP", "DPAD-UP" });
+		m_key_map.insert({ "RIGHT", "DPAD-RIGHT" });
+		m_key_map.insert({ "LEFT", "DPAD-LEFT" });
+		m_key_map.insert({ "DOWN", "DPAD-DOWN" });
+		m_key_map.insert({ "RETURN", "START" });
+		m_key_map.insert({ "X", "CROSS" });
+	}
 
 	void KeyboardManager::Deliver(std::any any_status) {
 		auto status = std::any_cast<KeyboardButtonStatus>(any_status);
@@ -19,38 +30,13 @@ namespace psx::input {
 			status.key, [](char ch) { return std::toupper(ch); }
 		) | std::ranges::to<std::string>();
 
-		if (uppercase_name == "UP") {
-			btn_status.name = "DPAD-UP";
+		if (m_key_map.contains(uppercase_name)) {
+			btn_status.name = m_key_map[uppercase_name];
 			btn_status.ty = ButtonType::NORMAL;
 			btn_status.normal.pressed = status.pressed;
-		}
-		else if (uppercase_name == "RIGHT") {
-			btn_status.name = "DPAD-RIGHT";
-			btn_status.ty = ButtonType::NORMAL;
-			btn_status.normal.pressed = status.pressed;
-		}
-		else if (uppercase_name == "LEFT") {
-			btn_status.name = "DPAD-LEFT";
-			btn_status.ty = ButtonType::NORMAL;
-			btn_status.normal.pressed = status.pressed;
-		}
-		else if(uppercase_name == "DOWN") {
-			btn_status.name = "DPAD-DOWN";
-			btn_status.ty = ButtonType::NORMAL;
-			btn_status.normal.pressed = status.pressed;
-		}
-		else if(uppercase_name == "RETURN") {
-			btn_status.name = "START";
-			btn_status.ty = ButtonType::NORMAL;
-			btn_status.normal.pressed = status.pressed;
-		}
-		else if (uppercase_name == "X") {
-			btn_status.name = "CROSS";
-			btn_status.ty = ButtonType::NORMAL;
-			btn_status.normal.pressed = status.pressed;
-		}
 
-		m_controller->UpdateStatus(btn_status);
+			m_controller->UpdateStatus(btn_status);
+		}
 	}
 
 	void KeyboardManager::AttachController(AbstractController* controller) {
@@ -59,6 +45,15 @@ namespace psx::input {
 		if (m_controller->GetType() == ControllerType::STANDARD) {
 			fmt::println("[INPUT] Connected STANDARD controller");
 		}
+	}
+
+	void KeyboardManager::SetKeyMap(std::unordered_map<std::string, std::string> const& new_keys) {
+		if (new_keys.size() != m_key_map.size()) {
+			fmt::println("[INPUT] Button map should contain all buttons");
+			return;
+		}
+
+		m_key_map = new_keys;
 	}
 
 	KeyboardManager::~KeyboardManager() {}

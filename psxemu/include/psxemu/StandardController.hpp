@@ -4,6 +4,9 @@
 
 #include <common/Queue.hpp>
 
+#include <unordered_map>
+#include <string>
+
 namespace psx {
 	class StandardController : public AbstractController {
 	public :
@@ -73,5 +76,7 @@ namespace psx {
 		ControllerMode m_mode;
 		Queue<u8, 16> m_response;
 		StandardButtonStatus m_btn_status;
+
+		std::unordered_map<std::string, u64> m_btn_map;
 	};
 }

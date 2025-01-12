@@ -3,14 +3,40 @@
 #include <common/Errors.hpp>
 
 #include <fmt/format.h>
+#include <array>
 
 namespace psx {
 	StandardController::StandardController() :
 		m_status{ControllerStatus::IDLE}, 
 		m_mode{ControllerMode::DIGITAL},
-		m_response{}, m_btn_status{}
+		m_response{}, m_btn_status{},
+		m_btn_map{}
 	{
 		m_btn_status.reg = 0xFFFF;
+
+		std::array btn_names = {
+			"SELECT",
+			"L3",
+			"R3",
+			"START",
+			"DPAD-UP",
+			"DPAD-RIGHT",
+			"DPAD-DOWN",
+			"DPAD-LEFT",
+			"L2",
+			"R2",
+			"L1",
+			"R1",
+			"TRIANGLE",
+			"CIRCLE",
+			"CROSS", 
+			"SQUARE"
+		};
+
+		for (u32 idx = 0; auto const& name : btn_names) {
+			m_btn_map.insert({ name, idx });
+			idx++;
+		}
 	}
 
 	u8 StandardController::Send(u8 value) {
@@ -76,23 +102,12 @@ namespace psx {
 		if (m_mode == ControllerMode::ANALOG && status.ty != ButtonType::NORMAL)
 			return;
 
-		if (status.name == "DPAD-UP") {
-			m_btn_status.up = !status.normal.pressed;
-		}
-		else if(status.name == "DPAD-DOWN") {
-			m_btn_status.down = !status.normal.pressed;
-		}
-		else if (status.name == "DPAD-RIGHT") {
-			m_btn_status.right = !status.normal.pressed;
-		}
-		else if (status.name == "DPAD-LEFT") {
-			m_btn_status.left = !status.normal.pressed;
-		}
-		else if (status.name == "START") {
-			m_btn_status.start = !status.normal.pressed;
-		}
-		else if (status.name == "CROSS") {
-			m_btn_status.cross = !status.normal.pressed;
+		auto name_as_str{ std::string(status.name) };
+
+		if (m_btn_map.contains(name_as_str)) {
+			auto btn_index = m_btn_map[name_as_str];
+			m_btn_status.reg &= ~(1 << btn_index);
+			m_btn_status.reg |= (u16(!status.normal.pressed) << btn_index);
 		}
 	}
 

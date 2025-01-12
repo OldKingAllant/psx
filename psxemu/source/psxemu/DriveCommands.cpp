@@ -1,5 +1,7 @@
 #include <psxemu/include/psxemu/CDDrive.hpp>
 
+#include <common/Errors.hpp>
+
 #include <fmt/format.h>
 #include <array>
 
@@ -34,5 +36,33 @@ namespace psx {
 				fixed[0], fixed[1], fixed[2], fixed[3], 
 				fixed[4], fixed[5], fixed[6], fixed[7]
 			}, ResponseTimings::GET_ID);
+	}
+
+	void CDDrive::Command_Setmode() {
+		if (!ValidateParams(1))
+			return;
+
+		u8 new_mode = m_param_fifo.deque();
+
+		m_mode.reg = new_mode;
+
+		if (m_mode.ignore) {
+			fmt::println("[CDROM] Setmode() has ignore bit set!");
+			error::DebugBreak();
+		}
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		fmt::println("[CDROM] Setmode(mode={:#x}) -> INT3({:#x})",
+			new_mode, m_stat.reg);
+		fmt::println("        Motor double speed    = {}", bool(m_mode.double_speed));
+		fmt::println("        Enable XA ADPCM       = {}", bool(m_mode.enable_xa_adpcm));
+		fmt::println("        Sector size           = {:#x}", m_mode.read_whole_sector ? 0x924 : 0x800);
+		fmt::println("        Ignore sector size    = {}", bool(m_mode.ignore));
+		fmt::println("        XA Filter enable      = {}", bool(m_mode.xa_filter_enable));
+		fmt::println("        Report Interrupts     = {}", bool(m_mode.report));
+		fmt::println("        Pause at end of track = {}", bool(m_mode.autopause));
+		fmt::println("        Enable read CD-DA     = {}", bool(m_mode.allow_cd_da));
 	}
 }
