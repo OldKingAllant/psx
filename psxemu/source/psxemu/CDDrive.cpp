@@ -260,7 +260,8 @@ namespace psx {
 		GETSTAT = 0x1,
 		TEST = 0x19,
 		GETID = 0x1A,
-		SETMODE = 0xE
+		SETMODE = 0xE,
+		STOP = 0x8
 	};
 
 	void CDDrive::CommandExecute() {
@@ -282,6 +283,9 @@ namespace psx {
 			break;
 		case DriveCommands::SETMODE:
 			Command_Setmode();
+			break;
+		case DriveCommands::STOP:
+			Command_Stop();
 			break;
 		default:
 			fmt::println("[CDROM] Unknown/invalid command {:#x}",

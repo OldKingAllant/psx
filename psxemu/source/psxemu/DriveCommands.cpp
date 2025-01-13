@@ -65,4 +65,19 @@ namespace psx {
 		fmt::println("        Pause at end of track = {}", bool(m_mode.autopause));
 		fmt::println("        Enable read CD-DA     = {}", bool(m_mode.allow_cd_da));
 	}
+
+	void CDDrive::Command_Stop() {
+		m_stat.reading = false;
+		u8 first_stat = m_stat.reg;
+		m_stat.motor_on = false;
+		u8 second_stat = m_stat.reg;
+
+		fmt::println("[CDROM] Stop() -> INT3({:#x}) -> INT2({:#x})",
+			first_stat, second_stat);
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { first_stat },
+			ResponseTimings::GETSTAT_NORMAL);
+		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { second_stat },
+			ResponseTimings::STOP);
+	}
 }

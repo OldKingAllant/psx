@@ -3,412 +3,151 @@
 #include <psxemu/include/psxemu/SyscallTables.hpp>
 
 #include <fmt/format.h>
+#include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
 
 #include <sstream>
 #include <algorithm>
 #include <ranges>
 
 namespace psx {
+	void InsertSyscall(u32 id, std::string_view signature, std::unordered_map<u32, Syscall>& table) {
+		if (signature.empty())
+			return;
+
+		/*
+		Format:
+		return_type Name(param_name=type,[param2_name=type,])
+		*/
+
+		auto space_pos = signature.find_first_of(' ', 0);
+
+		if (space_pos == std::string_view::npos)
+			return;
+
+		auto return_type = signature.substr(0, space_pos);
+		(void)return_type;
+
+		auto open_bracket_pos = signature.find_first_of('(', 0);
+
+		if (open_bracket_pos == std::string_view::npos)
+			return;
+
+		auto name = signature.substr(space_pos + 1, open_bracket_pos - (space_pos + 1));
+
+		signature = signature.substr(open_bracket_pos + 1);
+
+		ParamList params{};
+
+		auto curr_pos = signature.find_first_of(',');
+
+		while (curr_pos != std::string_view::npos) {
+			auto param = signature.substr(0, curr_pos);
+
+			auto sep_pos = param.find_first_of('=');
+
+			if (sep_pos != std::string_view::npos) {
+				auto param_name = param.substr(0, sep_pos);
+				auto type = param.substr(sep_pos + 1);
+
+				auto converted_type = magic_enum::enum_cast<SyscallParamType>(type,
+					magic_enum::case_insensitive);
+
+				if (converted_type.has_value()) {
+					params.push_back({ std::string(param_name), converted_type.value() });
+				}
+			}
+
+			signature = signature.substr(curr_pos + 1);
+			curr_pos = signature.find_first_of(',');
+		}
+
+		table.insert({ id, { std::string(name), params } });
+	}
+
 	std::unordered_map<u32, Syscall> InitSyscallTable() {
 		std::unordered_map<u32, Syscall> the_table{};
 
-		//using SyscallParam = std::pair<std::string, SyscallParamType>;
-		//using ParamList = std::vector<SyscallParam>
+		const std::vector syscalls = {
+			std::pair{ u32(0xB4A), std::string("void InitCARD2(pad_enable=BOOL,)") },
+			{ 0xB20, "void UnDeliverEvent(class=EVENT_CLASS,spec=UINT,)" },
+			{ 0xB50, "void _new_card()" },
+			{ 0xAA7, "void bufs_cb_0()" },
+			{ 0xB58, "void _card_chan()" },
+			{ 0xAAD, "void _card_auto(flag=BOOL,)" },
+			{ 0xB45, "void erase(filename=CHAR_PTR,)" },
+			{ 0xC1D, "bool get_card_find_mode()" },
+			{ 0xC1A, "void set_card_find_mode(mode=BOOL,)" },
+			{ 0xAAB, "void _card_info(port=UINT,)" },
+			{ 0xAA9, "void bufs_cb_2()" },
+			{ 0xB4D, "void _card_info_subfunc(port=UINT,)" },
+			{ 0xA70, "void _bu_init()"},
+			{ 0xB5B, "void ChangeClearPAD(int=INT,)" },
+			{ 0xB4B, "void StartCARD2()" },
+			{ 0xA00, "uint open(filename=CHAR_PTR,accessmode=ACCESS_MODE,)" },
+			{ 0xB32, "uint open(filename=CHAR_PTR,accessmode=ACCESS_MODE,)" },
+			{ 0xA01, "void lseek(fd=INT,offset=INT,seekmode=SEEK_MODE,)" },
+			{ 0xB33, "void lseek(fd=INT,offset=INT,seekmode=SEEK_MODE,)" },
+			{ 0xA02, "void read(fd=INT,dst=VOID_PTR,len=UINT,)" },
+			{ 0xB34, "void read(fd=INT,dst=VOID_PTR,len=UINT,)" },
+			{ 0xA03, "void write(fd=INT,src=VOID_PTR,len=UINT,)" },
+			{ 0xB35, "void write(fd=INT,src=VOID_PTR,len=UINT,)" },
+			{ 0xA04, "void close(fd=INT,)" },
+			{ 0xB36, "void close(fd=INT,)" },
+			{ 0xA05, "void ioctl(fd=INT,cmd=INT,arg=INT,)" },
+			{ 0xB37, "void ioctl(fd=INT,cmd=INT,arg=INT,)" },
+			{ 0xA06, "void exit(exitcode=INT,)" },
+			{ 0xB38, "void exit(exitcode=INT,)" },
+			{ 0xA07, "bool isatty(fd=INT,)" },
+			{ 0xB39, "bool isatty(fd=INT,)" },
+			{ 0xA08, "char getc(fd=INT,)" },
+			{ 0xB3A, "char getc(fd=INT,)" },
+			{ 0xA09, "void putch(char=CHAR,fd=INT,)" },
+			{ 0xB3B, "void putch(char=CHAR,fd=INT,)" },
+			{ 0xA39, "void InitHeap(addr=VOID_PTR,size=UINT,)" }, 
+			{ 0xA3B, "char getchar()" },
+			{ 0xB3C, "char getchar()" },
+			{ 0xA3C, "void putchar(char=CHAR,)" },
+			{ 0xB3D, "void putchar(char=CHAR,)" },
+			{ 0xC08, "void SysInitMemory(addr=VOID_PTR,size=UINT,)" },
+			{ 0xA3F, "void printf(str=CHAR_PTR,)" },
+			{ 0xC1C, "void AdjustA0Table()" },
+			{ 0xC07, "void InstallExceptionHandlers()" },
+			{ 0xA44, "void FlushCache()" },
+			{ 0xB18, "void ResetEntryInt()" },
+			{ 0xC12, "void InstallDevices(ttyflag=UINT,)" },
+			{ 0xA99, "void add_nullcon_driver()" },
+			{ 0xB47, "void AddDrv(dev_info=UINT,)" },
+			{ 0xA96, "void AddCDROMDevice()" },
+			{ 0xA97, "void AddMemcardDevice()" },
+			{ 0xB00, "void* alloc_kernel_memory(size=UINT,)" },
+			{ 0xC00, "void EnqueueTimerAndVBlankIrqs(priority=UINT,)" },
+			{ 0xC01, "void EnqueueSyscallHandler(priority=UINT,)" },
+			{ 0xC0C, "void InitDefInt(priority=UINT,)" },
+			{ 0xB09, "void CloseEvent(event=UINT,)" },
+			{ 0xAA3, "void DequeueCdIntr()" },
+			{ 0xC03, "void SysDeqIntRP(priority=UINT,struc=VOID_PTR,)" },
+			{ 0xB08, "uint OpenEvent(class=EVENT_CLASS,spec=UINT,mode=EVENT_MODE,func=VOID_PTR,)" },
+			{ 0xB0C, "void EnableEvent(event=UINT,)" },
+			{ 0xB19, "void HookEntryInt(addr=VOID_PTR,)" },
+			{ 0xC0A, "void ChangeClearRCnt(timer=UINT,flag=UINT,)" },
+			{ 0xA49, "void GPU_cw(cmd=UINT,)" },
+			{ 0xB17, "[noreturn] ReturnFromException()" },
+			{ 0xA33, "void* malloc(size=UINT,)" },
+			{ 0xC02, "void SysEnqIntRP(priority=UINT,struc=VOID_PTR,)" },
+			{ 0xB0B, "bool TestEvent(event=UINT,)" },
+			{ 0xA2F, "uint rand()" },
+			{ 0xB07, "void DeliverEvent(class=EVENT_CLASS,spec=UINT,)" },
+			{ 0xB13, "void StartPAD2()" },
+			{ 0xB12, "void InitPAD2(buf1=VOID_PTR,size1=UINT,buf2=VOID_PTR,size2=UINT,)" },
+			{ 0xB4E, "void _card_write(port=UINT,sector=UINT,src=VOID_PTR,)" },
+			{ 0xB4F, "void _card_read(port=UINT,sector=UINT,dst=VOID_PTR,)" },
+			{ 0xB5C, "mc_status _card_status(port=UINT,)" },
+			{ 0xB5D, "mc_status _card_wait(port=UINT,)" }
+		};
 
-		the_table.insert(std::pair{ 0xA00, 
-			std::pair{ "open", ParamList{
-				std::pair{ "filename", SyscallParamType::CHAR_PTR },
-				std::pair{ "accessmode", SyscallParamType::ACCESS_MODE }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB32,
-			std::pair{ "open", ParamList{
-				std::pair{ "filename", SyscallParamType::CHAR_PTR },
-				std::pair{ "accessmode", SyscallParamType::ACCESS_MODE }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA01,
-			std::pair{ "lseek", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "offset", SyscallParamType::INT },
-				std::pair{ "seektype", SyscallParamType::SEEK_MODE }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB33,
-			std::pair{ "lseek", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "offset", SyscallParamType::INT },
-				std::pair{ "seektype", SyscallParamType::SEEK_MODE }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA02,
-			std::pair{ "read", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "dst", SyscallParamType::VOID_PTR },
-				std::pair{ "len", SyscallParamType::UINT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB34,
-			std::pair{ "read", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "dst", SyscallParamType::VOID_PTR },
-				std::pair{ "len", SyscallParamType::UINT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA03,
-			std::pair{ "write", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "src", SyscallParamType::VOID_PTR },
-				std::pair{ "len", SyscallParamType::UINT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB35,
-			std::pair{ "write", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "src", SyscallParamType::VOID_PTR },
-				std::pair{ "len", SyscallParamType::UINT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA04,
-			std::pair{ "close", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB36,
-			std::pair{ "close", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA05,
-			std::pair{ "ioctl", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "cmd", SyscallParamType::INT },
-				std::pair{ "arg", SyscallParamType::INT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB37,
-			std::pair{ "ioctl", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-				std::pair{ "cmd", SyscallParamType::INT },
-				std::pair{ "arg", SyscallParamType::INT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA06,
-			std::pair{ "exit", ParamList{
-				std::pair{ "exitcode", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB38,
-			std::pair{ "exit", ParamList{
-				std::pair{ "exitcode", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA07,
-			std::pair{ "isatty", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB39,
-			std::pair{ "isatty", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA08,
-			std::pair{ "getc", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB3A,
-			std::pair{ "getc", ParamList{
-				std::pair{ "fd", SyscallParamType::INT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA09,
-			std::pair{ "putch", ParamList{
-				std::pair{ "char", SyscallParamType::CHAR },
-				std::pair{ "fd", SyscallParamType::INT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB3B,
-			std::pair{ "putch", ParamList{
-				std::pair{ "char", SyscallParamType::CHAR },
-				std::pair{ "fd", SyscallParamType::INT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA39,
-			std::pair{ "InitHeap", ParamList{
-				std::pair{ "addr", SyscallParamType::VOID_PTR },
-				std::pair{ "size", SyscallParamType::UINT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA3B,
-			std::pair{ "getchar", ParamList{
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB3C,
-			std::pair{ "getchar", ParamList{
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA3C,
-			std::pair{ "putchar", ParamList{
-				std::pair{ "char", SyscallParamType::CHAR }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB3D,
-			std::pair{ "putchar", ParamList{
-				std::pair{ "char", SyscallParamType::CHAR }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC08,
-			std::pair{ "SysInitMemory", ParamList{
-				std::pair{ "addr", SyscallParamType::VOID_PTR },
-				std::pair{ "size", SyscallParamType::UINT }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA3F,
-			std::pair{ "printf", ParamList{
-				std::pair{ "str", SyscallParamType::CHAR_PTR },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC1C,
-			std::pair{ "AdjustA0Table", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xC07,
-			std::pair{ "InstallExceptionHandlers", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xA44,
-			std::pair{ "FlushCache", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xB18,
-			std::pair{ "ResetEntryInt", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xC12,
-			std::pair{ "InstallDevices", ParamList{
-				std::pair{ "ttyflag", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA99,
-			std::pair{ "add_nullcon_driver", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xB47,
-			std::pair{ "AddDrv", ParamList{
-				std::pair{ "dev_info", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA96,
-			std::pair{ "AddCDROMDevice", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xA97,
-			std::pair{ "AddMemcardDevice", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xB00,
-			std::pair{ "alloc_kernel_memory", ParamList{
-				std::pair{ "size", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC00,
-			std::pair{ "EnqueueTimerAndBlankIrqs", ParamList{
-				std::pair{ "priority", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC01,
-			std::pair{ "EnqueueSyscallHandler", ParamList{
-				std::pair{ "priority", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC0C,
-			std::pair{ "InitDefInt", ParamList{
-				std::pair{ "priority", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB09,
-			std::pair{ "CloseEvent", ParamList{
-				std::pair{ "event", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xAA3,
-			std::pair{ "DequeueCdIntr", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xC03,
-			std::pair{ "SysDeqIntRP", ParamList{
-				std::pair{ "priority", SyscallParamType::UINT },
-				std::pair{ "struc", SyscallParamType::VOID_PTR }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB08,
-			std::pair{ "OpenEvent", ParamList{
-				std::pair{ "class", SyscallParamType::EVENT_CLASS },
-				std::pair{ "spec", SyscallParamType::UINT },
-				std::pair{ "mode", SyscallParamType::EVENT_MODE },
-				std::pair{ "func", SyscallParamType::VOID_PTR },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB0C,
-			std::pair{ "EnableEvent", ParamList{
-				std::pair{ "event", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB19,
-			std::pair{ "HookEntryInt", ParamList{
-				std::pair{ "addr", SyscallParamType::VOID_PTR },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC0A,
-			std::pair{ "ChangeClearRCnt", ParamList{
-				std::pair{ "timer", SyscallParamType::UINT },
-				std::pair{ "flag", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xA49,
-			std::pair{ "GPU_cw", ParamList{
-				std::pair{ "cmd", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB17,
-			std::pair{ "ReturnFromException", ParamList{} }
-		});
-
-		the_table.insert(std::pair{ 0xA33,
-			std::pair{ "malloc", ParamList{
-				std::pair{ "size", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xC02,
-			std::pair{ "SysEnqIntRP", ParamList{
-				std::pair{ "priority", SyscallParamType::UINT },
-				std::pair{ "struc", SyscallParamType::VOID_PTR }
-			} }
-		});
-
-		the_table.insert(std::pair{ 0xB0B,
-			std::pair{ "TestEvent", ParamList{
-				std::pair{ "event", SyscallParamType::UINT },
-			} }
-		});
-
-		the_table.insert(
-			std::pair{ 0xA2F, 
-				std::pair{ "rand", ParamList{} }
-			}
-		);
-
-		the_table.insert(
-			std::pair{ 0xB07, std::pair{
-				"DeliverEvent",
-				ParamList{
-					std::pair{ "class", SyscallParamType::EVENT_CLASS },
-					std::pair{ "spec", SyscallParamType::UINT }
-				}
-			} }
-		);
-
-		the_table.insert(
-			std::pair{ 0xB13, std::pair{
-				"StartPAD2",
-				ParamList{}
-			} }
-		);
-
-		the_table.insert(
-			std::pair{ 0xB12, std::pair{
-				"InitPAD2",
-				ParamList{
-					std::pair{ "buf1", SyscallParamType::VOID_PTR },
-					std::pair{ "size1", SyscallParamType::UINT },
-					std::pair{ "buf2", SyscallParamType::VOID_PTR },
-					std::pair{ "size2", SyscallParamType::UINT }
-				}
-			} }
-		);
-
-		the_table.insert(
-			std::pair{ 0xB4E, std::pair{
-				"_card_write",
-				ParamList{
-					std::pair{ "port", SyscallParamType::UINT },
-					std::pair{ "sector", SyscallParamType::UINT },
-					std::pair{ "src", SyscallParamType::VOID_PTR }
-				}
-			} }
-		);
-
-		the_table.insert(
-			std::pair{ 0xB4F, std::pair{
-				"_card_read",
-				ParamList{
-					std::pair{ "port", SyscallParamType::UINT },
-					std::pair{ "sector", SyscallParamType::UINT },
-					std::pair{ "dst", SyscallParamType::VOID_PTR }
-				}
-			} }
-		);
-
-		the_table.insert(
-			std::pair{ 0xB5C, std::pair{
-				"_card_status",
-				ParamList{
-					std::pair{ "port", SyscallParamType::UINT }
-				}
-			} }
-		);
-
-		the_table.insert(
-			std::pair{ 0xB5D, std::pair{
-				"_card_wait",
-				ParamList{
-					std::pair{ "port", SyscallParamType::UINT }
-				}
-			} }
-		);
+		for (auto const& [id, syscall] : syscalls) {
+			InsertSyscall(id, syscall, the_table);
+		}
 
 		return the_table;
 	}
@@ -517,9 +256,9 @@ namespace psx {
 				out << "WRITE|";
 
 			if ((param_value >> 9) & 1)
-				out << "OPEN_EXISTING|";
-			else
 				out << "CREATE|";
+			else
+				out << "OPEN_EXISTING|";
 
 			if ((param_value >> 15) & 1)
 				out << "ASYNC";
@@ -593,6 +332,10 @@ namespace psx {
 				case 0xF0000010:
 					out << "CPU_EXCEPTION";
 					break;
+				case 0xF0000011:
+				case 0xF4000001:
+					out << "MEMORY_CARD";
+					break;
 				case 0xF2000000:
 					out << "ROOT_COUNTER0";
 					break;
@@ -611,6 +354,9 @@ namespace psx {
 				}
 			}
 		}
+		break;
+		case SyscallParamType::BOOL:
+			out << (param_value ? "true" : "false");
 		break;
 		default:
 			break;

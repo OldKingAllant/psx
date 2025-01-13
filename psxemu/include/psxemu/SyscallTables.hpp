@@ -19,7 +19,8 @@ namespace psx {
 		ACCESS_MODE,
 		SEEK_MODE,
 		EVENT_CLASS, 
-		EVENT_MODE
+		EVENT_MODE,
+		BOOL
 	};
 
 	using SyscallParam = std::pair<std::string, SyscallParamType>;

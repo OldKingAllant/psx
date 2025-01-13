@@ -60,6 +60,7 @@ namespace psx {
 		void Command_GetStat();
 		void Command_GetID();
 		void Command_Setmode();
+		void Command_Stop();
 
 		///////////
 
