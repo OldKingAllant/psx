@@ -48,10 +48,10 @@ namespace psx::input {
 	}
 
 	void KeyboardManager::SetKeyMap(std::unordered_map<std::string, std::string> const& new_keys) {
-		if (new_keys.size() != m_key_map.size()) {
+		/*if (new_keys.size() != m_key_map.size()) {
 			fmt::println("[INPUT] Button map should contain all buttons");
 			return;
-		}
+		}*/
 
 		m_key_map = new_keys;
 	}

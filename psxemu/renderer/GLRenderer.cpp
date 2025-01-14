@@ -357,12 +357,6 @@ namespace psx::video {
 		m_blit_shader.BindProgram();
 
 		m_blit_shader.UpdateUniform("mask_enable", mask_enable);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
-		glActiveTexture(GL_TEXTURE0);
 	}
 
 	void Renderer::CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h) {
@@ -377,6 +371,11 @@ namespace psx::video {
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
+
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
+		glActiveTexture(GL_TEXTURE0);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 

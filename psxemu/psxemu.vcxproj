@@ -187,6 +187,7 @@
     <ClInclude Include="include\psxemu\SyscallTables.hpp" />
     <ClInclude Include="include\psxemu\System.hpp" />
     <ClInclude Include="include\psxemu\SystemBus.hpp" />
+    <ClInclude Include="include\psxemu\SystemConf.hpp" />
     <ClInclude Include="include\psxemu\SystemStatus.hpp" />
     <ClInclude Include="input\IInputManager.hpp" />
     <ClInclude Include="input\KeyboardManager.hpp" />

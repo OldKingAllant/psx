@@ -20,7 +20,7 @@ namespace psx::input {
 		void Deliver(std::any status) override;
 		void AttachController(AbstractController* controller) override;
 
-		void SetKeyMap(std::unordered_map<std::string, std::string> const& new_keys);
+		void SetKeyMap(std::unordered_map<std::string, std::string> const& new_keys) override;
 
 		~KeyboardManager() override;
 

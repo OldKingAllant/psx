@@ -294,6 +294,9 @@
     <ClInclude Include="include\psxemu\NullMemcard.hpp">
       <Filter>Header Files\dev\sio\memcard</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\SystemConf.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">

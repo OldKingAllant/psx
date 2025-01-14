@@ -14,10 +14,9 @@
 #include <psxemu/input/KeyboardManager.hpp>
 
 #include <usage/imgui_debug/DebugView.hpp>
+#include <usage/config/ConfigLoader.hpp>
 
-int main(int argc, char* argv[]) {
-	psx::video::SdlInit();
-
+std::string GetRenderdocPath() {
 	char* buf{ nullptr };
 	size_t len{ 0 };
 	auto err = _dupenv_s(&buf, &len, "PROGRAMFILES");
@@ -33,19 +32,32 @@ int main(int argc, char* argv[]) {
 	std::string prog_files{ buf, len };
 	free(buf);
 	std::cout << "Program files path : " << prog_files << std::endl;
-	std::string possible_renderdoc_path{ prog_files + "/RenderDoc/" };
+	return prog_files + "/RenderDoc/";
+}
 
-	psx::video::Renderdoc renderdoc{ possible_renderdoc_path };
+int main(int argc, char* argv[]) {
+	psx::video::SdlInit();
+
+	config::Config config_loader{};
+	config_loader.LoadFromFile("../config/emu_conf.txt");
+	auto config = config_loader.GetSystemConfig();
 
 	using OverlayOpts = psx::video::RenderDocOverlayOptions;
 	using CaptureOpts = psx::video::CaptureOpts;
 
-	renderdoc.Load();
-	renderdoc.SetCaptureOption(CaptureOpts::API_VALIDATION, 1);
-	renderdoc.SetCaptureOption(CaptureOpts::REDIRECT_DEBUG_OUT, 0);
-	renderdoc.SetCaptureOption(CaptureOpts::VERIFY_BUFF_ACCESS, 1);
-	renderdoc.SetCaptureOption(CaptureOpts::REF_ALL_RES, 1);
-	renderdoc.SetCaptureOption(CaptureOpts::CAPTURE_CALLSTACKS, 1);
+	std::unique_ptr<psx::video::Renderdoc> renderdoc{};
+
+	if (config->load_renderdoc) {
+		auto possible_renderdoc_path = GetRenderdocPath();
+		renderdoc.reset(new psx::video::Renderdoc{ possible_renderdoc_path });
+
+		renderdoc->Load();
+		renderdoc->SetCaptureOption(CaptureOpts::API_VALIDATION, 1);
+		renderdoc->SetCaptureOption(CaptureOpts::REDIRECT_DEBUG_OUT, 0);
+		renderdoc->SetCaptureOption(CaptureOpts::VERIFY_BUFF_ACCESS, 1);
+		renderdoc->SetCaptureOption(CaptureOpts::REF_ALL_RES, 1);
+		renderdoc->SetCaptureOption(CaptureOpts::CAPTURE_CALLSTACKS, 1);
+	}
 
 	psx::video::SdlWindow vram_view("Vram",
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
@@ -55,7 +67,8 @@ int main(int argc, char* argv[]) {
 		psx::video::Rect{ .w = 640, .h = 480 },
 		"../shaders", "display_blit", true, true, true);
 
-	renderdoc.SetCurrentWindow(vram_view.GetNativeWindowHandle());
+	if(renderdoc)
+		renderdoc->SetCurrentWindow(vram_view.GetNativeWindowHandle());
 
 	using SdlEvent = psx::video::SdlEvent;
 
@@ -66,19 +79,22 @@ int main(int argc, char* argv[]) {
 	vram_view.Listen(SdlEvent::KeyPressed, [&renderdoc, &ov_enable, &vram_view](SdlEvent ev_type, std::any data) {
 		auto key_name = std::any_cast<std::string_view>(data);
 		
-		if (key_name == "C")
-			renderdoc.PrepareCapture();
-		else if (key_name == "O") {
-			ov_enable = !ov_enable;
+		if (renderdoc) {
+			if (key_name == "C")
+				renderdoc->PrepareCapture();
+			else if (key_name == "O") {
+				ov_enable = !ov_enable;
 
-			fmt::println("Renderdoc overlay enable : {}", ov_enable);
+				fmt::println("Renderdoc overlay enable : {}", ov_enable);
 
-			if(!ov_enable)
-				renderdoc.SetOverlayOptions(OverlayOpts::DISABLE);
-			else 
-				renderdoc.SetOverlayOptions(OverlayOpts::ENABLE | OverlayOpts::FRAMERATE | OverlayOpts::CAPTURES);
+				if (!ov_enable)
+					renderdoc->SetOverlayOptions(OverlayOpts::DISABLE);
+				else
+					renderdoc->SetOverlayOptions(OverlayOpts::ENABLE | OverlayOpts::FRAMERATE | OverlayOpts::CAPTURES);
+			}
 		}
-		else if (key_name == "R") {
+
+		if (key_name == "R") {
 			vram_view.SetSize(psx::video::Rect{.w = 1024, .h = 512});
 		}
 	});
@@ -108,52 +124,60 @@ int main(int argc, char* argv[]) {
 	wm.AddWindow(&vram_view);
 	wm.AddWindow(&display);
 
-	tty::TTY_Console console{ "../x64/Release/TTY_Console.exe", "psx-tty" };
+	std::unique_ptr<tty::TTY_Console> console{};
 
-	console.Open();
+	if (config->show_tty) {
+		console.reset(new tty::TTY_Console{ config->tty_program, "psx-tty" });
+		console->Open();
+	}
 
-	psx::System sys{};
-
-	sys.LoadBios(std::string("../programs/SCPH1001.BIN"));
-	sys.ResetVector();
-	sys.ToggleBreakpoints(true);
-	sys.SetHleEnable(true);
-	sys.SetEnableKernelCallstack(true);
+	psx::System sys{config};
 
 	psx::kernel::Kernel& kernel = sys.GetKernel();
 
-	kernel.SetHooksEnable(true);
 	kernel
 		.InsertEnterHook(std::string("putchar"),
 			[&console, &sys](psx::u32 pc, psx::u32 id) {
 				psx::u32 ch = sys.GetCPU().GetRegs().a0;
-				console.Putchar((char)ch);
+				if(console) console->Putchar((char)ch);
 			});
 
-	sys.GetStatus()
-		.sysbus->GetGPU()
-		.GetRenderer()->SetRenderdocAPI(&renderdoc);
-
+	if (renderdoc) {
+		sys.GetStatus()
+			.sysbus->GetGPU()
+			.GetRenderer()->SetRenderdocAPI(renderdoc.get());
+	}
+	
 	auto controller = dynamic_cast<psx::SIOPadCardDriver*>(
 		sys.GetStatus().sysbus->GetSIO0()
 		.GetDevice1()
 	)->GetController();
 
-	input_manager->AttachController(controller);
+	if (config->controller_1_connected) {
+		input_manager->AttachController(controller);
+	}
 
-	sys.ConnectCard(0, "../memcards/mc1.mc");
+	if (!config->controller_1_map.empty()) {
+		input_manager->SetKeyMap(config->controller_1_map);
+	}
 
 	//sys.LoadExe(std::string("../programs/amidogs/psxtest_cpu.psxexe"), std::nullopt);
 
-	DebugView debug_view{ std::make_shared<psx::video::SdlWindow>(
-		std::string("Debug view"), psx::video::Rect{ .w = 1200, .h = 800 }, 
-		true, true
-	), &sys };
+	std::unique_ptr<DebugView> debug_view{};
 
-	wm.AddWindow(debug_view.GetRawWindow());
-	wm.SetWindowAsUnfiltered(debug_view.GetRawWindow());
+	if (config->show_debug_win) {
+		auto internal_window = std::make_shared<psx::video::SdlWindow>(
+			std::string("Debug view"), psx::video::Rect{ .w = 1200, .h = 800 },
+			true, true
+		);
 
-	psx::gdbstub::Server server(5000, &sys);
+		debug_view.reset(new DebugView{internal_window , &sys});
+
+		wm.AddWindow(debug_view->GetRawWindow());
+		wm.SetWindowAsUnfiltered(debug_view->GetRawWindow());
+	}
+
+	psx::gdbstub::Server server(config->gdb_stub_port, &sys);
 
 	(void)server.SetTraceHandler([](std::string_view packet, bool inout) {
 		if (inout) //Sending
@@ -171,13 +195,15 @@ int main(int argc, char* argv[]) {
 
 	while (server.HandlePackets() && wm.HandleEvents())
 	{
-		if (vram_view.CloseRequest() || display.CloseRequest() || debug_view.CloseRequest()) break;
+		bool debug_view_close_request = debug_view ? debug_view->CloseRequest() : false;
+
+		if (vram_view.CloseRequest() || display.CloseRequest() || debug_view_close_request) break;
 
 		if (!sys.Stopped()) {
 			display.MakeContextCurrent();
-			renderdoc.StartCapture();
+			if(renderdoc) renderdoc->StartCapture();
 			bool break_hit = sys.RunInterpreterUntilBreakpoint();
-			renderdoc.EndCapture();
+			if(renderdoc) renderdoc->EndCapture();
 
 			if (break_hit || sys.Stopped()) {
 				sys.SetStopped(true);
@@ -213,12 +239,15 @@ int main(int argc, char* argv[]) {
 		}
 
 		display.Present();
-		debug_view.Update();
+
+		if (debug_view) {
+			debug_view->Update();
+		}
+		
 	}
 
 	server.Shutdown();
-
-	console.Close();
+	if(console) console->Close();
 
 	psx::video::SdlShutdown();
 } 

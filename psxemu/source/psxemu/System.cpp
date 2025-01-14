@@ -15,12 +15,12 @@
 #include <fmt/format.h>
 
 namespace psx {
-	System::System() :
+	System::System(std::shared_ptr<SystemConf> config) :
 		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}, m_hbreaks{}, m_break_enable{false},
 		m_hle_enable{ false }, m_kernel_callstack_enable{false},
 		m_stopped {true}, m_kernel{&m_status},
-		m_silenced_syscalls{}
+		m_silenced_syscalls{}, m_sys_conf{config}
 	{
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
@@ -56,25 +56,8 @@ namespace psx {
 		);
 
 		SilenceSyscallsDefault();
-
-		auto make_driver = [](std::unique_ptr<AbstractController> controller,
-			std::unique_ptr<AbstractMemcard> card) {
-			std::unique_ptr<SIOAbstractDevice> driver{ std::make_unique<SIOPadCardDriver>()};
-			dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectController(std::move(controller));
-			dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectCard(std::move(card));
-			return driver;
-		};
-
-		m_sysbus.GetSIO0()
-			.Port1Connect(make_driver(
-				std::make_unique<StandardController>(),
-				std::make_unique<NullMemcard>()
-			));
-		m_sysbus.GetSIO0()
-			.Port2Connect(make_driver(
-				std::make_unique<NullController>(),
-				std::make_unique<NullMemcard>()
-			));
+		FollowConfig();
+		ResetVector();
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {
@@ -97,6 +80,10 @@ namespace psx {
 
 		fmt::println("[SYSTEM] Loading {}", path);
 		fmt::println("         Hooking EnqueueTimerAndBlankIrqs()");
+
+		//Temporarely enable hooks
+		bool old_enable = m_kernel.HooksEnabled();
+		m_kernel.SetHooksEnable(true);
 		
 		bool hook_flag = false;
 		auto hook = m_kernel.InsertExitHook(0xc00, [this, &hook_flag](psx::u32, psx::u32) {
@@ -110,6 +97,7 @@ namespace psx {
 		}
 
 		m_kernel.RemoveExitHook(hook);
+		m_kernel.SetHooksEnable(old_enable);
 
 		u8* buf = new u8[size];
 
@@ -272,15 +260,14 @@ namespace psx {
 	}
 
 	void System::SilenceSyscallsDefault() {
-		auto rand_ids = GetSyscallIdsByName("rand");
+		std::array list = { "rand", "TestEvent" };
 
-		for (u32 id : rand_ids)
-			m_silenced_syscalls.insert(id);
+		for (auto const& name : list) {
+			auto ids = GetSyscallIdsByName(name);
 
-		auto test_event_ids = GetSyscallIdsByName("TestEvent");
-
-		for (u32 id : test_event_ids)
-			m_silenced_syscalls.insert(id);
+			for (u32 id : ids)
+				m_silenced_syscalls.insert(id);
+		}
 	}
 
 	void System::ConnectCard(u32 slot, std::string const& path) {
@@ -351,5 +338,85 @@ namespace psx {
 		}
 
 		fmt::println("[SYSTEM] Successfully inserted MC in slot {}", slot);
+	}
+
+	void System::ConnectController(u32 slot, std::string const& type) {
+		if (slot != 0 && slot != 1) {
+			fmt::println("[SYSTEM] Invalid controller slot {}", slot);
+			return;
+		}
+
+		std::unordered_map<std::string, ControllerType> type_map = {
+			{ "NONE", ControllerType::NONE },
+			{ "STANDARD", ControllerType::STANDARD }
+		};
+
+		if (!type_map.contains(type)) {
+			fmt::println("[SYSTEM] Invalid controller type {}", type);
+			return;
+		}
+
+		auto controller_type = type_map[type];
+
+		std::unique_ptr<AbstractController> controller{ std::make_unique<NullController>() };
+
+		switch (controller_type)
+		{
+		case ControllerType::NONE: {
+			decltype(controller) new_controller = std::make_unique<NullController>();
+			controller.swap(new_controller);
+		}
+			break;
+		case ControllerType::STANDARD: {
+			decltype(controller) new_controller = std::make_unique<StandardController>();
+			controller.swap(new_controller);
+		}
+			break;
+		default:
+			break;
+		}
+
+		if (slot == 0) {
+			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
+				.GetDevice1())->ConnectController(std::move(controller));
+		}
+		else {
+			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
+				.GetDevice2())->ConnectController(std::move(controller));
+		}
+	}
+
+	void System::FollowConfig() {
+		auto make_driver = [](std::unique_ptr<AbstractController> controller,
+			std::unique_ptr<AbstractMemcard> card) {
+				std::unique_ptr<SIOAbstractDevice> driver{ std::make_unique<SIOPadCardDriver>() };
+				dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectController(std::move(controller));
+				dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectCard(std::move(card));
+				return driver;
+			};
+
+		m_sysbus.GetSIO0()
+			.Port1Connect(make_driver(
+				std::make_unique<NullController>(),
+				std::make_unique<NullMemcard>()
+			));
+		m_sysbus.GetSIO0()
+			.Port2Connect(make_driver(
+				std::make_unique<NullController>(),
+				std::make_unique<NullMemcard>()
+			));
+
+		LoadBios(m_sys_conf->bios_path);
+
+		if (m_sys_conf->mc_1_connected) ConnectCard(0, m_sys_conf->mc_1_file);
+		if (m_sys_conf->mc_2_connected) ConnectCard(1, m_sys_conf->mc_2_file);
+
+		if (m_sys_conf->controller_1_connected) ConnectController(0, m_sys_conf->controller_1_type);
+		if (m_sys_conf->controller_2_connected) ConnectController(1, m_sys_conf->controller_2_type);
+
+		ToggleBreakpoints(m_sys_conf->advanced_conf.enable_breakpoints);
+		SetHleEnable(m_sys_conf->advanced_conf.enable_hle);
+		SetEnableKernelCallstack(m_sys_conf->advanced_conf.enable_kernel_callstack);
+		m_kernel.SetHooksEnable(m_sys_conf->advanced_conf.enable_syscall_hooks);
 	}
 }

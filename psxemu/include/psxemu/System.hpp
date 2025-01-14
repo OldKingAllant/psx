@@ -4,6 +4,7 @@
 #include "SystemBus.hpp"
 #include "SystemStatus.hpp"
 #include "Kernel.hpp"
+#include "SystemConf.hpp"
 
 #include <string>
 #include <span>
@@ -11,12 +12,13 @@
 #include <vector>
 #include <set>
 #include <functional>
+#include <memory>
 
 namespace psx {
 
 	class System {
 	public :
-		System();
+		System(std::shared_ptr<SystemConf> config);
 
 		FORCE_INLINE cpu::MIPS1& GetCPU() { return m_cpu; }
 		FORCE_INLINE system_status& GetStatus() { return m_status; }
@@ -125,10 +127,18 @@ namespace psx {
 		/// <param name="path">path to the memory card, creates the file if not exists</param>
 		void ConnectCard(u32 slot, std::string const& path);
 
+		/// <summary>
+		/// Connects a controller to the selected slot
+		/// </summary>
+		/// <param name="slot">0 or 1, in which slot the controller should be inserted</param>
+		/// <param name="type">Controller type</param>
+		void ConnectController(u32 slot, std::string const& type);
+
 	private :
 		void InterpreterSingleStep();
-
 		void SilenceSyscallsDefault();
+
+		void FollowConfig();
 
 	private :
 		cpu::MIPS1 m_cpu;
@@ -143,5 +153,7 @@ namespace psx {
 
 		kernel::Kernel m_kernel;
 		std::set<u32> m_silenced_syscalls;
+
+		std::shared_ptr<SystemConf> m_sys_conf;
 	};
 }
