@@ -9,6 +9,8 @@
 #include <psxemu/include/psxemu/NullMemcard.hpp>
 #include <psxemu/include/psxemu/OfficialMemcard.hpp>
 
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <filesystem>
 #include <fstream>
 
@@ -34,7 +36,9 @@ namespace psx {
 				u32 r9 = m_cpu.GetRegs().array[9];
 				u32 function_id = (address << 4) | r9;
 
-				if(!m_silenced_syscalls.contains(function_id))
+				bool enable_syscall_log = m_sys_conf->advanced_conf.log_conf.log_syscalls;
+
+				if(!m_silenced_syscalls.contains(function_id) && enable_syscall_log)
 					LogSyscall(function_id, SyscallLogMode::PARAMETERS, &m_status);
 
 				return m_kernel.Syscall(m_cpu.GetRegs().ra - 0x8, function_id);
@@ -55,7 +59,6 @@ namespace psx {
 			memory::region_offsets::PSX_BIOS_OFFSET
 		);
 
-		SilenceSyscallsDefault();
 		FollowConfig();
 		ResetVector();
 	}
@@ -179,12 +182,9 @@ namespace psx {
 
 		delete[] buf;
 
-		fmt::println("Kernel BCD date : {}",
-			m_kernel.DumpKernelBcdDate());
-		fmt::println("Kernel Maker : {}",
-			m_kernel.DumpKernelMaker());
-		fmt::println("Kernel version : {}",
-			m_kernel.DumpKernelVersion());
+		LOG_DEBUG("SYSTEM", "Kernel BCD date : {}", m_kernel.DumpKernelBcdDate());
+		LOG_DEBUG("SYSTEM", "Kernel Maker    : {}", m_kernel.DumpKernelMaker());
+		LOG_DEBUG("SYSTEM", "Kernel version  : {}", m_kernel.DumpKernelVersion());
 	}
 
 	void System::InterpreterSingleStep() {
@@ -255,14 +255,18 @@ namespace psx {
 	}
 
 	void System::SetSyscallSilent(u32 syscall_num, bool silent) {
-		if (m_silenced_syscalls.contains(syscall_num) && silent)
+		bool contains_syscall = m_silenced_syscalls.contains(syscall_num);
+
+		if (contains_syscall && !silent)
 			m_silenced_syscalls.erase(syscall_num);
+		else if (!contains_syscall && silent)
+			m_silenced_syscalls.insert(syscall_num);
 	}
 
 	void System::SilenceSyscallsDefault() {
-		std::array list = { "rand", "TestEvent" };
+		auto const& silence_list = m_sys_conf->advanced_conf.log_conf.silence_syscalls;
 
-		for (auto const& name : list) {
+		for (auto const& name : silence_list) {
 			auto ids = GetSyscallIdsByName(name);
 
 			for (u32 id : ids)
@@ -387,6 +391,9 @@ namespace psx {
 	}
 
 	void System::FollowConfig() {
+		logger::Logger::get().set_config(m_sys_conf->advanced_conf.log_conf);
+		logger::Logger::get().start();
+
 		auto make_driver = [](std::unique_ptr<AbstractController> controller,
 			std::unique_ptr<AbstractMemcard> card) {
 				std::unique_ptr<SIOAbstractDevice> driver{ std::make_unique<SIOPadCardDriver>() };
@@ -418,5 +425,11 @@ namespace psx {
 		SetHleEnable(m_sys_conf->advanced_conf.enable_hle);
 		SetEnableKernelCallstack(m_sys_conf->advanced_conf.enable_kernel_callstack);
 		m_kernel.SetHooksEnable(m_sys_conf->advanced_conf.enable_syscall_hooks);
+
+		SilenceSyscallsDefault();
+	}
+
+	System::~System() {
+		logger::Logger::get().stop();
 	}
 }

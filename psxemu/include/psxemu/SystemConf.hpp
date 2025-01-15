@@ -1,6 +1,7 @@
 #pragma once
 
 #include <common/Defs.hpp>
+#include "LoggerConfig.hpp"
 
 #include <unordered_map>
 #include <string>
@@ -8,13 +9,43 @@
 #include <thirdparty/json/single_include/nlohmann/json.hpp>
 
 namespace psx {
+	namespace logger {
+		NLOHMANN_JSON_SERIALIZE_ENUM(
+			LogLevel,
+			{
+				{LogLevel::_ERROR, "ERROR"},
+				{LogLevel::WARN, "WARN"},
+				{LogLevel::INFO, "INFO"},
+				{LogLevel::_DEBUG, "DEBUG"}
+			}
+		)
+
+		NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+			LoggerConfig,
+			file_path,
+			enable,
+			log_to_file,
+			log_to_console,
+			enable_yield,
+			log_level,
+			filters,
+			log_syscalls,
+			silence_syscalls
+		)
+	}
+
+	using logger::from_json;
+	using logger::to_json;
+
 	struct SystemConfAdvanced {
 		bool enable_breakpoints = true;
 		bool enable_hle = true;
 		bool enable_kernel_callstack = true;
 		bool enable_syscall_hooks = true;
+		logger::LoggerConfig log_conf = {};
 
 		NLOHMANN_DEFINE_TYPE_INTRUSIVE(SystemConfAdvanced,
+			log_conf,
 			enable_breakpoints,
 			enable_hle,
 			enable_kernel_callstack,

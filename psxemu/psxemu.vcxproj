@@ -109,9 +109,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -124,10 +125,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -168,6 +170,9 @@
     <ClInclude Include="include\psxemu\KernelFiles.hpp" />
     <ClInclude Include="include\psxemu\KernelStructures.hpp" />
     <ClInclude Include="include\psxemu\KernelThreads.hpp" />
+    <ClInclude Include="include\psxemu\Logger.hpp" />
+    <ClInclude Include="include\psxemu\LoggerConfig.hpp" />
+    <ClInclude Include="include\psxemu\LoggerMacros.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
     <ClInclude Include="include\psxemu\NullController.hpp" />
@@ -238,6 +243,7 @@
     <ClCompile Include="source\psxemu\Kernel.cpp" />
     <ClCompile Include="source\psxemu\KernelStrings.cpp" />
     <ClCompile Include="source\psxemu\KernelStructures.cpp" />
+    <ClCompile Include="source\psxemu\Logger.cpp" />
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\NullController.cpp" />

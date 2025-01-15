@@ -5,6 +5,7 @@
 #include "SystemStatus.hpp"
 #include "Kernel.hpp"
 #include "SystemConf.hpp"
+#include "Logger.hpp"
 
 #include <string>
 #include <span>
@@ -19,6 +20,8 @@ namespace psx {
 	class System {
 	public :
 		System(std::shared_ptr<SystemConf> config);
+
+		~System();
 
 		FORCE_INLINE cpu::MIPS1& GetCPU() { return m_cpu; }
 		FORCE_INLINE system_status& GetStatus() { return m_status; }
@@ -84,7 +87,7 @@ namespace psx {
 		/// <summary>
 		/// Enable or disable HLE BIOS emulation
 		/// </summary>
-		void SetHleEnable(bool enable) {
+		FORCE_INLINE void SetHleEnable(bool enable) {
 			m_hle_enable = enable;
 		}
 

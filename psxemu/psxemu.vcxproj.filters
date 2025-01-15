@@ -297,6 +297,15 @@
     <ClInclude Include="include\psxemu\SystemConf.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\Logger.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\LoggerMacros.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\LoggerConfig.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -448,6 +457,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\OfficialMemcard.cpp">
       <Filter>Resource Files\dev\sio\memcard</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\Logger.cpp">
+      <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

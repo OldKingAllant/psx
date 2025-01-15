@@ -74,7 +74,7 @@ namespace psx {
 	private :
 		u8 IDLE_ProcessByte(u8 value);
 		u8 READ_ProcessByte(u8 value);
-		__declspec(noinline) u8 WRITE_ProcessByte(u8 value);
+		u8 WRITE_ProcessByte(u8 value);
 		u8 GETID_ProcessByte(u8 value);
 
 		u8 ComputeSectorChecksum(u32 sector_num);
