@@ -8,7 +8,8 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 
-#include <iostream>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 namespace psx::gdbstub {
 	Server::Server(int16_t port, System* sys) :
@@ -264,7 +265,7 @@ namespace psx::gdbstub {
 	}
 
 	void Server::HandleUnkownCommand(std::string const& name, std::string const& data) {
-		std::cout << "Invalid/Unknown command encountered : " << name << std::endl;
+		LOG_WARN("GDBSTUB", "[GDBSTUB] Invalid/Unknown command encountered : {}", name);
 		
 		//The docs say that we should send 
 		//an empty response

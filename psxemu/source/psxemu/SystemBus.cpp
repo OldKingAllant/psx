@@ -5,6 +5,9 @@
 
 #include <fmt/format.h>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx {
 	SystemBus::SystemBus(system_status* sys_status) :
 		m_sys_status(sys_status),
@@ -44,17 +47,15 @@ namespace psx {
 
 		ComputeDelays(m_bios_config);
 
-#ifdef DEBUG
-		fmt::print("Guest base = 0x{:x}\n", std::bit_cast<u64>(m_guest_base));
-		fmt::print("BIOS Base = 0x{:x}, End = 0x{:x}, Size = {}\n", 
+		LOG_WARN("MEMORY", "[MEMORY] Guest base = 0x{:x}\n", std::bit_cast<u64>(m_guest_base));
+		LOG_WARN("MEMORY", "[MEMORY] BIOS Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
 			m_bios_config.base, m_bios_config.end, m_bios_config.end - m_bios_config.base);
-		fmt::print("EXP1 Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
+		LOG_WARN("MEMORY", "[MEMORY] EXP1 Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
 			m_exp1_config.base, m_exp1_config.end, m_exp1_config.base - m_exp1_config.end);
-		fmt::print("EXP2 Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
+		LOG_WARN("MEMORY", "[MEMORY] EXP2 Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
 			m_exp2_config.base, m_exp2_config.end, m_exp2_config.base - m_exp2_config.end);
-		fmt::print("EXP2 Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
+		LOG_WARN("MEMORY", "[MEMORY] EXP2 Base = 0x{:x}, End = 0x{:x}, Size = {}\n",
 			m_exp3_config.base, m_exp3_config.end, m_exp3_config.base - m_exp3_config.end);
-#endif // DEBUG
 	}
 
 	bool SystemBus::MapRam(u64 size_mb) {
@@ -334,24 +335,15 @@ namespace psx {
 	void SystemBus::InitMapRegions() {
 		constexpr u64 NORMAL_BIOS_SIZE = (u64)512 * 1024;
 
-#ifdef DEBUG
-		fmt::print("Mapping RAM to 8MB\n");
-#endif // DEBUG
 
-
+		LOG_WARN("MEMORY", "[MEMORY] Mapping RAM to 8MB\n");
 		// Map RAM first
 		THROW_IF_FALSE(SetRamMap(RamSize::_8MB1), std::exception("RAM map failed"));
 
-#ifdef DEBUG
-		fmt::print("Mapping SCRATCHPAD\n");
-#endif // DEBUG
-
+		LOG_WARN("MEMORY", "[MEMORY] Mapping SCRATCHPAD\n");
 		THROW_IF_FALSE(ScratchpadEnable(), std::exception("SCRATCHPAD map failed"));
 
-#ifdef DEBUG
-		fmt::print("Mapping BIOS to 512KB\n");
-#endif // DEBUG
-
+		LOG_WARN("MEMORY", "[MEMORY] Mapping BIOS to 512KB\n");
 		THROW_IF_FALSE(SetBiosMap(NORMAL_BIOS_SIZE, false), std::exception("BIOS map failed"));
 	}
 
@@ -429,7 +421,7 @@ namespace psx {
 
 	void SystemBus::ReconfigureBIOS(u32 new_config) {
 		if (m_bios_config.delay_size.raw == new_config) {
-			fmt::println("BIOS already configured with value 0x{:x}", new_config);
+			LOG_DEBUG("MEMORY", "[MEMORY] BIOS already configured with value 0x{:#x}", new_config);
 			return;
 		}
 
@@ -443,16 +435,17 @@ namespace psx {
 			(1 << m_bios_config.delay_size.size_shift);
 
 		if (!SetBiosMap(size, true))
-			fmt::println("Failed BIOS remapping with size 0x{:x}, better shut down the emulator...", size);
+			LOG_ERROR("MEMORY", "[MEMORY] Failed BIOS remapping with size 0x{:#x}, better shut down the emulator...", 
+				size);
 		else
-			fmt::print("BIOS reconfigured - Base = 0x{:x}, End = 0x{:x}, Size = {}, Read delay = {}, Write delay = {}\n",
+			LOG_WARN("MEMORY", "[MEMORY] BIOS reconfigured - Base = 0x{:#x}, End = 0x{:#x}, Size = {:#x}, Read delay = {}, Write delay = {}\n",
 				m_bios_config.base, m_bios_config.end, m_bios_config.end - m_bios_config.base, 
 				m_bios_config.read_nonseq, m_bios_config.write_nonseq);
 	}
 
 	void SystemBus::ReconfigureRAM(u32 ram_conf) {
 		if (ram_conf == m_ram_config) {
-			fmt::println("RAM already configured with value 0x{:x}", ram_conf);
+			LOG_DEBUG("MEMORY", "[MEMORY] RAM already configured with value 0x{:#x}", ram_conf);
 			return;
 		}
 
@@ -463,26 +456,26 @@ namespace psx {
 		ResetRamMap();
 
 		if (!SetRamMap((RamSize)new_size))
-			fmt::println("RAM reconfiguration failed, this is a fatal error");
+			LOG_ERROR("MEMORY", "[MEMORY] RAM reconfiguration failed, this is a fatal error");
 		else
-			fmt::println("RAM reconfigured with value 0x{:x}", ram_conf);
+			LOG_WARN("MEMORY", "[MEMORY] RAM reconfigured with value 0x{:#x}", ram_conf);
 	}
 
 	void SystemBus::WriteEXP1(u32 value, u32 address) {
-		fmt::println("EXP1 write at 0x{:x} = 0x{:x}", address, value);
+		LOG_DEBUG("MEMORY", "[MEMORY] EXP1 write at 0x{:#x} = 0x{:#x}", address, value);
 	}
 
 	void SystemBus::WriteEXP2(u32 value, u32 address) {
 		if (address == 0x41) {
-			fmt::println("[POST] Kernel trace 0x{:x}", value);
+			LOG_DEBUG("MEMORY", "[POST] Kernel trace 0x{:#x}", value);
 			return;
 		}
 
-		fmt::println("EXP2 write at 0x{:x} = 0x{:x}", address, value);
+		LOG_DEBUG("MEMORY", "[MEMORY] EXP2 write at 0x{:x} = 0x{:x}", address, value);
 	}
 
 	void SystemBus::WriteEXP3(u32 value, u32 address) {
-		fmt::println("EXP3 write at 0x{:x} = 0x{:x}", address, value);
+		LOG_DEBUG("MEMORY", "[MEMORY] EXP3 write at 0x{:#x} = 0x{:#x}", address, value);
 	}
 
 	u32 SystemBus::ReadEXP1(u32 address) {

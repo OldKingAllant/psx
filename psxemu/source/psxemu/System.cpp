@@ -17,7 +17,13 @@
 #include <fmt/format.h>
 
 namespace psx {
+	LoggerInit::LoggerInit(std::shared_ptr<SystemConf> const& config) {
+		logger::Logger::get().set_config(config->advanced_conf.log_conf);
+		logger::Logger::get().start();
+	}
+
 	System::System(std::shared_ptr<SystemConf> config) :
+		m_log_init{config},
 		m_cpu{&m_status}, m_sysbus{&m_status},
 		m_status{}, m_hbreaks{}, m_break_enable{false},
 		m_hle_enable{ false }, m_kernel_callstack_enable{false},
@@ -81,8 +87,8 @@ namespace psx {
 		if(size <= 0x800)
 			throw std::exception("Invalid executable!");
 
-		fmt::println("[SYSTEM] Loading {}", path);
-		fmt::println("         Hooking EnqueueTimerAndBlankIrqs()");
+		LOG_INFO("SYSTEM", "[SYSTEM] Loading {}", path);
+		LOG_INFO("SYSTEM", "         Hooking EnqueueTimerAndVblankIrqs()");
 
 		//Temporarely enable hooks
 		bool old_enable = m_kernel.HooksEnabled();
@@ -150,13 +156,13 @@ namespace psx {
 			m_sysbus.CopyRaw(data.data(), ARGS_DEST, (u32)data.size());
 		}
 
-		fmt::print("[SYSTEM] Successfully loaded executable\n");
-		fmt::print("         Destination in memory : 0x{:x}\n", dest);
-		fmt::print("         Program counter : 0x{:x}\n", pc);
-		fmt::print("         Global pointer : 0x{:x}\n", gp);
-		fmt::print("         Stack pointer : 0x{:x}\n", sp);
-		fmt::print("         Memfill start : 0x{:x}, Size : 0x{:x}\n", memfill_start, memfill_sz);
-		fmt::print("         Size : 0x{:x}\n", exe_size);
+		LOG_INFO("SYSTEM", "[SYSTEM] Successfully loaded executable\n");
+		LOG_INFO("SYSTEM", "         Destination in memory : 0x{:x}\n", dest);
+		LOG_INFO("SYSTEM", "         Program counter : 0x{:x}\n", pc);
+		LOG_INFO("SYSTEM", "         Global pointer : 0x{:x}\n", gp);
+		LOG_INFO("SYSTEM", "         Stack pointer : 0x{:x}\n", sp);
+		LOG_INFO("SYSTEM", "         Memfill start : 0x{:x}, Size : 0x{:x}\n", memfill_start, memfill_sz);
+		LOG_INFO("SYSTEM", "         Size : 0x{:x}\n", exe_size);
 	}
 
 	void System::LoadBios(std::string const& path) {
@@ -182,9 +188,9 @@ namespace psx {
 
 		delete[] buf;
 
-		LOG_DEBUG("SYSTEM", "Kernel BCD date : {}", m_kernel.DumpKernelBcdDate());
-		LOG_DEBUG("SYSTEM", "Kernel Maker    : {}", m_kernel.DumpKernelMaker());
-		LOG_DEBUG("SYSTEM", "Kernel version  : {}", m_kernel.DumpKernelVersion());
+		LOG_DEBUG("SYSTEM", "[SYSTEM] Kernel BCD date : {}", m_kernel.DumpKernelBcdDate());
+		LOG_DEBUG("SYSTEM", "[SYSTEM] Kernel Maker    : {}", m_kernel.DumpKernelMaker());
+		LOG_DEBUG("SYSTEM", "[SYSTEM] Kernel version  : {}", m_kernel.DumpKernelVersion());
 	}
 
 	void System::InterpreterSingleStep() {
@@ -229,7 +235,7 @@ namespace psx {
 	}
 
 	void System::ResetVector() {
-		fmt::println("Resetting system to the reset vector");
+		LOG_DEBUG("SYSTEM", "[SYSTEM] Resetting system to the reset vector");
 
 		m_cpu.GetPc() = cpu::RESET_VECTOR;
 	}
@@ -276,14 +282,14 @@ namespace psx {
 
 	void System::ConnectCard(u32 slot, std::string const& path) {
 		if (slot != 0 && slot != 1) {
-			fmt::println("[SYSTEM] Invalid mc slot {}", slot);
+			LOG_WARN("SYSTEM", "[SYSTEM] Invalid mc slot {}", slot);
 			return;
 		}
 
 		auto fs_path = std::filesystem::path{ path };
 
 		if (!fs_path.has_extension()) {
-			fmt::println("[SYSTEM] Missing extension from {}, cannot infer type",
+			LOG_WARN("SYSTEM", "[SYSTEM] Missing extension from {}, cannot infer type",
 				path);
 			return;
 		}
@@ -296,7 +302,7 @@ namespace psx {
 		auto extension = fs_path.extension().string();
 
 		if (!mc_types.contains(extension)) {
-			fmt::println("[SYSTEM] Invalid mc extension {}",
+			LOG_WARN("SYSTEM", "[SYSTEM] Invalid mc extension {}",
 				extension);
 			return;
 		}
@@ -307,7 +313,7 @@ namespace psx {
 			std::fstream create_file{ path, std::ios::out };
 
 			if (!create_file.is_open()) {
-				fmt::println("[SYSTEM] Failed creating {}",
+				LOG_WARN("SYSTEM", "[SYSTEM] Failed creating {}",
 					path);
 				return;
 			}
@@ -327,7 +333,7 @@ namespace psx {
 		}
 
 		if (!memcard->LoadFile(path)) {
-			fmt::println("[SYSTEM] Failed loading {}",
+			LOG_WARN("SYSTEM", "[SYSTEM] Failed loading {}",
 				path);
 			return;
 		}
@@ -341,12 +347,12 @@ namespace psx {
 				.GetDevice2())->ConnectCard(std::move(memcard));
 		}
 
-		fmt::println("[SYSTEM] Successfully inserted MC in slot {}", slot);
+		LOG_INFO("SYSTEM", "[SYSTEM] Successfully inserted MC in slot {}", slot);
 	}
 
 	void System::ConnectController(u32 slot, std::string const& type) {
 		if (slot != 0 && slot != 1) {
-			fmt::println("[SYSTEM] Invalid controller slot {}", slot);
+			LOG_WARN("SYSTEM", "[SYSTEM] Invalid controller slot {}", slot);
 			return;
 		}
 
@@ -356,7 +362,7 @@ namespace psx {
 		};
 
 		if (!type_map.contains(type)) {
-			fmt::println("[SYSTEM] Invalid controller type {}", type);
+			LOG_WARN("SYSTEM", "[SYSTEM] Invalid controller type {}", type);
 			return;
 		}
 
@@ -391,8 +397,6 @@ namespace psx {
 	}
 
 	void System::FollowConfig() {
-		logger::Logger::get().set_config(m_sys_conf->advanced_conf.log_conf);
-		logger::Logger::get().start();
 
 		auto make_driver = [](std::unique_ptr<AbstractController> controller,
 			std::unique_ptr<AbstractMemcard> card) {

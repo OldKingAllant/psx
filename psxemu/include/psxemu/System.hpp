@@ -16,6 +16,9 @@
 #include <memory>
 
 namespace psx {
+	struct LoggerInit {
+		LoggerInit(std::shared_ptr<SystemConf> const& config);
+	};
 
 	class System {
 	public :
@@ -144,6 +147,7 @@ namespace psx {
 		void FollowConfig();
 
 	private :
+		LoggerInit m_log_init;
 		cpu::MIPS1 m_cpu;
 		SystemBus m_sysbus;
 		system_status m_status;

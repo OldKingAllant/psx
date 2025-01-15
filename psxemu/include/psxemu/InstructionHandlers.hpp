@@ -5,6 +5,9 @@
 #include <psxemu/include/psxemu/cpu_instruction.hpp>
 #include <common/Errors.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <fmt/format.h>
 
 namespace psx::cpu {
@@ -40,16 +43,15 @@ namespace psx::cpu {
 		auto const& type = INSTRUCTION_TYPE_LUT[hash];
 
 		if (std::get<1>(type) == Opcode::NA) {
-#ifdef DEBUG_CPU_ERRORS
-			fmt::println("Reserved instruction 0x{:x} at 0x{:x}", instruction,
+
+			LOG_ERROR("CPU", "[EXCEPTION] Reserved instruction 0x{:x} at 0x{:x}", instruction,
 				status->cpu->GetPc());
-#endif // DEBUG_CPU_ERRORS
 
 			status->exception = true;
 			status->exception_number = Excode::RI;
 		}
 		else {
-			fmt::println("Unimplemented instruction 0x{:x} at 0x{:x}", instruction,
+			LOG_ERROR("CPU", "[EXCEPTION] Unimplemented instruction 0x{:x} at 0x{:x}", instruction,
 				status->cpu->GetPc());
 
 			error::DebugBreak();
@@ -107,7 +109,8 @@ namespace psx::cpu {
 				status->AddWriteback(0, rt);
 		}
 		else {
-			fmt::println("Invalid/Unimplemented ALU Immediate Opcode 0x{:x}", (u8)AluOpcode);
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid/Unimplemented ALU Immediate Opcode 0x{:#x}", 
+				(u8)AluOpcode);
 			error::DebugBreak();
 		}
 	}
@@ -137,13 +140,15 @@ namespace psx::cpu {
 			status->AddWriteback(rt_val, rd);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid/Unimplemented ALU Shift imm Opcode 0x{:#x}",
+				(u8)ShiftOpcode);
 			error::DebugBreak();
 		}
 	}
 
 	template <Opcode StoreOpcode>
 	void Store(system_status* status, u32 instruction) {
-		//Cache isolated -> Read/Writes target only data cache
+		//Cache isolated -> Read/Writes target only cache
 		if (status->cpu->GetCOP0().registers.sr.isolate_cache)
 			return;
 
@@ -222,6 +227,8 @@ namespace psx::cpu {
 			status->sysbus->Write<u32, true, true>(address & ~3, to_write);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid/Unimplemented STORE Opcode 0x{:#x}",
+				(u8)StoreOpcode);
 			error::DebugBreak();
 		}
 	}
@@ -258,6 +265,8 @@ namespace psx::cpu {
 			status->Jump(rs_val);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid/Unimplemented JUMP Opcode 0x{:#x}",
+				(u8)JumpOpcode);
 			error::DebugBreak();
 		}
 	}
@@ -331,6 +340,8 @@ namespace psx::cpu {
 			status->AddWriteback(rs_val ^ rt_val, rd);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid/Unimplemented ALU REG Opcode 0x{:#x}",
+				(u8)AluOpcode);
 			error::DebugBreak();
 		}
 	}
@@ -349,6 +360,8 @@ namespace psx::cpu {
 			status->cpu->ReadCOP0(rd, rt);
 			break;
 		case 0x2:
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid COP0 opcode 0x2 at {:#x}", 
+				status->cpu->GetPc());
 			status->Exception(Excode::RI, false);
 			break;
 		case 0x4: {
@@ -357,9 +370,13 @@ namespace psx::cpu {
 		}
 			break;
 		case 0x6:
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid COP0 opcode 0x6 at {:#x}",
+				status->cpu->GetPc());
 			status->Exception(Excode::RI, false);
 			break;
 		default:
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid COP0 opcode {:#x} at {:#x}",
+				action, status->cpu->GetPc());
 			status->CoprocessorUnusableException(0);
 			break;
 		}
@@ -368,6 +385,8 @@ namespace psx::cpu {
 	template <Opcode CopNumber>
 	void CopCmd(system_status* status, u32 instruction) {
 		if constexpr (CopNumber == Opcode::NA) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x}",
+				CopNumber);
 			error::DebugBreak();
 		}
 
@@ -377,6 +396,8 @@ namespace psx::cpu {
 					status->ExitException();
 				}
 				else {
+					LOG_ERROR("CPU", "[EXCEPTION] Invalid COP0 instruction {:#x} at {:#x}",
+						instruction, status->cpu->GetPc());
 					status->Exception(Excode::RI, false);
 				}
 			}
@@ -385,9 +406,11 @@ namespace psx::cpu {
 			}
 		}
 		else if constexpr (CopNumber == Opcode::COP2) {
-			fmt::println("COP2 opcode {:#x}", instruction);
+			LOG_DEBUG("CPU", "[COP2] Opcode {:#x}", instruction);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x} at {:#x}",
+				u32(CopNumber), status->cpu->GetPc());
 			u8 coprocessor_num = CopNumber == Opcode::COP1 ? 1 : 3;
 			status->CoprocessorUnusableException(coprocessor_num);
 		}
@@ -396,6 +419,8 @@ namespace psx::cpu {
 	template <Opcode BranchOpcode>
 	void Branch(system_status* status, u32 instruction) {
 		if constexpr (BranchOpcode == Opcode::NA) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid branch opcode {:#x} at {:#x}",
+				u32(BranchOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 
@@ -463,11 +488,13 @@ namespace psx::cpu {
 				status->AddWriteback(pc_val + 4, 31);
 				break;
 			default:
-				fmt::println("Invalid BCONDZ 0x{:x}, ignore", type);
+				LOG_INFO("CPU", "[OPCODE] Invalid BCONDZ 0x{:x}, ignore", type);
 				break;
 			}
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid branch opcode {:#x} at {:#x}",
+				u32(BranchOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 	}
@@ -475,6 +502,8 @@ namespace psx::cpu {
 	template <Opcode LoadOpcode>
 	void Load(system_status* status, u32 instruction) {
 		if constexpr (LoadOpcode == Opcode::NA) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid load opcode {:#x} at {:#x}",
+				u32(LoadOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 
@@ -562,26 +591,10 @@ namespace psx::cpu {
 			default:
 				break;
 			}
-
-			/*switch (address % 4)
-			{
-			case 0x3:
-				value = data;
-				break;
-			case 0x2:
-				value = (rt_val & 0xFF'00'00'00) | (data & 0x00'FF'FF'FF);
-				break;
-			case 0x1:
-				value = (rt_val & 0xFF'FF'00'00) | (data & 0x00'00'FF'FF);
-				break;
-			case 0x0:
-				value = (rt_val & 0xFF'FF'FF'00) | (data & 0x00'00'00'FF);
-				break;
-			default:
-				break;
-			}*/
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid load opcode {:#x} at {:#x}",
+				u32(LoadOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 
@@ -597,6 +610,8 @@ namespace psx::cpu {
 	template <Opcode MulDivOpcode>
 	void MulDiv(system_status* status, u32 instruction) {
 		if constexpr (MulDivOpcode == Opcode::NA) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid muldiv opcode {:#x} at {:#x}",
+				u32(MulDivOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 
@@ -681,6 +696,8 @@ namespace psx::cpu {
 			status->cpu->GetHI() = (u32)(res >> 32);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid muldiv opcode {:#x} at {:#x}",
+				u32(MulDivOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 	}
@@ -688,7 +705,7 @@ namespace psx::cpu {
 	template <Opcode SysBreakOpcode>
 	void SysBreak(system_status* status, u32 instruction) {
 		if constexpr (SysBreakOpcode == Opcode::SYSCALL) {
-			fmt::println("[EXCEPTION] SYSCALL Opcode at 0x{:x}",
+			LOG_DEBUG("CPU", "[EXCEPTION] SYSCALL Opcode at 0x{:x}",
 				status->cpu->GetPc());
 
 			u32 comment = status->cpu->GetRegs().a0;
@@ -696,22 +713,22 @@ namespace psx::cpu {
 			switch (comment)
 			{
 			case 0x0:
-				fmt::println("[EXCEPTION] SYSCALL::NoFunction()");
+				LOG_DEBUG("CPU", "[EXCEPTION] SYSCALL::NoFunction()");
 				break;
 			case 0x1:
-				fmt::println("[EXCEPTION] SYSCALL::EnterCriticalSection()");
+				LOG_DEBUG("CPU", "[EXCEPTION] SYSCALL::EnterCriticalSection()");
 				break;
 			case 0x2:
-				fmt::println("[EXCEPTION] SYSCALL::ExitCriticalSection()");
+				LOG_DEBUG("CPU", "[EXCEPTION] SYSCALL::ExitCriticalSection()");
 				break;
 			case 0x3: {
 				u32 addr = status->cpu->GetRegs().a1;
-				fmt::println("[EXCEPTION] SYSCALL::ChangeThreadSubFunction(addr=0x{:x})", 
+				LOG_DEBUG("CPU", "[EXCEPTION] SYSCALL::ChangeThreadSubFunction(addr=0x{:x})",
 					addr);
 			}
 				break;
 			default:
-				fmt::println("[EXCEPTION] SYSCALL::DeliverEvent(0xF0000010,0x4000)");
+				LOG_DEBUG("CPU", "[EXCEPTION] SYSCALL::DeliverEvent(0xF0000010,0x4000)");
 				break;
 			}
 
@@ -720,7 +737,7 @@ namespace psx::cpu {
 		}
 		else if constexpr (SysBreakOpcode == Opcode::BREAK) {
 			u32 comment = (instruction >> 6) & 0xFFFFF;
-			fmt::println("[EXCEPTION] BREAK Opcode at 0x{:x} with arg 0x{:x}",
+			LOG_ERROR("CPU", "[EXCEPTION] BREAK Opcode at 0x{:x} with arg 0x{:x}",
 				status->cpu->GetPc(), comment);
 			status->exception = true;
 			status->exception_number = Excode::BP;
@@ -749,6 +766,8 @@ namespace psx::cpu {
 			status->AddWriteback(rt_se >> (rs_val & 0x1F), rd);
 		}
 		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid shift reg opcode {:#x} at {:#x}",
+				u32(ShiftOpcode), status->cpu->GetPc());
 			error::DebugBreak();
 		}
 	}

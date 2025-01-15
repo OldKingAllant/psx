@@ -1,5 +1,8 @@
 #include <psxemu/include/psxemu/SystemBus.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx {
 	static constexpr u32 SPU_CONFIG = 0x14;
 	static constexpr u32 CDROM_CONFIG = 0x18;
@@ -24,7 +27,7 @@ namespace psx {
 			u32 sz = (1 << m_exp1_config.delay_size.size_shift);
 			m_exp1_config.base = value & ~(sz - 1);
 			m_exp1_config.end = m_exp1_config.base + sz;
-			fmt::println("EXP1 Start = 0x{:x}, End = 0x{:x}",
+			LOG_INFO("MEMORY", "[MEMORY] EXP1 Start = 0x{:x}, End = 0x{:x}",
 				m_exp1_config.base, m_exp1_config.end);
 			return;
 		}
@@ -34,11 +37,11 @@ namespace psx {
 			memory::IO::EXP2_BASE + 4) {
 			if (value != memory::region_offsets::PSX_EXPANSION2_OFFSET) {
 				m_exp2_enable = false;
-				fmt::println("EXP2 Disabled!");
+				LOG_INFO("MEMORY", "[MEMORY] EXP2 Disabled!");
 			}
 			else {
 				m_exp2_enable = true;
-				fmt::println("EXP2 Enabled!");
+				LOG_INFO("MEMORY", "[MEMORY] EXP2 Enabled!");
 			}
 
 			return;
@@ -46,40 +49,39 @@ namespace psx {
 
 		if (address >= memory::IO::EXP1_CONFIG && address <
 			memory::IO::EXP1_CONFIG + 4) {
-			fmt::println("EXP1 Reconfigured");
+			LOG_INFO("MEMORY", "[MEMORY] EXP1 Reconfigured");
 			WriteConf(m_exp1_config, value);
 			return;
 		}
 
 		if (address >= memory::IO::EXP2_CONFIG && address <
 			memory::IO::EXP2_CONFIG + 4) {
-			fmt::println("EXP2 Reconfigured");
+			LOG_INFO("MEMORY", "[MEMORY] EXP2 Reconfigured");
 			WriteConf(m_exp2_config, value);
 			return;
 		}
 
 		if (address >= memory::IO::EXP3_CONFIG && address <
 			memory::IO::EXP3_CONFIG + 4) {
-			fmt::println("EXP3 Reconfigured");
+			LOG_INFO("MEMORY", "[MEMORY] EXP3 Reconfigured");
 			WriteConf(m_exp3_config, value);
 			return;
 		}
 
 		if (address >= SPU_CONFIG && address < SPU_CONFIG + 4) {
-			fmt::println("SPU Reconfigured");
+			LOG_INFO("MEMORY", "[MEMORY] SPU Reconfigured");
 			WriteConf(m_spu_config, value);
 			return;
 		}
 
 		if (address >= CDROM_CONFIG && address < CDROM_CONFIG + 4) {
-			fmt::println("CDROM Reconfigured");
+			LOG_INFO("MEMORY", "[MEMORY] CDROM Reconfigured");
 			WriteConf(m_cdrom_config, value);
 			return;
 		}
 
-#ifdef DEBUG_IO
-		fmt::println("Write to invalid/unused/unimplemented mem control 0x{:x}", address);
-#endif // DEBUG_IO
+		LOG_ERROR("MEMORY", "[MEMORY] Write to invalid/unused/unimplemented mem control 0x{:x}", 
+			address);
 	}
 
 	void SystemBus::WriteConf(RegionConfig& conf, u32 value) {
@@ -100,7 +102,7 @@ namespace psx {
 
 		m_com_delays.raw = value;
 
-		fmt::println("COM Delay updated, COM0 = {}, COM1 = {}, COM2 = {}, COM3 = {}",
+		LOG_WARN("MEMORY", "[MEMORY] COM Delay updated, COM0 = {}, COM1 = {}, COM2 = {}, COM3 = {}",
 		(u32)m_com_delays.com0, (u32)m_com_delays.com1,
 		(u32)m_com_delays.com2, (u32)m_com_delays.com3);
 
@@ -116,23 +118,30 @@ namespace psx {
 
 		bool old_scratchpad_en = m_cache_control.scratch_en1
 			&& m_cache_control.scratch_en2;
+		bool old_cache_enable = m_cache_control.cache_en;
 
 		m_cache_control.raw = value;
 
 		bool new_scratchpad_en = m_cache_control.scratch_en1
 			&& m_cache_control.scratch_en2;
+		bool new_cache_en = m_cache_control.cache_en;
 
 		if (old_scratchpad_en && !new_scratchpad_en) {
 			bool umap_res = ScratchpadDisable();
-			fmt::println("SCRATCHPAD Disabled, Unmap successfull : {}", umap_res);
+			LOG_INFO("MEMORY", "[MEMORY] SCRATCHPAD Disabled, Unmap successfull : {}", 
+				umap_res);
 		}
 		else if (!old_scratchpad_en && new_scratchpad_en) {
 			bool map_res = ScratchpadEnable();
-			fmt::println("SCRATCHPAD Enabled, Map successfull : {}", map_res);
+			LOG_INFO("MEMORY", "[MEMORY] SCRATCHPAD Enabled, Map successfull : {}", 
+				map_res);
 		}
 
-		if (m_cache_control.cache_en) {
-			fmt::println("Instruction cache enabled");
+		if (!old_cache_enable && new_cache_en) {
+			LOG_INFO("MEMORY", "[MEMORY] Instruction cache enabled");
+		}
+		else if (old_cache_enable && !new_cache_en) {
+			LOG_INFO("MEMORY", "[MEMORY] Instruction cache disabled");
 		}
 	}
 
@@ -181,9 +190,8 @@ namespace psx {
 			return m_cdrom_config.delay_size.raw;
 		}
 
-#ifdef DEBUG_IO
-		fmt::println("Reading invalid/unused/unimplemented mem control 0x{:x}", address);
-#endif // DEBUG_IO
+		LOG_ERROR("MEMORY", "[MEMORY] Reading invalid/unused/unimplemented mem control 0x{:x}", 
+			address);
 
 		return 0x0;
 	}

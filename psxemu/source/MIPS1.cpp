@@ -5,7 +5,8 @@
 
 #include <common/Errors.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 namespace psx::cpu {
 	MIPS1::MIPS1(system_status* sys_status) :
@@ -87,6 +88,7 @@ namespace psx::cpu {
 		auto bus = m_sys_status->sysbus;
 
 		if (m_pc & 3) [[unlikely]] {
+			LOG_ERROR("CPU", "[EXCPETION] Unalidgned PC {:#x}", m_pc);
 			m_sys_status->Exception(Excode::ADEL, false);
 			m_sys_status->branch_delay = false;
 			m_sys_status->branch_taken = false;
@@ -164,6 +166,8 @@ namespace psx::cpu {
 		else {
 			if (m_coprocessor0.registers.sr.current_mode &&
 				!m_coprocessor0.registers.sr.cop0_enable) {
+				LOG_ERROR("CPU", "[EXCEPTION] Unusable COP0 in user mode at {:#x}",
+					m_pc);
 				m_sys_status->Exception(Excode::COU, false);
 				return;
 			}
@@ -207,6 +211,8 @@ namespace psx::cpu {
 				value = m_coprocessor0.registers.prid;
 				break;
 			default:
+				LOG_ERROR("CPU", "[EXCEPTION] Unusable COP0 in user mode at {:#x}",
+					m_pc);
 				m_sys_status->Exception(Excode::RI, false);
 				return;
 			}
@@ -221,6 +227,8 @@ namespace psx::cpu {
 
 		if (m_coprocessor0.registers.sr.current_mode &&
 			!m_coprocessor0.registers.sr.cop0_enable) {
+			LOG_ERROR("CPU", "[EXCEPTION] Unusable COP0 in user mode at {:#x}",
+				m_pc);
 			m_sys_status->Exception(Excode::COU, false);
 			return;
 		}
@@ -257,6 +265,8 @@ namespace psx::cpu {
 		case 15:
 			return;
 		default:
+			LOG_ERROR("CPU", "[EXCEPTION] Unusable COP0 in user mode at {:#x}",
+				m_pc);
 			m_sys_status->Exception(Excode::RI, false);
 			return;
 		}
@@ -273,7 +283,7 @@ namespace psx::cpu {
 			bool should_enter = m_hle_bios_handler(address, true);
 			if (should_enter) {
 				if (m_syscall_frames.stacktop() == MAX_SYSCALL_FRAMES) [[unlikely]] {
-					fmt::println("[CPU] FATAL! Max recursion reached for syscall frames!");
+					LOG_ERROR("CPU", "[CPU] FATAL! Max recursion reached for syscall frames!");
 					error::DebugBreak();
 				}
 				u32 r9 = m_regs.array[9];
@@ -303,7 +313,7 @@ namespace psx::cpu {
 				SyscallCallstackEntry entry = m_syscall_frames.pop();
 				
 				if (entry.exitpoint == UINT32_MAX) [[unlikely]] {
-					fmt::println("[CPU] \"Impossible\" happened! Popped invalid entry from system call frame pointer stack!");
+					LOG_ERROR("CPU", "[CPU] \"Impossible\" happened! Popped invalid entry from system call frame pointer stack!");
 					error::DebugBreak();
 				}
 

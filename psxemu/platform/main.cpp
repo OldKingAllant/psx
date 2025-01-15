@@ -191,8 +191,6 @@ int main(int argc, char* argv[]) {
 
 	server.Start();
 
-	std::cout << "Connected" << std::endl;
-
 	while (server.HandlePackets() && wm.HandleEvents())
 	{
 		bool debug_view_close_request = debug_view ? debug_view->CloseRequest() : false;

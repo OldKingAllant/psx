@@ -46,7 +46,7 @@ namespace psx::logger {
 			sinks.push_back(file);
 
 		auto pattern_opts = quill::PatternFormatterOptions(
-			"%(short_source_location:<14) %(log_level:<9) %(message)"
+			"%(log_level:<9) %(message)"
 		);
 
 		m_log->logger = quill::Frontend::create_or_get_logger("main_logger", sinks, pattern_opts);

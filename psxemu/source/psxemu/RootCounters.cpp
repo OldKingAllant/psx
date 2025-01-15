@@ -6,6 +6,9 @@
 
 #include <fmt/format.h>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx {
 	RootCounter::RootCounter(u32 id, system_status* sys_status) :
 		m_sys_status{ sys_status }, m_counter_id{id}, 
@@ -26,7 +29,7 @@ namespace psx {
 		if (m_counter_id != 0)
 			return;
 
-		fmt::println("[COUNTER0] Dotclock changed {}", sel);
+		LOG_DEBUG("TIMER", "[COUNTER0] Dotclock changed {}", sel);
 
 		ClockSource0 clk_src = static_cast<ClockSource0>(m_mode.clock_src);
 
@@ -117,7 +120,7 @@ namespace psx {
 			&& address < VALUE_ADDRESS + 4) {
 			//Writing a value greater than the target
 			//does not trigger IRQ/reset
-			fmt::println("[COUNTER{}] Value set to 0x{:x}", 
+			LOG_DEBUG("TIMER", "[COUNTER{}] Value set to 0x{:x}", 
 				m_counter_id, (u16)value);
 			m_count_value = (u16)value;
 
@@ -156,7 +159,7 @@ namespace psx {
 			//Remove/Insert new events if necessary
 			m_cycles_per_inc = ComputeCyclesPerInc();
 			UpdateEvents();
-			fmt::println("[COUNTER{}] Mode set to 0x{:x}", 
+			LOG_DEBUG("TIMER", "[COUNTER{}] Mode set to 0x{:x}", 
 				m_counter_id, (u16)value);
 			return;
 		}
@@ -164,13 +167,13 @@ namespace psx {
 		if (address >= TARGET_ADDRESS &&
 			address < TARGET_ADDRESS + 4) {
 			m_count_target = (u16)value;
-			fmt::println("[COUNTER{}] Target set to 0x{:x}",
+			LOG_DEBUG("TIMER", "[COUNTER{}] Target set to 0x{:x}",
 				m_counter_id, (u16)value);
 			UpdateEvents();
 			return;
 		}
 
-		fmt::println("[COUNTER{}] Accessing invalid register 0x{:x}",
+		LOG_ERROR("TIMER", "[COUNTER{}] Accessing invalid register 0x{:x}",
 			m_counter_id, address);
 	}
 
@@ -202,7 +205,7 @@ namespace psx {
 			return m_count_target;
 		}
 
-		fmt::println("[COUNTER{}] Accessing invalid register 0x{:x}",
+		LOG_ERROR("TIMER", "[COUNTER{}] Accessing invalid register 0x{:x}",
 			m_counter_id, address);
 		return 0;
 	}
@@ -510,7 +513,7 @@ namespace psx {
 		//in case of a stopped counter... Still,
 		//we will not panic
 		if (m_stopped) {
-			fmt::println("[COUNTER{}] IRQ Trigger even if stopped!",
+			LOG_ERROR("TIMER", "[COUNTER{}] IRQ Trigger even if stopped!",
 				m_counter_id);
 			return; 
 		}
@@ -546,7 +549,7 @@ namespace psx {
 		if (!m_mode.irq_toggle) {
 			if(!m_mode.irq) //Not sure IF the application should reset this value 
 							//or if I should do it myself
-				fmt::println("[COUNTER{}] IRQ Bit not reset!",
+				LOG_WARN("TIMER", "[COUNTER{}] IRQ Bit not reset!",
 					m_counter_id);
 
 			m_mode.irq = false;

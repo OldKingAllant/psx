@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <ranges>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx {
 	void InsertSyscall(u32 id, std::string_view signature, std::unordered_map<u32, Syscall>& table) {
 		if (signature.empty())
@@ -205,7 +208,7 @@ namespace psx {
 		return "";
 	}
 
-	void LogParameter(SyscallParam const& param, u32 param_value, system_status* status) {
+	std::string LogParameter(SyscallParam const& param, u32 param_value, system_status* status) {
 		std::ostringstream out = {};
 
 		out << param.first << " = ";
@@ -364,14 +367,14 @@ namespace psx {
 
 		out << ",";
 
-		fmt::vprint(out.str(), fmt::make_format_args());
+		return out.str();
 	}
 
 	FORCE_INLINE u32 GetParam(u32 num, system_status* status) {
 		if (num < 4)
 			return status->cpu->GetRegs().array[num + 4];
 
-		u32 offset = (num - 4) + 0x10;
+		u32 offset = 0x4 * (num - 4) + 0x10;
 
 		return status->sysbus->Read<u32, false, false>(
 			status->cpu->GetRegs().sp + offset
@@ -380,30 +383,33 @@ namespace psx {
 
 	void LogSyscall(u32 syscall_num, SyscallLogMode log_mode, system_status* status) {
 		if (log_mode == SyscallLogMode::NUMBER) {
-			fmt::println("[SYSCALL] Number 0x{:x}", syscall_num);
+			LOG_DEBUG("SYSCALL", "[SYSCALL] Number 0x{:x}", syscall_num);
 			return;
 		}
 
 		auto const& syscall_desc = GetSyscallDescriptor(syscall_num);
 
-		fmt::vprint("[SYSCALL] 0x{:x}:{}", fmt::make_format_args(syscall_num, syscall_desc.first));
+		std::ostringstream log_message{};
+
+		log_message << fmt::vformat("[SYSCALL] 0x{:x}:{}", fmt::make_format_args(syscall_num, syscall_desc.first));
 
 		if (log_mode == SyscallLogMode::NAME) {
-			fmt::println("");
+			LOG_DEBUG("SYSCALL", log_message.str());
 			return;
 		}
 
 		u32 param_pos = 0;
 
-		fmt::print("(");
+		log_message << '(';
 
 		for (auto const& param : syscall_desc.second) {
 			u32 param_val = GetParam(param_pos, status);
-			LogParameter(param, param_val, status);
+			log_message << LogParameter(param, param_val, status);
 			param_pos++;
 		}
 
-		fmt::println(")");
+		log_message << ')';
+		LOG_DEBUG("SYSCALL", log_message.str());
 	}
 
 	std::vector<u32> GetSyscallIdsByName(std::string const& name) {
