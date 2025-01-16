@@ -12,7 +12,8 @@
 #include <psxemu/include/psxemu/CDDrive.hpp>
 #include <psxemu/include/psxemu/SIOPort.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 class DebugView;
 
@@ -180,12 +181,10 @@ namespace psx {
 			if constexpr (sizeof(Ty) != 1) {
 				if ((address & (sizeof(Ty) - 1)) != 0) {
 					//Unaligned access!
-#ifdef DEBUG
-					fmt::print("Unaligned access at 0x{:x}, PC = {:#x}\n", address, 
-						m_sys_status->cpu->GetPc());
-#endif // DEBUG
 
 					if constexpr (Except) {
+						LOG_ERROR("MEMORY", "[MEMORY] Unaligned access at 0x{:x}, PC = {:#x}\n", address,
+							m_sys_status->cpu->GetPc());
 						m_sys_status->exception = true;
 						m_sys_status->exception_number =
 							cpu::Excode::ADEL;
@@ -199,10 +198,9 @@ namespace psx {
 			bool curr_mode = m_sys_status->curr_mode;
 
 			if (address >= KUSEG_VOID_START && address < KUSEG_VOID_END) {
-#ifdef DEBUG
-				fmt::print("Reading unused upper 1.5 GB of KUSEG at 0x{:x}\n", address);
-#endif // DEBUG
 				if constexpr (Except) {
+					LOG_ERROR("MEMORY", "[MEMORY] Reading unused upper 1.5 GB of KUSEG at 0x{:x}\n", 
+						address);
 					m_sys_status->exception = true;
 					m_sys_status->exception_number =
 						cpu::Excode::DBE;
@@ -213,7 +211,7 @@ namespace psx {
 			}
 
 			if (address >= memory::KSEG2_START) {
-				fmt::print("KSEG2 access at 0x{:x}\n", address);
+				LOG_ERROR("MEMORY", "[MEMORY] KSEG2 access at 0x{:x}\n", address);
 				DebugBreak();
 				return 0x0;
 			}
@@ -223,10 +221,9 @@ namespace psx {
 
 			if (curr_mode && segment != 0) {
 				//Reading KSEG in user mode
-#ifdef DEBUG
-				fmt::print("Reading KSEG in USER mode at 0x{:x}\n", address);
-#endif // DEBUG
+				
 				if constexpr (Except) {
+					LOG_ERROR("MEMORY", "[MEMORY] Reading KSEG in USER mode at 0x{:x}\n", address);
 					m_sys_status->exception = true;
 					m_sys_status->exception_number =
 						cpu::Excode::ADEL;
@@ -287,10 +284,10 @@ namespace psx {
 				&& lower < memory::region_offsets::PSX_SCRATCHPAD_OFFSET +
 				memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE) {
 				if (segment == 0x5) {
-#ifdef DEBUG
-					fmt::print("Reading scratchpad in KSEG1 at 0x{:x}\n", address);
-#endif // DEBUG
+
 					if constexpr (Except) {
+						LOG_ERROR("MEMORY", "[MEMORY] Reading scratchpad in KSEG1 at 0x{:x}\n", 
+							address);
 						m_sys_status->exception = true;
 						m_sys_status->exception_number =
 							cpu::Excode::DBE;
@@ -325,9 +322,8 @@ namespace psx {
 				return 0x0;
 			}
 
-			fmt::print("Reading unused memory at 0x{:x}\n", address);
-
 			if constexpr (Except) {
+				LOG_ERROR("MEMORY", "[MEMORY] Reading unused memory at 0x{:x}\n", address);
 				m_sys_status->exception = true;
 				m_sys_status->exception_number =
 					cpu::Excode::DBE;
@@ -351,11 +347,10 @@ namespace psx {
 			if constexpr (sizeof(Ty) != 1) {
 				if ((address & (sizeof(Ty) - 1)) != 0) {
 					//Unaligned access!
-#ifdef DEBUG
-					fmt::print("Unaligned access at 0x{:x}\n", address);
-#endif // DEBUG
 
 					if constexpr (Except) {
+						LOG_ERROR("MEMORY", "[MEMORY] Unaligned write at 0x{:x}\n", 
+							address);
 						m_sys_status->exception = true;
 						m_sys_status->exception_number =
 							cpu::Excode::ADES;
@@ -369,10 +364,10 @@ namespace psx {
 			bool curr_mode = m_sys_status->curr_mode;
 
 			if (address >= KUSEG_VOID_START && address < KUSEG_VOID_END) {
-#ifdef DEBUG
-				fmt::print("Writing unused upper 1.5 GB of KUSEG at 0x{:x}\n", address);
-#endif // DEBUG
+
 				if constexpr (Except) {
+					LOG_ERROR("MEMORY", "[MEMORY] Writing unused upper 1.5 GB of KUSEG at 0x{:x}\n", 
+						address);
 					m_sys_status->exception = true;
 					m_sys_status->exception_number =
 						cpu::Excode::DBE;
@@ -393,10 +388,10 @@ namespace psx {
 			u32 lower = address & 0x1FFFFFFF;
 
 			if (curr_mode && segment != 0) {
-#ifdef DEBUG
-				fmt::print("Writing KSEG in USER mode at 0x{:x}\n", address);
-#endif // DEBUG
+
 				if constexpr (Except) {
+					LOG_ERROR("MEMORY", "[MEMORY] Writing KSEG in USER mode at 0x{:x}\n", 
+						address);
 					m_sys_status->exception = true;
 					m_sys_status->exception_number =
 						cpu::Excode::ADES;
@@ -461,10 +456,10 @@ namespace psx {
 				&& lower < memory::region_offsets::PSX_SCRATCHPAD_OFFSET +
 				memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE) {
 				if (segment == 0x5) {
-#ifdef DEBUG
-					fmt::print("Writing scratchpad in KSEG1 at 0x{:x}\n", address);
-#endif // DEBUG
+					
 					if constexpr (Except) {
+						LOG_ERROR("MEMORY", "[MEMORY] Writing scratchpad in KSEG1 at 0x{:x}\n", 
+							address);
 						m_sys_status->exception = true;
 						m_sys_status->exception_number =
 							cpu::Excode::DBE;
@@ -499,9 +494,9 @@ namespace psx {
 				return;
 			}
 
-			fmt::print("Writing unused memory at 0x{:x}\n", address);
-
 			if constexpr (Except) {
+				LOG_ERROR("MEMORY", "[MEMORY] Writing unused memory at 0x{:x}\n", 
+					address);
 				m_sys_status->exception = true;
 				m_sys_status->exception_number =
 					cpu::Excode::DBE;
@@ -729,9 +724,8 @@ namespace psx {
 				return;
 			}
 
-#ifdef DEBUG_IO
-			fmt::println("Write to invalid/unused/unimplemented register 0x{:x}", address);
-#endif // DEBUG_IO
+			LOG_ERROR("MEMORY", "[MEMORY] Write to invalid/unused/unimplemented register 0x{:x}", 
+				address);
 
 		}
 
@@ -869,9 +863,8 @@ namespace psx {
 				return 0x00;
 			}
 
-#ifdef DEBUG_IO
-			fmt::println("Reading invalid/unused/unimplemented register 0x{:x}", address);
-#endif // DEBUG_IO
+			LOG_ERROR("MEMORY", "[MEMORY] Reading invalid/unused/unimplemented register 0x{:x}", 
+				address);
 
 			return 0x0;
 		}

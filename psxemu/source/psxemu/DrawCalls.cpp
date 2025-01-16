@@ -3,6 +3,9 @@
 
 #include <common/Errors.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <fmt/format.h>
 
 namespace psx {
@@ -40,14 +43,14 @@ namespace psx {
 		v1.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
 		v1.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
 
-		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
+		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF) - 1;
 		v2.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
 
 		v3.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF) - 1;
 
-		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF);
-		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF);
+		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF) - 1;
+		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF) - 1;
 
 		u32 r = color & 0xFF;
 		u32 g = (color >> 8) & 0xFF;
@@ -80,11 +83,17 @@ namespace psx {
 		triangle2.v1 = v3;
 		triangle2.v2 = v4;
 
-		/*fmt::println("[GPU] DRAW QUAD");
-		fmt::println("      R = {}, G = {}, B = {}",
+		LOG_INFO("DRAW", "[GPU] DRAW QUAD");
+		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
 			r, g, b);
-		fmt::println("      V0 X = {}, Y = {}", 
-			v1.x, v1.y);*/
+		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
+			v1.x, v1.y);
+		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
+			v2.x, v2.y);
+		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
+			v3.x, v3.y);
+		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
+			v4.x, v4.y);
 
 		m_renderer->DrawFlatUntexturedOpaque(
 			triangle1
@@ -139,6 +148,18 @@ namespace psx {
 		triangle2.v1 = v3;
 		triangle2.v2 = v4;
 
+		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD QUAD");
+		//LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
+			//r, g, b);
+		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
+			v1.x, v1.y);
+		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
+			v2.x, v2.y);
+		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
+			v3.x, v3.y);
+		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
+			v4.x, v4.y);
+
 		m_renderer->DrawBasicGouraud(triangle1);
 		m_renderer->DrawBasicGouraud(triangle2);
 	}
@@ -174,6 +195,8 @@ namespace psx {
 		triangle1.v0 = v1;
 		triangle1.v1 = v2;
 		triangle1.v2 = v3;
+
+		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD TRIANGLE");
 
 		m_renderer->DrawBasicGouraud(triangle1);
 	}
@@ -249,6 +272,8 @@ namespace psx {
 		u16 page = (u16)clut_and_page;
 
 		TryUpdateTexpage(page);
+
+		LOG_INFO("DRAW", "[GPU] DRAW TEXTURED QUAD");
 
 		m_renderer->DrawTexturedTriangle(triangle1);
 		m_renderer->DrawTexturedTriangle(triangle2);
@@ -332,14 +357,24 @@ namespace psx {
 		u32 size = m_cmd_fifo.deque();
 
 		u32 w = (u32(size & 0x3FF) + 0xF) & ~0xF;
-		u32 h = u32(size >> 16);
+		u32 h = u32(size >> 16) & 0x1FF;
 
-		if (x_off < 0 || y_off < 0)
-			fmt::println("[GPU] QUICK-FILL offsets less than zero");
+		if (w == 0 || h == 0) {
+			LOG_WARN("GPU", "FILL has either X or Y size equal to zero");
+			return;
+		}
 
-		if (x_off + w >= VRAM_X_SIZE || y_off + h >= VRAM_Y_SIZE)
-			fmt::println("[GPU] QUICK-FILL size goes out of bounds");
-
+		if (x_off < 0 || y_off < 0) {
+			LOG_WARN("GPU", "[GPU] QUICK-FILL offsets less than zero");
+			return;
+		}
+			
+		if (x_off + w >= VRAM_X_SIZE || y_off + h >= VRAM_Y_SIZE) {
+			LOG_WARN("GPU", "[GPU] QUICK-FILL size goes out of bounds");
+			LOG_WARN("GPU", "      X = {}, Y = {}", x_off, y_off);
+			LOG_WARN("GPU", "      W = {}, H = {}", w, h);
+		}
+			
 		m_renderer->Fill(x_off, y_off, w, h, color);
 	}
 
@@ -472,6 +507,8 @@ namespace psx {
 		triangle2.v1 = vertices[2];
 		triangle2.v2 = vertices[3];
 
+		LOG_INFO("DRAW", "[GPU] DRAW TEXTURED RECT");
+
 		m_renderer->DrawTexturedTriangle(triangle1);
 		m_renderer->DrawTexturedTriangle(triangle2);
 	}
@@ -559,6 +596,10 @@ namespace psx {
 		triangle2.v0 = vertices[1];
 		triangle2.v1 = vertices[2];
 		triangle2.v2 = vertices[3];
+
+		LOG_INFO("DRAW", "[GPU] DRAW RECT");
+		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
+			triangle1.v0.r, triangle1.v0.g, triangle1.v0.b);
 
 		m_renderer->DrawFlatUntexturedOpaque(triangle1);
 		m_renderer->DrawFlatUntexturedOpaque(triangle2);

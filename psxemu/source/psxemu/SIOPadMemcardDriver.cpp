@@ -2,6 +2,9 @@
 
 #include <common/Errors.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <fmt/format.h>
 
 namespace psx {
@@ -27,7 +30,7 @@ namespace psx {
 			return m_card->Send(value);
 		}
 
-		fmt::println("[PAD/CARD DRIVER] UNREACHABLE");
+		LOG_ERROR("PAD_CARD", "[PAD/CARD DRIVER] UNREACHABLE");
 		return 0xFF;
 	}
 
@@ -64,7 +67,7 @@ namespace psx {
 			m_selected = dev_id;
 			break;
 		default: {
-			fmt::println("[PAD/CARD DRIVER] Invalid device {:#x}", address);
+			LOG_ERROR("PAD_CARD", "[PAD/CARD DRIVER] Invalid device {:#x}", address);
 		}
 			break;
 		}

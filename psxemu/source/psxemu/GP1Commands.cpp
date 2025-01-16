@@ -2,12 +2,13 @@
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 namespace psx {
 	void Gpu::Reset() {
-		fmt::println("[GPU] RESET");
-		fmt::println("[GPU] Remember that RESET should also modify draw paramaters");
+		LOG_WARN("GPU", "[GPU] RESET");
+		LOG_WARN("GPU", "[GPU] Remember that RESET should also modify draw paramaters");
 
 		ResetFifo();
 		AckIrq();
@@ -38,9 +39,9 @@ namespace psx {
 		m_disp_conf.display_enable = !enable;
 
 		if (!enable)
-			fmt::println("[GPU] Display enabled");
+			LOG_INFO("GPU", "[GPU] Display enabled");
 		else
-			fmt::println("[GPU] Display disabled");
+			LOG_INFO("GPU", "[GPU] Display disabled");
 	}
 
 	void Gpu::DmaDirection(DmaDir dir) {
@@ -49,16 +50,16 @@ namespace psx {
 		switch (dir)
 		{
 		case psx::DmaDir::OFF:
-			fmt::println("[GPU] DMA OFF");
+			LOG_DEBUG("GPU", "[GPU] DMA OFF");
 			break;
 		case psx::DmaDir::IDK:
-			fmt::println("[GPU] DMA ?");
+			LOG_DEBUG("GPU", "[GPU] DMA ?");
 			break;
 		case psx::DmaDir::CPU_GP0:
-			fmt::println("[GPU] DMA CPU to GPU");
+			LOG_DEBUG("GPU", "[GPU] DMA CPU to GPU");
 			break;
 		case psx::DmaDir::GPUREAD_CPU:
-			fmt::println("[GPU] DMA GPU to CPU");
+			LOG_DEBUG("GPU", "[GPU] DMA GPU to CPU");
 			break;
 		default:
 			break;
@@ -72,7 +73,7 @@ namespace psx {
 		m_disp_conf.disp_x = m_disp_x_start;
 		m_disp_conf.disp_y = m_disp_y_start;
 
-		fmt::println("[GPU] Display address X: 0x{:x}, Y: 0x{:x}",
+		LOG_DEBUG("GPU", "[GPU] Display address X: 0x{:x}, Y: 0x{:x}",
 			m_disp_x_start, m_disp_y_start);
 	}
 
@@ -80,7 +81,7 @@ namespace psx {
 		m_hoz_disp_start = cmd & 0xFFF;
 		m_hoz_disp_end = (cmd >> 12) & 0xFFF;
 
-		fmt::println("[GPU] Display X1: 0x{:x}, X2: 0x{:x}",
+		LOG_DEBUG("GPU", "[GPU] Display X1: 0x{:x}, X2: 0x{:x}",
 			m_hoz_disp_start, m_hoz_disp_end);
 	}
 
@@ -88,7 +89,7 @@ namespace psx {
 		m_vert_disp_start = cmd & 0x3FF;
 		m_vert_disp_end = (cmd >> 10) & 0x3FF;
 
-		fmt::println("[GPU] Display Y1: 0x{:x}, Y2: 0x{:x}",
+		LOG_DEBUG("GPU", "[GPU] Display Y1: 0x{:x}, Y2: 0x{:x}",
 			m_vert_disp_start, m_vert_disp_end);
 	}
 
@@ -101,10 +102,10 @@ namespace psx {
 		m_stat.hoz_res_2 = (cmd >> 6) & 1;
 		m_stat.flip_screen_hoz = (cmd >> 7) & 1;
 
-		fmt::println("[GPU] DISPMODE(0x{:x})", cmd & 0xFF);
+		LOG_INFO("GPU", "[GPU] DISPMODE(0x{:x})", cmd & 0xFF);
 
 		if (m_stat.hoz_res_2) {
-			fmt::println("        Horizontal res : 368");
+			LOG_INFO("GPU", "        Horizontal res : 368");
 
 			m_sys_status->sysbus->GetCounter0().SetDotclock(2);
 		}
@@ -135,29 +136,29 @@ namespace psx {
 
 			m_disp_conf.hoz_res = hoz_value;
 
-			fmt::println("        Horizontal res : {}", hoz_value);
+			LOG_INFO("GPU", "        Horizontal res : {}", hoz_value);
 		}
 
 		if (m_stat.vertical_res) {
-			fmt::println("        Vertical res : 480");
+			LOG_INFO("GPU", "        Vertical res : 480");
 			m_disp_conf.vert_res = 480;
 		}	
 		else {
-			fmt::println("        Vertical res : 240");
+			LOG_INFO("GPU", "        Vertical res : 240");
 			m_disp_conf.vert_res = 240;
 		}
 
 		if((u8)m_stat.video_mode)
-			fmt::println("        Video mode : PAL");
+			LOG_INFO("GPU", "        Video mode : PAL");
 		else 
-			fmt::println("        Video mode : NTSC");
+			LOG_INFO("GPU", "        Video mode : NTSC");
 
 		if ((u8)m_stat.disp_color_depth)
-			fmt::println("        Color depth : 24 bits");
+			LOG_INFO("GPU", "        Color depth : 24 bits");
 		else
-			fmt::println("        Color depth : 15 bits");
+			LOG_INFO("GPU", "        Color depth : 15 bits");
 
-		fmt::println("        Vertical interlace : {}", m_stat.vertical_interlace);
+		LOG_INFO("GPU", "        Vertical interlace : {}", m_stat.vertical_interlace);
 	}
 
 	void Gpu::GpuReadInternal(u32 cmd) {
@@ -166,24 +167,24 @@ namespace psx {
 		switch (cmd)
 		{
 		case 0x2:
-			fmt::println("[GPU] Latch for Texture Window");
+			LOG_DEBUG("GPU", "[GPU] Latch for Texture Window");
 			m_gpu_read_latch = m_raw_conf.tex_window;
 			break;
 		case 0x3:
-			fmt::println("[GPU] Latch for draw top-left");
+			LOG_DEBUG("GPU", "[GPU] Latch for draw top-left");
 			m_gpu_read_latch = m_raw_conf.draw_top_left;
 			break;
 		case 0x4:
-			fmt::println("[GPU] Latch for draw bottom-right");
+			LOG_DEBUG("GPU", "[GPU] Latch for draw bottom-right");
 			m_gpu_read_latch = m_raw_conf.draw_bottom_right;
 			break;
 		case 0x5:
-			fmt::println("[GPU] Latch for draw offset");
+			LOG_DEBUG("GPU", "[GPU] Latch for draw offset");
 			m_gpu_read_latch = m_raw_conf.draw_offset;
 			break;
 		case 0x6:
 		case 0x7:
-			fmt::println("[GPU] Read GPU version (returning v0)");
+			LOG_DEBUG("GPU", "[GPU] Read GPU version (returning v0)");
 			break;
 		default:
 			return;
@@ -195,6 +196,6 @@ namespace psx {
 
 	void Gpu::AckIrq() {
 		m_stat.irq1 = false;
-		fmt::println("[GPU] IRQ1 ACK");
+		LOG_DEBUG("GPU", "[GPU] IRQ1 ACK");
 	}
 }

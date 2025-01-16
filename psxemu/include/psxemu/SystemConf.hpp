@@ -16,7 +16,7 @@ namespace psx {
 				{LogLevel::_ERROR, "ERROR"},
 				{LogLevel::WARN, "WARN"},
 				{LogLevel::INFO, "INFO"},
-				{LogLevel::_DEBUG, "DEBUG"}
+				{LogLevel::_DBG, "DEBUG"}
 			}
 		)
 

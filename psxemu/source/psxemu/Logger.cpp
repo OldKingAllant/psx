@@ -68,12 +68,6 @@ namespace psx::logger {
 	}
 
 	void Logger::log_impl(LogLevel level, std::string const& message) {
-		if (!m_conf.enable)
-			return;
-
-		if (uint32_t(m_conf.log_level) < uint32_t(level))
-			return;
-
 		switch (level)
 		{
 		case psx::logger::LogLevel::_ERROR:
@@ -85,7 +79,7 @@ namespace psx::logger {
 		case psx::logger::LogLevel::INFO:
 			LOG_INFO(m_log->logger, "{}", message);
 			break;
-		case psx::logger::LogLevel::_DEBUG:
+		case psx::logger::LogLevel::_DBG:
 			LOG_DEBUG(m_log->logger, "{}", message);
 			break;
 		default:

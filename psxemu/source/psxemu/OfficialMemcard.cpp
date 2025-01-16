@@ -3,6 +3,9 @@
 
 #include <fmt/format.h>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <filesystem>
 #include <fstream>
 
@@ -259,7 +262,7 @@ namespace psx {
 	}
 
 	u8 OfficialMemcard::GETID_ProcessByte(u8 value) {
-		fmt::println("[MC] GETID");
+		LOG_ERROR("MEMCARD", "[MC] GETID");
 		error::DebugBreak();
 	}
 }

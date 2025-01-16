@@ -421,7 +421,7 @@ namespace psx {
 
 	void SystemBus::ReconfigureBIOS(u32 new_config) {
 		if (m_bios_config.delay_size.raw == new_config) {
-			LOG_DEBUG("MEMORY", "[MEMORY] BIOS already configured with value 0x{:#x}", new_config);
+			LOG_DEBUG("MEMORY", "[MEMORY] BIOS already configured with value {:#x}", new_config);
 			return;
 		}
 
@@ -435,17 +435,17 @@ namespace psx {
 			(1 << m_bios_config.delay_size.size_shift);
 
 		if (!SetBiosMap(size, true))
-			LOG_ERROR("MEMORY", "[MEMORY] Failed BIOS remapping with size 0x{:#x}, better shut down the emulator...", 
+			LOG_ERROR("MEMORY", "[MEMORY] Failed BIOS remapping with size {:#x}, better shut down the emulator...", 
 				size);
 		else
-			LOG_WARN("MEMORY", "[MEMORY] BIOS reconfigured - Base = 0x{:#x}, End = 0x{:#x}, Size = {:#x}, Read delay = {}, Write delay = {}\n",
+			LOG_WARN("MEMORY", "[MEMORY] BIOS reconfigured - Base = {:#x}, End = {:#x}, Size = {:#x}, Read delay = {}, Write delay = {}\n",
 				m_bios_config.base, m_bios_config.end, m_bios_config.end - m_bios_config.base, 
 				m_bios_config.read_nonseq, m_bios_config.write_nonseq);
 	}
 
 	void SystemBus::ReconfigureRAM(u32 ram_conf) {
 		if (ram_conf == m_ram_config) {
-			LOG_DEBUG("MEMORY", "[MEMORY] RAM already configured with value 0x{:#x}", ram_conf);
+			LOG_DEBUG("MEMORY", "[MEMORY] RAM already configured with value {:#x}", ram_conf);
 			return;
 		}
 
@@ -458,24 +458,24 @@ namespace psx {
 		if (!SetRamMap((RamSize)new_size))
 			LOG_ERROR("MEMORY", "[MEMORY] RAM reconfiguration failed, this is a fatal error");
 		else
-			LOG_WARN("MEMORY", "[MEMORY] RAM reconfigured with value 0x{:#x}", ram_conf);
+			LOG_WARN("MEMORY", "[MEMORY] RAM reconfigured with value {:#x}", ram_conf);
 	}
 
 	void SystemBus::WriteEXP1(u32 value, u32 address) {
-		LOG_DEBUG("MEMORY", "[MEMORY] EXP1 write at 0x{:#x} = 0x{:#x}", address, value);
+		LOG_DEBUG("MEMORY", "[MEMORY] EXP1 write at {:#x} = {:#x}", address, value);
 	}
 
 	void SystemBus::WriteEXP2(u32 value, u32 address) {
 		if (address == 0x41) {
-			LOG_DEBUG("MEMORY", "[POST] Kernel trace 0x{:#x}", value);
+			LOG_DEBUG("MEMORY", "[POST] Kernel trace {:#x}", value);
 			return;
 		}
 
-		LOG_DEBUG("MEMORY", "[MEMORY] EXP2 write at 0x{:x} = 0x{:x}", address, value);
+		LOG_DEBUG("MEMORY", "[MEMORY] EXP2 write at {:x} = {:x}", address, value);
 	}
 
 	void SystemBus::WriteEXP3(u32 value, u32 address) {
-		LOG_DEBUG("MEMORY", "[MEMORY] EXP3 write at 0x{:#x} = 0x{:#x}", address, value);
+		LOG_DEBUG("MEMORY", "[MEMORY] EXP3 write at {:#x} = {:#x}", address, value);
 	}
 
 	u32 SystemBus::ReadEXP1(u32 address) {

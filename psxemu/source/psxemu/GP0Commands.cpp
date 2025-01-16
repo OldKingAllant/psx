@@ -1,7 +1,8 @@
 #include <psxemu/include/psxemu/GPU.hpp>
 #include <psxemu/include/psxemu/GPUCommands.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <common/Errors.hpp>
 
@@ -33,7 +34,7 @@ namespace psx {
 			MaskSetting(cmd);
 			break;
 		default:
-			fmt::println("[GPU] Unimplemented ENV command 0x{:x}", (u32)upper_byte);
+			LOG_ERROR("GPU", "[GPU] Unimplemented ENV command 0x{:x}", (u32)upper_byte);
 			error::DebugBreak();
 			break;
 		}
@@ -42,7 +43,7 @@ namespace psx {
 	void Gpu::Texpage(u32 cmd) {
 		cmd &= (1 << 14) - 1;
 
-		fmt::println("[GPU] TEXPAGE(0x{:x})", cmd);
+		LOG_DEBUG("GPU", "[GPU] TEXPAGE(0x{:x})", cmd);
 
 		if (cmd == m_raw_conf.texpage)
 			return;
@@ -62,15 +63,15 @@ namespace psx {
 		m_tex_x_flip = (bool)((cmd >> 12) & 1);
 		m_tex_y_flip = (bool)((cmd >> 13) & 1);
 
-		fmt::println("          Page X base       0x{:x}", (u32)m_stat.texture_page_x_base);
-		fmt::println("          Page Y base 1     0x{:x}", (u32)m_stat.texture_page_y_base);
-		fmt::println("          Semi transparency 0x{:x}", (u32)m_stat.semi_transparency);
-		fmt::println("          Tex page colors   0x{:x}", (u32)m_stat.tex_page_colors);
-		fmt::println("          Dither            {}", m_stat.dither);
-		fmt::println("          Draw to display   {}", m_stat.draw_to_display);
-		fmt::println("          Page Y base 2     0x{:x}", (u32)m_stat.texture_page_y_base2);
-		fmt::println("          Texture X flip    {}", m_tex_x_flip);
-		fmt::println("          Texture Y flip    {}", m_tex_y_flip);
+		LOG_DEBUG("GPU", "          Page X base       0x{:x}", (u32)m_stat.texture_page_x_base);
+		LOG_DEBUG("GPU", "          Page Y base 1     0x{:x}", (u32)m_stat.texture_page_y_base);
+		LOG_DEBUG("GPU", "          Semi transparency 0x{:x}", (u32)m_stat.semi_transparency);
+		LOG_DEBUG("GPU", "          Tex page colors   0x{:x}", (u32)m_stat.tex_page_colors);
+		LOG_DEBUG("GPU", "          Dither            {}", m_stat.dither);
+		LOG_DEBUG("GPU", "          Draw to display   {}", m_stat.draw_to_display);
+		LOG_DEBUG("GPU", "          Page Y base 2     0x{:x}", (u32)m_stat.texture_page_y_base2);
+		LOG_DEBUG("GPU", "          Texture X flip    {}", m_tex_x_flip);
+		LOG_DEBUG("GPU", "          Texture Y flip    {}", m_tex_y_flip);
 
 		m_renderer->GetUniformBuffer()
 			.use_dither = m_stat.dither;
@@ -79,7 +80,7 @@ namespace psx {
 
 	void Gpu::MiscCommand(u32 cmd) {
 		if (m_read_status == GPUREAD_Status::READ_VRAM) {
-			fmt::println("[GPU] ********GPU-COMMAND DURING VRAM READ!*******");
+			LOG_ERROR("GPU", "[GPU] ********GPU-COMMAND DURING VRAM READ!*******");
 		}
 
 		u8 upper_byte = (u8)(cmd >> 24);
@@ -87,10 +88,10 @@ namespace psx {
 		switch (upper_byte)
 		{
 		case 0x0:
-			fmt::println("[GPU] NOP");
+			LOG_DEBUG("GPU", "[GPU] NOP");
 			break;
 		case 0x1:
-			fmt::println("[GPU] CLEAR TEXTURE CACHE");
+			LOG_DEBUG("GPU", "[GPU] CLEAR TEXTURE CACHE");
 			FlushDrawOps();
 			m_renderer->SyncTextures();
 			break;
@@ -101,10 +102,10 @@ namespace psx {
 			m_cmd_status = Status::WAITING_PARAMETERS;
 			break;
 		case 0x3:
-			fmt::println("[GPU] NOP FIFO");
+			LOG_DEBUG("GPU", "[GPU] NOP FIFO");
 			break;
 		default:
-			fmt::println("[GPU] Unimplemented MISC command 0x{:x}", (u32)upper_byte);
+			LOG_ERROR("GPU", "[GPU] Unimplemented MISC command 0x{:x}", (u32)upper_byte);
 			error::DebugBreak();
 			break;
 		}
@@ -148,7 +149,7 @@ namespace psx {
 		}
 			break;
 		case psx::CommandType::LINE:
-			fmt::println("[GPU] UNIMPLEMENTED: LINE RENDER");
+			LOG_ERROR("GPU", "[GPU] UNIMPLEMENTED: LINE RENDER");
 			error::DebugBreak();
 			break;
 		case psx::CommandType::RECTANGLE: {
@@ -166,7 +167,7 @@ namespace psx {
 		}
 			break;
 		case psx::CommandType::VRAM_BLIT:
-			fmt::println("[GPU] UNIMPLEMENTED: VRAM-VRAM BLIT");
+			LOG_ERROR("GPU", "[GPU] UNIMPLEMENTED: VRAM-VRAM BLIT");
 			error::DebugBreak();
 			break;
 		case psx::CommandType::CPU_VRAM_BLIT: {
@@ -187,7 +188,7 @@ namespace psx {
 			EnvCommand(cmd);
 			break;
 		default:
-			fmt::println("[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
+			LOG_ERROR("GPU", "[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
 			break;
 		}
 	}
@@ -195,7 +196,7 @@ namespace psx {
 	void Gpu::DrawAreaTopLeft(u32 cmd) {
 		cmd &= 0xFFFFF;
 
-		fmt::println("[GPU] DRAW_TOP_LEFT(0x{:x})", cmd);
+		LOG_DEBUG("GPU", "[GPU] DRAW_TOP_LEFT(0x{:x})", cmd);
 
 		if (m_raw_conf.draw_top_left == cmd)
 			return;
@@ -207,7 +208,7 @@ namespace psx {
 		m_x_top_left = cmd & 1023;
 		m_y_top_left = (cmd >> 10) & 511;
 
-		fmt::println("      X = {}, Y = {}", m_x_top_left,
+		LOG_DEBUG("GPU", "      X = {}, Y = {}", m_x_top_left,
 			m_y_top_left);
 
 		m_renderer->SetScissorTop(m_x_top_left, m_y_top_left);
@@ -216,7 +217,7 @@ namespace psx {
 	void Gpu::DrawAreaBottomRight(u32 cmd) {
 		cmd &= 0xFFFFF;
 
-		fmt::println("[GPU] DRAW_BOTTOM_RIGHT(0x{:x})", cmd);
+		LOG_DEBUG("GPU", "[GPU] DRAW_BOTTOM_RIGHT(0x{:x})", cmd);
 
 		if (m_raw_conf.draw_bottom_right == cmd)
 			return;
@@ -228,7 +229,7 @@ namespace psx {
 		m_x_bot_right = cmd & 1023;
 		m_y_bot_right = (cmd >> 10) & 511;
 
-		fmt::println("      X = {}, Y = {}", m_x_bot_right,
+		LOG_DEBUG("GPU", "      X = {}, Y = {}", m_x_bot_right,
 			m_y_bot_right);
 
 		m_renderer->SetScissorBottom(m_x_bot_right, m_y_bot_right);
@@ -237,7 +238,7 @@ namespace psx {
 	void Gpu::DrawOffset(u32 cmd) {
 		cmd &= 0x1FFFFF;
 
-		fmt::println("[GPU] DRAW_OFFSET(0x{:x})", cmd);
+		LOG_DEBUG("GPU", "[GPU] DRAW_OFFSET(0x{:x})", cmd);
 
 		if (cmd == m_raw_conf.draw_offset)
 			return;
@@ -252,7 +253,7 @@ namespace psx {
 		m_x_off = (u32)sign_extend<i32, 10>(m_x_off);
 		m_y_off = (u32)sign_extend<i32, 10>(m_y_off);
 
-		fmt::println("      X = {}, Y = {}", (i32)m_x_off,
+		LOG_DEBUG("GPU", "      X = {}, Y = {}", (i32)m_x_off,
 			(i32)m_y_off);
 
 		m_renderer->GetUniformBuffer()
@@ -265,7 +266,7 @@ namespace psx {
 	void Gpu::TexWindow(u32 cmd) {
 		cmd &= 0xFFFFF;
 
-		fmt::println("[GPU] TEX_WINDOW(0x{:x})", cmd);
+		LOG_DEBUG("GPU", "[GPU] TEX_WINDOW(0x{:x})", cmd);
 
 		if (cmd == m_raw_conf.tex_window)
 			return;
@@ -279,10 +280,10 @@ namespace psx {
 		m_tex_win.offset_x = (cmd >> 10) & 0x1F;
 		m_tex_win.offset_y = (cmd >> 15) & 0x1F;
 
-		fmt::println("     Mask X   = {}", m_tex_win.mask_x);
-		fmt::println("     Mask Y   = {}", m_tex_win.mask_y);
-		fmt::println("     Offset X = {}", m_tex_win.offset_x);
-		fmt::println("     Offset Y = {}", m_tex_win.offset_y);
+		LOG_DEBUG("GPU", "     Mask X   = {}", m_tex_win.mask_x);
+		LOG_DEBUG("GPU", "     Mask Y   = {}", m_tex_win.mask_y);
+		LOG_DEBUG("GPU", "     Offset X = {}", m_tex_win.offset_x);
+		LOG_DEBUG("GPU", "     Offset Y = {}", m_tex_win.offset_y);
 
 		video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
 		uniforms.tex_window_mask_x = m_tex_win.mask_x;
@@ -295,7 +296,7 @@ namespace psx {
 	void Gpu::MaskSetting(u32 cmd) {
 		cmd &= 3;
 
-		fmt::println("[GPU] MASK_BIT(0x{:x})", cmd);
+		LOG_DEBUG("GPU", "[GPU] MASK_BIT(0x{:x})", cmd);
 
 		bool old_set = m_stat.set_mask;
 		bool old_siable = m_stat.draw_over_mask_disable;
@@ -305,8 +306,8 @@ namespace psx {
 
 		FlushDrawOps();
 
-		fmt::println("      Force bit 15 to 1      = {}", m_stat.set_mask);
-		fmt::println("      Check mask before draw = {}", m_stat.draw_over_mask_disable);
+		LOG_DEBUG("GPU", "      Force bit 15 to 1      = {}", m_stat.set_mask);
+		LOG_DEBUG("GPU", "      Check mask before draw = {}", m_stat.draw_over_mask_disable);
 
 		video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
 		uniforms.set_mask = m_stat.set_mask;
@@ -314,7 +315,7 @@ namespace psx {
 		m_renderer->RequestUniformBufferUpdate();
 
 		if (m_stat.set_mask || m_stat.draw_over_mask_disable)
-			fmt::println("[GPU] Mask enabled in one way or another");
+			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");
 	}
 
 	void Gpu::CommandEnd() {
@@ -390,11 +391,11 @@ namespace psx {
 			m_cpu_vram_blit.curr_x = m_cpu_vram_blit.source_x;
 			m_cpu_vram_blit.curr_y = m_cpu_vram_blit.source_y;
 
-			fmt::println("[GPU] CPU-VRAM BLIT");
-			fmt::println("      Destination X = {}", m_cpu_vram_blit.source_x);
-			fmt::println("      Destination Y = {}", m_cpu_vram_blit.source_y);
-			fmt::println("      Size X        = {}", m_cpu_vram_blit.size_x);
-			fmt::println("      Size Y        = {}", m_cpu_vram_blit.size_y);
+			LOG_DEBUG("GPU", "[GPU] CPU-VRAM BLIT");
+			LOG_DEBUG("GPU", "      Destination X = {}", m_cpu_vram_blit.source_x);
+			LOG_DEBUG("GPU", "      Destination Y = {}", m_cpu_vram_blit.source_y);
+			LOG_DEBUG("GPU", "      Size X        = {}", m_cpu_vram_blit.size_x);
+			LOG_DEBUG("GPU", "      Size Y        = {}", m_cpu_vram_blit.size_y);
 
 			m_cmd_status = Status::CPU_VRAM_BLIT;
 
@@ -431,11 +432,11 @@ namespace psx {
 			m_vram_cpu_blit.curr_x = m_vram_cpu_blit.source_x;
 			m_vram_cpu_blit.curr_y = m_vram_cpu_blit.source_y;
 
-			fmt::println("[GPU] VRAM-CPU BLIT");
-			fmt::println("      Source X      = {}", m_vram_cpu_blit.source_x);
-			fmt::println("      Source Y      = {}", m_vram_cpu_blit.source_y);
-			fmt::println("      Size X        = {}", m_vram_cpu_blit.size_x);
-			fmt::println("      Size Y        = {}", m_vram_cpu_blit.size_y);
+			LOG_DEBUG("GPU", "[GPU] VRAM-CPU BLIT");
+			LOG_DEBUG("GPU", "      Source X      = {}", m_vram_cpu_blit.source_x);
+			LOG_DEBUG("GPU", "      Source Y      = {}", m_vram_cpu_blit.source_y);
+			LOG_DEBUG("GPU", "      Size X        = {}", m_vram_cpu_blit.size_x);
+			LOG_DEBUG("GPU", "      Size Y        = {}", m_vram_cpu_blit.size_y);
 
 			m_cmd_status = Status::VRAM_CPU_BLIT;
 			m_read_status = GPUREAD_Status::READ_VRAM;
@@ -448,7 +449,7 @@ namespace psx {
 			error::DebugBreak();
 			break;
 		default:
-			fmt::println("[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
+			LOG_ERROR("GPU", "[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
 			break;
 		}
 	}

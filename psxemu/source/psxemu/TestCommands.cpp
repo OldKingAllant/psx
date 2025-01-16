@@ -3,6 +3,9 @@
 
 #include <common/Errors.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <array>
 #include <fmt/format.h>
 
@@ -32,7 +35,7 @@ namespace psx {
 	}
 
 	void CDDrive::Command_GetBiosBCD() {
-		fmt::println("[CDROM] Get BIOS date and version");
+		LOG_DEBUG("CDROM", "[CDROM] Get BIOS date and version");
 
 		std::array date_and_ver = { u8(0x95), u8(0x07), u8(0x24), u8(0xD1) };
 

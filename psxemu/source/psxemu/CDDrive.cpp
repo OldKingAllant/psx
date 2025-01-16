@@ -2,7 +2,8 @@
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/Interrupts.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <common/Errors.hpp>
 
@@ -42,7 +43,8 @@ namespace psx {
 			return ReadReg3();
 			break;
 		default:
-			fmt::println("Accessing invalid CDROM register {:#x}", address);
+			LOG_ERROR("CDROM", "[CDROM] Reading invalid CDROM register {:#x}", 
+				address);
 			break;
 		}
 
@@ -75,7 +77,8 @@ namespace psx {
 			WriteReg3(value);
 			break;
 		default:
-			fmt::println("Accessing invalid CDROM register {:#x}", address);
+			LOG_ERROR("CDROM", "[CDROM] Writing invalid CDROM register {:#x}",
+				address);
 			break;
 		}
 	}
@@ -94,9 +97,9 @@ namespace psx {
 		switch (m_index_reg.index)
 		{
 		case 0:
-			fmt::println("[CDROM] Command {:#x}", value);
+			LOG_DEBUG("CDROM", "[CDROM] Command {:#x}", value);
 			if (m_index_reg.transmission_busy) {
-				fmt::println("[CDROM] Command transmission busy!");
+				LOG_WARN("CDROM", "[CDROM] Command transmission busy!");
 				return;
 			}
 
@@ -113,15 +116,15 @@ namespace psx {
 			}
 			break;
 		case 1:
-			fmt::println("[CDROM] Write do direct ADPCM");
+			LOG_DEBUG("CDROM", "[CDROM] Write do direct ADPCM");
 			break;
 		case 2: {
 			m_sound_coding.reg = value;
-			fmt::println("[CDROM] SOUND CODING = {:#x}", value);
-			fmt::println("        Stereo              : {}", (bool)m_sound_coding.stereo);
-			fmt::println("        Sample rate 18900Hz : {}", (bool)m_sound_coding.sampler_rate_18900);
-			fmt::println("        8 bits per sample   : {}", (bool)m_sound_coding.bits_per_sample_8);
-			fmt::println("        Emphasis            : {}", (bool)m_sound_coding.emphasis);
+			LOG_DEBUG("CDROM", "[CDROM] SOUND CODING = {:#x}", value);
+			LOG_DEBUG("CDROM", "        Stereo              : {}", (bool)m_sound_coding.stereo);
+			LOG_DEBUG("CDROM", "        Sample rate 18900Hz : {}", (bool)m_sound_coding.sampler_rate_18900);
+			LOG_DEBUG("CDROM", "        8 bits per sample   : {}", (bool)m_sound_coding.bits_per_sample_8);
+			LOG_DEBUG("CDROM", "        Emphasis            : {}", (bool)m_sound_coding.emphasis);
 		}
 			break;
 		case 3: {
@@ -138,9 +141,9 @@ namespace psx {
 		switch (m_index_reg.index)
 		{
 		case 0:
-			fmt::println("[CDROM] Paramater {:#x}", value);
+			LOG_DEBUG("CDROM", "[CDROM] Paramater {:#x}", value);
 			if (m_param_fifo.full()) {
-				fmt::println("[CDROM] But FIFO is full!");
+				LOG_WARN("CDROM", "[CDROM] But FIFO is full!");
 				return;
 			}
 			m_param_fifo.queue(value);
@@ -151,7 +154,7 @@ namespace psx {
 			break;
 		case 1:
 			m_int_enable.enable_bits = value & 0x1F;
-			fmt::println("[CDROM] Interrupt enable {:#x}",
+			LOG_DEBUG("CDROM", "[CDROM] Interrupt enable {:#x}",
 				(u8)m_int_enable.enable_bits);
 			break;
 		case 2:
@@ -177,7 +180,7 @@ namespace psx {
 			m_int_flag.reg &= ~value;
 			
 			if ((value >> 6) & 1) {
-				fmt::println("[CDROM] Param FIFO reset");
+				LOG_DEBUG("CDROM", "[CDROM] Param FIFO reset");
 				m_param_fifo.clear();
 			}
 			InterruptAckd();
@@ -189,9 +192,9 @@ namespace psx {
 			bool old_mute = m_mute_adpcm;
 			m_mute_adpcm = (bool)(value & 1);
 			if (!old_mute && m_mute_adpcm)
-				fmt::println("[CDROM] ADPCM Muted!");
+				LOG_DEBUG("CDROM", "[CDROM] ADPCM Muted!");
 			if ((value >> 5) & 1)
-				fmt::println("[CDROM] Audio volume changes \"applied\"!");
+				LOG_DEBUG("CDROM", "[CDROM] Audio volume changes \"applied\"!");
 		}
 			break;
 		default:
@@ -225,7 +228,7 @@ namespace psx {
 		case 1:
 		case 2:
 		case 3:
-			fmt::println("[CDROM] Data FIFO read");
+			LOG_DEBUG("CDROM", "[CDROM] Data FIFO read");
 			break;
 		default:
 			error::DebugBreak();
@@ -288,7 +291,7 @@ namespace psx {
 			Command_Stop();
 			break;
 		default:
-			fmt::println("[CDROM] Unknown/invalid command {:#x}",
+			LOG_ERROR("CDROM", "[CDROM] Unknown/invalid command {:#x}",
 				m_curr_cmd);
 			error::DebugBreak();
 			break;
@@ -312,7 +315,7 @@ namespace psx {
 
 	void CDDrive::PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args, u64 delay) {
 		if (m_response_fifo.full()) {
-			fmt::println("[CDROM] Response FIFO is full!");
+			LOG_DEBUG("CDROM", "[CDROM] Response FIFO is full!");
 			error::DebugBreak();
 			return;
 		}
@@ -362,12 +365,12 @@ namespace psx {
 			u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 			i64 diff = (i64)curr_time - (response.timestamp + response.delay);
 			if (response.delay == 0 || diff >= 0) {
-				fmt::println("[CDROM] Immediate INT request {:#x}", 
+				LOG_DEBUG("CDROM", "[CDROM] Immediate INT request {:#x}", 
 					(u8)response.interrupt);
 				RequestInterrupt(response.interrupt);
 			}
 			else {
-				fmt::println("[CDROM] Schedule {} clocks starting from now", 
+				LOG_DEBUG("CDROM", "[CDROM] Schedule {} clocks starting from now", 
 					std::abs(diff));
 				ScheduleInterrupt(std::abs(diff));
 			}

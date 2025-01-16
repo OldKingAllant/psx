@@ -2,14 +2,17 @@
 
 #include <common/Errors.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <array>
+#include <fmt/format.h>
 
 namespace psx {
 	void CDDrive::Command_GetStat() {
 		m_stat.motor_on = m_motor_on;
 		
-		fmt::println("[CDROM] GetStat() -> {:#x}",
+		LOG_DEBUG("CDROM", "[CDROM] GetStat() -> {:#x}",
 			m_stat.reg);
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE,
@@ -26,7 +29,7 @@ namespace psx {
 			0x00, 0x00, 0x00, 0x00
 		};
 
-		fmt::println("[CDROM] GetID() -> INT3({:#x}) -> INT5({:#x})", 
+		LOG_DEBUG("CDROM", "[CDROM] GetID() -> INT3({:#x}) -> INT5({:#x})", 
 			m_stat.reg, fmt::join(fixed, ","));
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE,
@@ -47,23 +50,23 @@ namespace psx {
 		m_mode.reg = new_mode;
 
 		if (m_mode.ignore) {
-			fmt::println("[CDROM] Setmode() has ignore bit set!");
+			LOG_ERROR("CDROM", "[CDROM] Setmode() has ignore bit set!");
 			error::DebugBreak();
 		}
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
 			ResponseTimings::GETSTAT_NORMAL);
 
-		fmt::println("[CDROM] Setmode(mode={:#x}) -> INT3({:#x})",
+		LOG_DEBUG("CDROM", "[CDROM] Setmode(mode={:#x}) -> INT3({:#x})",
 			new_mode, m_stat.reg);
-		fmt::println("        Motor double speed    = {}", bool(m_mode.double_speed));
-		fmt::println("        Enable XA ADPCM       = {}", bool(m_mode.enable_xa_adpcm));
-		fmt::println("        Sector size           = {:#x}", m_mode.read_whole_sector ? 0x924 : 0x800);
-		fmt::println("        Ignore sector size    = {}", bool(m_mode.ignore));
-		fmt::println("        XA Filter enable      = {}", bool(m_mode.xa_filter_enable));
-		fmt::println("        Report Interrupts     = {}", bool(m_mode.report));
-		fmt::println("        Pause at end of track = {}", bool(m_mode.autopause));
-		fmt::println("        Enable read CD-DA     = {}", bool(m_mode.allow_cd_da));
+		LOG_DEBUG("CDROM", "        Motor double speed    = {}", bool(m_mode.double_speed));
+		LOG_DEBUG("CDROM", "        Enable XA ADPCM       = {}", bool(m_mode.enable_xa_adpcm));
+		LOG_DEBUG("CDROM", "        Sector size           = {:#x}", m_mode.read_whole_sector ? 0x924 : 0x800);
+		LOG_DEBUG("CDROM", "        Ignore sector size    = {}", bool(m_mode.ignore));
+		LOG_DEBUG("CDROM", "        XA Filter enable      = {}", bool(m_mode.xa_filter_enable));
+		LOG_DEBUG("CDROM", "        Report Interrupts     = {}", bool(m_mode.report));
+		LOG_DEBUG("CDROM", "        Pause at end of track = {}", bool(m_mode.autopause));
+		LOG_DEBUG("CDROM", "        Enable read CD-DA     = {}", bool(m_mode.allow_cd_da));
 	}
 
 	void CDDrive::Command_Stop() {
@@ -72,7 +75,7 @@ namespace psx {
 		m_stat.motor_on = false;
 		u8 second_stat = m_stat.reg;
 
-		fmt::println("[CDROM] Stop() -> INT3({:#x}) -> INT2({:#x})",
+		LOG_DEBUG("CDROM", "[CDROM] Stop() -> INT3({:#x}) -> INT2({:#x})",
 			first_stat, second_stat);
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { first_stat },

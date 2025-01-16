@@ -2,7 +2,9 @@
 
 #include <common/Errors.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <array>
 
 namespace psx {
@@ -41,8 +43,8 @@ namespace psx {
 
 	u8 StandardController::Send(u8 value) {
 		if (m_status == ControllerStatus::IDLE) {
-			if (value != 0x42) {
-				fmt::println("[PAD] UNKNOWN COMMAND {:#x}", value);
+			if (value != u32(Command::READ)) {
+				LOG_ERROR("PAD", "[PAD] UNKNOWN COMMAND {:#x}", value);
 				error::DebugBreak();
 			}
 
@@ -51,7 +53,7 @@ namespace psx {
 		}
 
 		if (m_response.empty()) {
-			fmt::println("[PAD] Response queue is empty!");
+			LOG_ERROR("PAD", "[PAD] Response queue is empty!");
 			error::DebugBreak();
 		}
 
@@ -83,7 +85,7 @@ namespace psx {
 
 	void StandardController::EnqueueStatus() {
 		if (ControllerMode::ANALOG == m_mode) {
-			fmt::println("[PAD] Analog mode not implemented!");
+			LOG_ERROR("PAD", "[PAD] Analog mode not implemented!");
 			error::DebugBreak();
 		}
 

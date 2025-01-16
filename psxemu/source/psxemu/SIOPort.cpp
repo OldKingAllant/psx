@@ -4,6 +4,9 @@
 
 #include <common/Errors.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <fmt/format.h>
 #include <algorithm>
 
@@ -49,7 +52,7 @@ namespace psx {
 			return (u32(m_baud_rate) << 16);
 		}
 
-		fmt::println("[SIO{}] Reading invalid register {:#x}", m_id, address);
+		LOG_ERROR("SIO", "[SIO{}] Reading invalid register {:#x}", m_id, address);
 		return 0;
 	}
 
@@ -57,7 +60,7 @@ namespace psx {
 		if (address >= DATA_ADDRESS && address < DATA_ADDRESS + 4) {
 			u32 offset = address - DATA_ADDRESS;
 			if (offset == 2) {
-				fmt::println("[SIO{}] UNHANDLED: Accessing RX FIFO in the middle", m_id);
+				LOG_ERROR("SIO", "[SIO{}] UNHANDLED: Accessing RX FIFO in the middle", m_id);
 				error::DebugBreak();
 			}
 
@@ -82,7 +85,7 @@ namespace psx {
 			return m_baud_rate;
 		}
 
-		fmt::println("[SIO{}] Reading invalid register {:#x}", m_id, address);
+		LOG_ERROR("SIO", "[SIO{}] Reading invalid register {:#x}", m_id, address);
 		return 0;
 	}
 
@@ -101,7 +104,7 @@ namespace psx {
 			return return_val;
 		}
 
-		fmt::println("[SIO{}] 8 bit read!", m_id);
+		LOG_WARN("SIO", "[SIO{}] 8 bit read!", m_id);
 		return 0;
 	}
 
@@ -161,13 +164,13 @@ namespace psx {
 				m_mode.clock_polarity = ClockPolarity::IDLE_HIGH;
 			}
 
-			fmt::println("[SIO{}] MODE CHANGED", m_id);
-			fmt::println("        Reload factor   : {}", (u32)m_mode.baudrate_reload_factor);
-			fmt::println("        Char len        : {}", (u32)m_mode.char_len);
-			fmt::println("        Parity enable   : {}", (bool)m_mode.parity_enable);
-			fmt::println("        Parity type     : {}", (u32)m_mode.parity_type);
-			fmt::println("        Stop bit        : {}", (u32)m_mode.stop_bit_len);
-			fmt::println("        Clock polarity  : {}", (u32)m_mode.clock_polarity);
+			LOG_DEBUG("SIO", "[SIO{}] MODE CHANGED", m_id);
+			LOG_DEBUG("SIO", "        Reload factor   : {}", (u32)m_mode.baudrate_reload_factor);
+			LOG_DEBUG("SIO", "        Char len        : {}", (u32)m_mode.char_len);
+			LOG_DEBUG("SIO", "        Parity enable   : {}", (bool)m_mode.parity_enable);
+			LOG_DEBUG("SIO", "        Parity type     : {}", (u32)m_mode.parity_type);
+			LOG_DEBUG("SIO", "        Stop bit        : {}", (u32)m_mode.stop_bit_len);
+			LOG_DEBUG("SIO", "        Clock polarity  : {}", (u32)m_mode.clock_polarity);
 
 			ComputeClocksPerBit();
 
@@ -209,13 +212,13 @@ namespace psx {
 
 			if ((m_control.reg >> 6) & 1) {
 				//RESET
-				fmt::println("[SIO{}] RESET", m_id);
+				LOG_INFO("SIO", "[SIO{}] RESET", m_id);
 				m_control.reg &= ~(1 << 6);
 			}
 			return;
 		}
 
-		fmt::println("[SIO{}] Writing invalid register {:#x}", m_id, address);
+		LOG_ERROR("SIO", "[SIO{}] Writing invalid register {:#x}", m_id, address);
 	}
 
 	void SIOPort::Write8(u32 address, u8 value) {
@@ -239,7 +242,7 @@ namespace psx {
 
 		u64 bits_second = SYSTEM_CLOCK / m_clocks_per_bit;
 
-		fmt::println("[SIO{}] BAUD RELOAD = {}, BITS/SECOND = {}, CLOCKS/BIT = {}",
+		LOG_INFO("SIO", "[SIO{}] BAUD RELOAD = {}, BITS/SECOND = {}, CLOCKS/BIT = {}",
 			m_id, m_baud_rate, bits_second, m_clocks_per_bit);
 	}
 

@@ -46,6 +46,8 @@ namespace psx {
 			return head->sp_start ? head->sp_start + head->sp_offset : 0;
 		}
 
+		static constexpr u32 DEFAULT_SP = 0x801FFFF0;
+
 	private :
 		u8* m_data;
 	};

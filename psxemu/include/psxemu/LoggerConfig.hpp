@@ -8,7 +8,7 @@ namespace psx::logger {
 		_ERROR,
 		WARN,
 		INFO,
-		_DEBUG
+		_DBG
 	};
 
 	struct LoggerConfig {
@@ -17,7 +17,7 @@ namespace psx::logger {
 		bool log_to_file = false;
 		bool log_to_console = true;
 		bool enable_yield = true;
-		LogLevel log_level = LogLevel::_DEBUG;
+		LogLevel log_level = LogLevel::_DBG;
 		std::unordered_set<std::string> filters = {};
 		bool log_syscalls = true;
 		std::unordered_set<std::string> silence_syscalls = {};

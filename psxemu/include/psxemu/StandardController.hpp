@@ -29,6 +29,10 @@ namespace psx {
 
 		~StandardController() override;
 
+		enum class Command {
+			READ = 0x42
+		};
+
 		enum class ControllerStatus {
 			IDLE,
 			READ_STAT,

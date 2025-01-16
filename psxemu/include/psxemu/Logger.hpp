@@ -32,6 +32,12 @@ namespace psx::logger {
 			if (is_filtered(log_name))
 				return;
 
+			if (!m_conf.enable)
+				return;
+
+			if (uint32_t(m_conf.log_level) < uint32_t(level))
+				return;
+
 			auto formatted_string = fmt::vformat(format, fmt::make_format_args(args...));
 
 			log_impl(level, formatted_string);

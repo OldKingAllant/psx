@@ -4,7 +4,8 @@
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/Interrupts.hpp>
 
-#include <fmt/format.h>
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <common/Errors.hpp>
 
@@ -36,7 +37,7 @@ namespace psx {
 
 	void Gpu::WriteGP0(u32 value) {
 		if (m_cmd_fifo.full()) {
-			fmt::println("[GPU] Command FIFO full!");
+			LOG_WARN("GPU", "[GPU] Command FIFO full!");
 			return;
 		}
 
@@ -44,7 +45,7 @@ namespace psx {
 		{
 		case psx::Status::IDLE:
 			if ((value & 0xFF00'0000) == 0) {
-				fmt::println("[GPU] NOP");
+				LOG_DEBUG("GPU", "[GPU] NOP");
 				return;
 			}
 
@@ -69,7 +70,7 @@ namespace psx {
 		}
 		break;
 		case psx::Status::VRAM_CPU_BLIT: {
-			fmt::println("[GPU] Ignoring GP0 command during VRAM-CPU blit");
+			LOG_WARN("GPU", "[GPU] Ignoring GP0 command during VRAM-CPU blit");
 		}
 		break;
 		default:
@@ -116,7 +117,7 @@ namespace psx {
 			GpuReadInternal(value);
 			break;
 		default:
-			fmt::println("[GPU] Unimplemented ENV command 0x{:x}", (u32)upper);
+			LOG_ERROR("GPU", "[GPU] Unimplemented ENV command 0x{:x}", (u32)upper);
 			error::DebugBreak();
 			break;
 		}

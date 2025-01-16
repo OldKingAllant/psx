@@ -9,6 +9,7 @@
 #include <psxemu/include/psxemu/NullMemcard.hpp>
 #include <psxemu/include/psxemu/OfficialMemcard.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <filesystem>
@@ -126,6 +127,10 @@ namespace psx {
 		auto pc = header->start_pc;
 		auto gp = header->start_gp;
 		auto sp = exe.initial_sp();
+
+		if (sp == 0x0) {
+			sp = psxexe::DEFAULT_SP;
+		}
 
 		auto memfill_start = header->memfill_start;
 		auto memfill_sz = header->memfill_size;
