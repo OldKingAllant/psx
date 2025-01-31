@@ -174,6 +174,7 @@ namespace psx::video {
 		void DrawFlatUntexturedOpaque(UntexturedOpaqueFlatTriangle triangle);
 		void DrawBasicGouraud(BasicGouraudTriangle triangle);
 		void DrawTexturedTriangle(TexturedTriangle triangle);
+		void DrawTransparentUntexturedTriangle(UntexturedOpaqueFlatTriangle triangle, u8 transparency_type);
 
 		void DrawBatch();
 

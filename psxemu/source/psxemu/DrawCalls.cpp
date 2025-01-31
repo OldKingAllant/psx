@@ -518,9 +518,6 @@ namespace psx {
 		u32 color = cmd & 0xFFFFFF;
 
 		bool semi_trans = bool((cmd >> 25) & 1);
-		
-		if (semi_trans)
-			error::DebugBreak();
 
 		u32 vertex1 = m_cmd_fifo.deque();
 
@@ -601,8 +598,16 @@ namespace psx {
 		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
 			triangle1.v0.r, triangle1.v0.g, triangle1.v0.b);
 
-		m_renderer->DrawFlatUntexturedOpaque(triangle1);
-		m_renderer->DrawFlatUntexturedOpaque(triangle2);
+		if (semi_trans) {
+			u8 transparency_type = u8(m_stat.semi_transparency);
+			m_renderer->DrawTransparentUntexturedTriangle(triangle1, transparency_type);
+			m_renderer->DrawTransparentUntexturedTriangle(triangle2, transparency_type);
+		}
+		else {
+			m_renderer->DrawFlatUntexturedOpaque(triangle1);
+			m_renderer->DrawFlatUntexturedOpaque(triangle2);
+		}
+		
 	}
 
 	void Gpu::DrawRect() {

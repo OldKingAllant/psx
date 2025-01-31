@@ -144,6 +144,26 @@ namespace psx::video {
 		AppendCommand(cmd);
 	}
 
+	void Renderer::DrawTransparentUntexturedTriangle(UntexturedOpaqueFlatTriangle triangle, u8 transparency_type) {
+		if (m_untextured_opaque_flat_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
+		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v0);
+		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v1);
+		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v2);
+
+		m_untextured_opaque_flat_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 3;
+		cmd.type = PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
+		cmd.semi_transparent = true;
+		cmd.semi_transparency_type = transparency_type;
+
+		AppendCommand(cmd);
+	}
+
 	void Renderer::DrawBatch() {
 		if (m_commands.empty())
 			return;
