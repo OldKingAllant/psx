@@ -156,8 +156,8 @@ namespace psx::video {
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
 
 		glScissor(m_scissor.top_x, m_scissor.top_y,
-			m_scissor.bottom_x - m_scissor.top_x,
-			m_scissor.bottom_y - m_scissor.top_y);
+			m_scissor.bottom_x - m_scissor.top_x + 1,
+			m_scissor.bottom_y - m_scissor.top_y + 1);
 
 		glEnable(GL_SCISSOR_TEST);
 
@@ -414,11 +414,36 @@ namespace psx::video {
 		m_framebuffer.Bind();
 
 		glViewport(0, 0, 1024, 512);
-		glScissor(xoff, yoff, (GLsizei)w, (GLsizei)h);
-
 		glEnable(GL_SCISSOR_TEST);
 		glClearColor(r, g, b, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT);
+
+		if (xoff + w > 1024 && yoff + h > 512) {
+			glScissor(xoff, yoff, 1024 - (GLsizei)xoff, 512 - (GLsizei)yoff);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glScissor(0, 0, (xoff + w) - 1024, (yoff + h) - 512);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glScissor(0, yoff, (xoff + w) - 1024, 512 - (GLsizei)yoff);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glScissor(xoff, 0, 1024 - (GLsizei)xoff, (yoff + h) - 512);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+		else if (xoff + w > 1024) {
+			glScissor(xoff, yoff, 1024 - (GLsizei)xoff, (GLsizei)h);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glScissor(0, yoff, (xoff + w) - 1024, (GLsizei)h);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+		else if (yoff + h > 512) {
+			glScissor(xoff, yoff, (GLsizei)w, 512 - (GLsizei)yoff);
+			glClear(GL_COLOR_BUFFER_BIT);
+			glScissor(xoff, 0, (GLsizei)w, (yoff + h) - 512);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+		else {
+			glScissor(xoff, yoff, (GLsizei)w, (GLsizei)h);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+		
 		glDisable(GL_SCISSOR_TEST);
 
 		m_framebuffer.Unbind();

@@ -43,14 +43,14 @@ namespace psx {
 		v1.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
 		v1.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
 
-		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF) - 1;
+		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
 		v2.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
 
 		v3.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF) - 1;
+		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
 
-		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF) - 1;
-		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF) - 1;
+		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF);
+		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF);
 
 		u32 r = color & 0xFF;
 		u32 g = (color >> 8) & 0xFF;
@@ -369,7 +369,7 @@ namespace psx {
 			return;
 		}
 			
-		if (x_off + w >= VRAM_X_SIZE || y_off + h >= VRAM_Y_SIZE) {
+		if (x_off + w > VRAM_X_SIZE || y_off + h > VRAM_Y_SIZE) {
 			LOG_WARN("GPU", "[GPU] QUICK-FILL size goes out of bounds");
 			LOG_WARN("GPU", "      X = {}, Y = {}", x_off, y_off);
 			LOG_WARN("GPU", "      W = {}, H = {}", w, h);
