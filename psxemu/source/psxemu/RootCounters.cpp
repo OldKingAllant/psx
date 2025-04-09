@@ -403,6 +403,7 @@ namespace psx {
 		u64 till_ov = counter->CyclesTillOverflow() - cycles_late;
 		bool neg = false;
 		u64 till_target = counter->CyclesTillTarget(neg) - cycles_late;
+		neg = i64(till_target) < 0;
 
 		if (neg || till_ov <= till_target || till_target == 0) {
 			if ((u64)counter->m_count_target * counter->m_cycles_per_inc < cycles_late) {
@@ -439,6 +440,7 @@ namespace psx {
 
 		bool neg = false;
 		u64 till_target = counter->CyclesTillTarget(neg) - cycles_late;
+		neg = i64(till_target) < 0;
 
 		if (neg || till_ov <= till_target || till_target == 0)
 			counter->m_curr_event_id = counter->m_sys_status->scheduler.Schedule(till_ov, overflow_callback, counter_ptr);
@@ -449,7 +451,9 @@ namespace psx {
 	void RootCounter::UpdateEvents() {
 		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 		u64 diff = curr_time - m_last_update_timestamp;
-		UpdateCounter(diff);
+
+		if(diff)
+			UpdateCounter(diff);
 
 		//First, remove the event (even if it might still be valid)
 		m_sys_status->scheduler.Deschedule(m_curr_event_id);

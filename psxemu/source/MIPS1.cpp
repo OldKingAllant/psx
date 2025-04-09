@@ -13,6 +13,7 @@ namespace psx::cpu {
 		m_regs{}, m_pc{},
 		m_hi{}, m_lo{},
 		m_coprocessor0{}, 
+		m_gte{sys_status},
 		m_sys_status{sys_status} {
 		m_sys_status->curr_delay.dest = InvalidReg;
 		m_sys_status->next_delay.dest = InvalidReg;
@@ -219,6 +220,26 @@ namespace psx::cpu {
 		}
 
 		m_sys_status->AddLoadDelay(value, dest_reg);
+	}
+
+	void MIPS1::WriteCOP2_Data(u32 value, u8 cop2_reg) {
+		m_gte.WriteData(cop2_reg, value);
+	}
+
+	void MIPS1::ReadCOP2_Data(u8 cop2_reg, u8 dest_reg) {
+		m_sys_status->AddLoadDelay(m_gte.ReadData(cop2_reg), dest_reg);
+	}
+
+	void MIPS1::WriteCOP2_Control(u32 value, u8 cop2_reg) {
+		m_gte.WriteControl(cop2_reg, value);
+	}
+
+	void MIPS1::ReadCOP2_Control(u8 cop2_reg, u8 dest_reg) {
+		m_sys_status->AddLoadDelay(m_gte.ReadControl(cop2_reg), dest_reg);
+	}
+
+	void MIPS1::COP2Cmd(u32 cmd) {
+		m_gte.Cmd(cmd);
 	}
 
 	void MIPS1::WriteCOP0(u32 value, u8 cop0_reg) {

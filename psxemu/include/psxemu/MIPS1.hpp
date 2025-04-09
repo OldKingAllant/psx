@@ -3,6 +3,7 @@
 #include "Recompiler.hpp"
 #include "CodeCache.hpp"
 #include "cop0.hpp"
+#include "GTE.hpp"
 #include <common/Stack.hpp>
 
 #include <functional>
@@ -80,6 +81,14 @@ namespace psx::cpu {
 		void WriteCOP0(u32 value, u8 cop0_reg);
 		void ReadCOP0(u8 cop0_reg, u8 dest_reg);
 
+		void WriteCOP2_Data(u32 value, u8 cop2_reg);
+		void ReadCOP2_Data(u8 cop2_reg, u8 dest_reg);
+
+		void WriteCOP2_Control(u32 value, u8 cop2_reg);
+		void ReadCOP2_Control(u8 cop2_reg, u8 dest_reg);
+
+		void COP2Cmd(u32 cmd);
+
 		void FlushLoadDelay();
 
 		bool HLE_Bios(u32 address);
@@ -106,6 +115,7 @@ namespace psx::cpu {
 		u32 m_lo;
 
 		cop0 m_coprocessor0;
+		GTE  m_gte;
 
 		system_status* m_sys_status;
 

@@ -17,8 +17,16 @@
 #define DEBUG_CPU_ERRORS
 #define DEBUG_IO
 
+/// <summary>
+/// Perform sign extensiom of a value
+/// </summary>
+/// <typeparam name="Result">Return type</typeparam>
+/// <typeparam name="Integral">Type of the value</typeparam>
+/// <typeparam name="Shift">Size in bits of the value - 1</typeparam>
+/// <param name="value">The value to sext</param>
+/// <returns>Sign extended result</returns>
 template <typename Result, unsigned Shift, typename Integral>
-auto sign_extend(Integral value) -> Result {
+constexpr auto sign_extend(Integral value) -> Result {
 	Result res = static_cast<Result>(value);
 	constexpr auto num_bits = sizeof(Result) * 8 - 1;
 	res <<= (num_bits - Shift);

@@ -94,6 +94,12 @@
     <Filter Include="Resource Files\dev\sio\memcard">
       <UniqueIdentifier>{2e5a775b-ba9b-4d13-a3da-a592c5e371d9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\cpu\gte">
+      <UniqueIdentifier>{dc3e1822-6e8c-4b5c-b369-a9a6f34242aa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\cpu\gte">
+      <UniqueIdentifier>{06d2e1e2-c100-477c-91c2-785943fa503f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -306,6 +312,12 @@
     <ClInclude Include="include\psxemu\LoggerConfig.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\GTE.hpp">
+      <Filter>Header Files\cpu\gte</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\GTEStructs.hpp">
+      <Filter>Header Files\cpu\gte</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -460,6 +472,12 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\Logger.cpp">
       <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\GTE.cpp">
+      <Filter>Resource Files\cpu\gte</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\GTEOpcodes.cpp">
+      <Filter>Resource Files\cpu\gte</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
 
-	sys.LoadExe(std::string("../programs/gpu/transparency/transparency.exe"), std::nullopt);
+	sys.LoadExe(std::string("../programs/gte/test-all/test-all.exe"), std::nullopt);
 
 	std::unique_ptr<DebugView> debug_view{};
 

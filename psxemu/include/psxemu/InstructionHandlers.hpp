@@ -382,6 +382,42 @@ namespace psx::cpu {
 		}
 	}
 
+//#pragma optimize("", off)
+	void Coprocessor2Command(system_status* status, u32 instruction) {
+		u32 action = (instruction >> 21) & 0xF;
+
+		u8 rt = (instruction >> 16) & 0x1F;
+		u8 rd = (instruction >> 11) & 0x1F;
+
+		u32 value = status->cpu->GetRegs().array[rt];
+
+		switch (action)
+		{
+		case 0x0:
+			status->cpu->ReadCOP2_Data(rd, rt);
+			break;
+		case 0x2:
+			status->cpu->ReadCOP2_Control(rd, rt);
+			break;
+		case 0x4:
+			status->cpu->WriteCOP2_Data(value, rd);
+			break;
+		case 0x6:
+			status->cpu->WriteCOP2_Control(value, rd);
+			break;
+		case 0x8:
+			LOG_ERROR("CPU", "[CPU] Unimplemented COP2 jump if true/false at {:#010x}", 
+				status->cpu->GetPc());
+			error::DebugBreak();
+			break;
+		default:
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid COP2 opcode {:#x} at {:#x}",
+				action, status->cpu->GetPc());
+			status->CoprocessorUnusableException(2);
+			break;
+		}
+	}
+
 	template <Opcode CopNumber>
 	void CopCmd(system_status* status, u32 instruction) {
 		if constexpr (CopNumber == Opcode::NA) {
@@ -406,7 +442,22 @@ namespace psx::cpu {
 			}
 		}
 		else if constexpr (CopNumber == Opcode::COP2) {
-			LOG_DEBUG("CPU", "[COP2] Opcode {:#x}", instruction);
+			//LOG_DEBUG("CPU", "[COP2] Opcode {:#x}", instruction);
+
+			auto enable_gte = status->cpu->GetCOP0().registers.sr.cop2_enable;
+			if (!enable_gte) {
+				status->CoprocessorUnusableException(2);
+				return;
+			}
+
+			if ((instruction >> 25) & 1) {
+				auto cmd = (instruction & 0x1FFFFFF);
+				status->cpu->COP2Cmd(cmd);
+			}
+			else {
+				Coprocessor2Command(status, instruction);
+			}
+			
 		}
 		else {
 			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x} at {:#x}",
@@ -415,6 +466,7 @@ namespace psx::cpu {
 			status->CoprocessorUnusableException(coprocessor_num);
 		}
 	}
+//#pragma optimize("", on)
 
 	template <Opcode BranchOpcode>
 	void Branch(system_status* status, u32 instruction) {

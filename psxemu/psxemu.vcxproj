@@ -158,6 +158,8 @@
     <ClInclude Include="include\psxemu\GPU.hpp" />
     <ClInclude Include="include\psxemu\GPUCommands.hpp" />
     <ClInclude Include="include\psxemu\GpuDma.hpp" />
+    <ClInclude Include="include\psxemu\GTE.hpp" />
+    <ClInclude Include="include\psxemu\GTEStructs.hpp" />
     <ClInclude Include="include\psxemu\InstructionHandlers.hpp" />
     <ClInclude Include="include\psxemu\Interpreter.hpp" />
     <ClInclude Include="include\psxemu\Interrupts.hpp" />
@@ -238,6 +240,8 @@
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />
     <ClCompile Include="source\psxemu\GPU.cpp" />
     <ClCompile Include="source\psxemu\GpuDma.cpp" />
+    <ClCompile Include="source\psxemu\GTE.cpp" />
+    <ClCompile Include="source\psxemu\GTEOpcodes.cpp" />
     <ClCompile Include="source\psxemu\KernelHle.cpp" />
     <ClCompile Include="source\psxemu\Interpreter.cpp" />
     <ClCompile Include="source\psxemu\Kernel.cpp" />
