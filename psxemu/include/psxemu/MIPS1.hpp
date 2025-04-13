@@ -80,12 +80,15 @@ namespace psx::cpu {
 
 		void WriteCOP0(u32 value, u8 cop0_reg);
 		void ReadCOP0(u8 cop0_reg, u8 dest_reg);
+		u32 ReadCOP0(u8 cop0_reg);
 
 		void WriteCOP2_Data(u32 value, u8 cop2_reg);
 		void ReadCOP2_Data(u8 cop2_reg, u8 dest_reg);
+		u32 ReadCOP2_Data(u8 cop2_reg);
 
 		void WriteCOP2_Control(u32 value, u8 cop2_reg);
 		void ReadCOP2_Control(u8 cop2_reg, u8 dest_reg);
+		u32 ReadCOP2_Control(u8 cop2_reg);
 
 		void COP2Cmd(u32 cmd);
 

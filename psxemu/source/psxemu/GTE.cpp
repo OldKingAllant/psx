@@ -192,7 +192,37 @@ namespace psx::cpu {
 		m_regs.array[reg_id] = val;
 	}
 
-#pragma optimize("", off)
+	static constexpr auto generate_opcode_cycles_table() {
+		std::array<u64, 0x40> OPCODE_CYCLES = {};
+
+		OPCODE_CYCLES[0x01] = 15;
+		OPCODE_CYCLES[0x06] = 8;
+		OPCODE_CYCLES[0x0C] = 6;
+		OPCODE_CYCLES[0x10] = 8;
+		OPCODE_CYCLES[0x11] = 8;
+		OPCODE_CYCLES[0x12] = 8;
+		OPCODE_CYCLES[0x13] = 19;
+		OPCODE_CYCLES[0x14] = 13;
+		OPCODE_CYCLES[0x16] = 44;
+		OPCODE_CYCLES[0x1B] = 17;
+		OPCODE_CYCLES[0x1C] = 11;
+		OPCODE_CYCLES[0x1E] = 14;
+		OPCODE_CYCLES[0x20] = 30;
+		OPCODE_CYCLES[0x28] = 5;
+		OPCODE_CYCLES[0x29] = 8;
+		OPCODE_CYCLES[0x2A] = 17;
+		OPCODE_CYCLES[0x2D] = 5;
+		OPCODE_CYCLES[0x2E] = 6;
+		OPCODE_CYCLES[0x30] = 23;
+		OPCODE_CYCLES[0x3D] = 5;
+		OPCODE_CYCLES[0x3E] = 5;
+		OPCODE_CYCLES[0x3F] = 39;
+
+		return OPCODE_CYCLES;
+	}
+
+	constexpr auto OPCODE_CYCLES = generate_opcode_cycles_table();
+
 	void GTE::InterlockCommand() {
 		auto current_time = m_sys_status->scheduler.GetTimestamp();
 		if (current_time >= m_cmd_interlock) {
@@ -230,7 +260,7 @@ namespace psx::cpu {
 			//Two iterations
 			denom = ((0x2000080 - (denom * divisor)) >> 8);
 			denom = ((0x0000080 + (denom * divisor)) >> 8);
-			return std::min(0x1FFFFU, (((numer * denom) + 0x8000) >> 16));
+			return u32(std::min(0x1FFFFULL, ((u64(numer) * denom) + 0x8000) >> 16));
 		}
 		else {
 			//Set flags, bit 17 and bit 31
@@ -250,23 +280,39 @@ namespace psx::cpu {
 		GTE_CmdEncoding encoding{};
 		encoding.raw = cmd;
 
-		auto opcode_name = magic_enum::enum_name(encoding.opcode());
-
-		LOG_INFO("COP2", "       Opcode {}", 
-			opcode_name.empty() ? std::string_view{ "N/A" } :
-								  opcode_name);
-		LOG_INFO("COP2", "       SF     {}", magic_enum::enum_name(encoding.sf()));
-		LOG_INFO("COP2", "       LM     {}", magic_enum::enum_name(encoding.lm()));
-
 		switch (encoding.opcode())
 		{
-		case GTE_Opcode::RTPS: RTPS(encoding); break;
+		case GTE_Opcode::RTPS:  RTPS(encoding, 0, true); break;
+		case GTE_Opcode::NCLIP: NCLIP(encoding);       break;
+		case GTE_Opcode::OP:    OP(encoding);          break;
+		case GTE_Opcode::DPCS:  DPCS(encoding, false); break;
+		case GTE_Opcode::INTPL: INTPL(encoding);       break;
+		case GTE_Opcode::MVMVA: MVMVA(encoding);       break;
+		case GTE_Opcode::NCDS:  NCDS(encoding, 0);     break;
+		case GTE_Opcode::CDP:   CDP(encoding);         break;
+		case GTE_Opcode::NCDT:  NCDT(encoding);        break;
+		case GTE_Opcode::NCCS:  NCCS(encoding, 0);     break;
+		case GTE_Opcode::CC:    CC(encoding);          break;
+		case GTE_Opcode::NCS:   NCS(encoding, 0);      break;
+		case GTE_Opcode::NCT:   NCT(encoding);         break;
+		case GTE_Opcode::SQR:   SQR(encoding);         break;
+		case GTE_Opcode::DPCL:  DPCL(encoding);        break;
+		case GTE_Opcode::DPCT:  DPCT(encoding);        break;
+		case GTE_Opcode::AVSZ3: AVSZ3(encoding);       break;
+		case GTE_Opcode::AVSZ4: AVSZ4(encoding);       break;
+		case GTE_Opcode::RTPT:  RTPT(encoding);        break;
+		case GTE_Opcode::GPF:   GPF(encoding);         break;
+		case GTE_Opcode::GPL:   GPL(encoding);         break;
+		case GTE_Opcode::NCCT:  NCCT(encoding);        break;
 		default:
-			error::DebugBreak();
+			LOG_ERROR("COP2", "[COP2] N/A Opcode executed at {:#010x}",
+				m_sys_status->cpu->GetPc());
 			break;
 		}
+
+		m_cmd_interlock = m_sys_status->scheduler.GetTimestamp() + 
+			OPCODE_CYCLES[u8(encoding.opcode())];
 	}
-#pragma optimize("", on)
 
 	void GTE::MoveScreenFifo() {
 		m_regs.sxy0 = m_regs.sxy1;
@@ -287,5 +333,44 @@ namespace psx::cpu {
 	void GTE::PushZFifo(u16 coord) {
 		MoveZFifo();
 		m_regs.sz3.vec[0] = coord;
+	}
+
+	void GTE::MoveColorFifo() {
+		m_regs.rgb0 = m_regs.rgb1;
+		m_regs.rgb1 = m_regs.rgb2;
+	}
+
+	void GTE::PushColorFifo(GTE_Vec3<u32> color) {
+		MoveColorFifo();
+		
+		auto SaturateColor = [this](u8 color_id, int32_t value) {
+			if (value > 0xFF) {
+				m_regs.flags.raw |= 1 << (21 - color_id);
+				return 0xFF;
+			}
+
+			if (value < 0) {
+				m_regs.flags.raw |= 1 << (21 - color_id);
+				return 0;
+			}
+
+			return value;
+		};
+
+		GTE_Vec4<u8> fifo_entry{};
+		fifo_entry.vec[0] = u8(SaturateColor(0, color.vec[0]));
+		fifo_entry.vec[1] = u8(SaturateColor(1, color.vec[1]));
+		fifo_entry.vec[2] = u8(SaturateColor(2, color.vec[2]));
+		fifo_entry.vec[3] = m_regs.color_value.vec[3];
+
+		m_regs.rgb2 = fifo_entry;
+	}
+
+	void GTE::PushColorFromMac() {
+		GTE_Vec3<u32> color{};
+		color.vec[0] = m_regs.mac1_3.vec[0] >> 4;
+		color.vec[1] = m_regs.mac1_3.vec[1] >> 4;
+		color.vec[2] = m_regs.mac1_3.vec[2] >> 4;
+		PushColorFifo(color);
 	}
 }

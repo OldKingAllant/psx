@@ -823,4 +823,98 @@ namespace psx::cpu {
 			error::DebugBreak();
 		}
 	}
+
+	template <Opcode CopLoadOpcode>
+	void CoprocessorLoad(system_status* status, u32 instruction) {
+		u32 rt   = (instruction >> 16) & 0x1F;
+		u32 rs   = (instruction >> 21) & 0x1F;
+		i32 off = i16(instruction & 0xFFFF);
+
+		u32 base = status->cpu->GetRegs().array[rs];
+		u32 address = u32(base + off);
+
+		if constexpr (CopLoadOpcode == Opcode::LWC1) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x} at {:#x}",
+				1, status->cpu->GetPc());
+			status->CoprocessorUnusableException(1);
+		}
+		if constexpr (CopLoadOpcode == Opcode::LWC3) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x} at {:#x}",
+				3, status->cpu->GetPc());
+			status->CoprocessorUnusableException(3);
+		}
+		else if constexpr (CopLoadOpcode == Opcode::LWC0) {
+			auto value = status->sysbus
+				->Read<u32, true, true>(address);
+			if (status->exception)
+				return;
+			status->cpu->WriteCOP0(value, u8(rt));
+		}
+		else if constexpr (CopLoadOpcode == Opcode::LWC2) {
+			auto enable_gte = status->cpu->GetCOP0().registers.sr.cop2_enable;
+			if (!enable_gte) {
+				status->CoprocessorUnusableException(2);
+				return;
+			}
+
+			auto value = status->sysbus
+				->Read<u32, true, true>(address);
+			if (status->exception)
+				return;
+			status->cpu->WriteCOP2_Data(value, u8(rt));
+		}
+		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid cop. load opcode {:#x} at {:#x}",
+				u32(CopLoadOpcode), status->cpu->GetPc());
+			error::DebugBreak();
+		}
+	}
+
+	template <Opcode CopStoreOpcode>
+	void CoprocessorStore(system_status* status, u32 instruction) {
+		u32 rt = (instruction >> 16) & 0x1F;
+		u32 rs = (instruction >> 21) & 0x1F;
+		i32 off = i16(instruction & 0xFFFF);
+
+		u32 base = status->cpu->GetRegs().array[rs];
+		u32 address = u32(base + off);
+
+		if constexpr (CopStoreOpcode == Opcode::SWC1) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x} at {:#x}",
+				1, status->cpu->GetPc());
+			status->CoprocessorUnusableException(1);
+		}
+		if constexpr (CopStoreOpcode == Opcode::LWC3) {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid coprocessor {:#x} at {:#x}",
+				3, status->cpu->GetPc());
+			status->CoprocessorUnusableException(3);
+		}
+		else if constexpr (CopStoreOpcode == Opcode::SWC0) {
+			auto value = status->cpu->ReadCOP0(u8(rt));
+			if (status->exception)
+				return;
+			status->sysbus->Write<u32, true, true>(
+				address, value
+			);
+		}
+		else if constexpr (CopStoreOpcode == Opcode::SWC2) {
+			auto enable_gte = status->cpu->GetCOP0().registers.sr.cop2_enable;
+			if (!enable_gte) {
+				status->CoprocessorUnusableException(2);
+				return;
+			}
+
+			auto value = status->cpu->ReadCOP2_Data(u8(rt));
+			if (status->exception)
+				return;
+			status->sysbus->Write<u32, true, true>(
+				address, value
+			);
+		}
+		else {
+			LOG_ERROR("CPU", "[EXCEPTION] Invalid cop. store opcode {:#x} at {:#x}",
+				u32(CopStoreOpcode), status->cpu->GetPc());
+			error::DebugBreak();
+		}
+	}
 }

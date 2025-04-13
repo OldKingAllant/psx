@@ -103,6 +103,9 @@ namespace psx::cpu {
 				m_sys_status->branch_delay = false;
 				m_sys_status->branch_taken = false;
 			}
+			else {
+				error::DebugBreak();
+			}
 		}
 
 		bool in_bd = m_sys_status->branch_delay;
@@ -222,6 +225,69 @@ namespace psx::cpu {
 		m_sys_status->AddLoadDelay(value, dest_reg);
 	}
 
+	u32 MIPS1::ReadCOP0(u8 cop0_reg) {
+		u32 value = 0;
+
+		if (cop0_reg >= 16 && cop0_reg < 32)
+			value = 0xdeadbeef;
+		else {
+			if (m_coprocessor0.registers.sr.current_mode &&
+				!m_coprocessor0.registers.sr.cop0_enable) {
+				LOG_ERROR("CPU", "[EXCEPTION] Unusable COP0 in user mode at {:#x}",
+					m_pc);
+				m_sys_status->Exception(Excode::COU, false);
+				return 0;
+			}
+
+			switch (cop0_reg)
+			{
+			case 0x3:
+				value = m_coprocessor0.registers.bpc;
+				break;
+			case 0x5:
+				value = m_coprocessor0.registers.bda;
+				break;
+			case 0x6:
+				value = m_coprocessor0.registers.jumpdest;
+				break;
+			case 0x7:
+				value = m_coprocessor0.registers.dcic.reg;
+				break;
+			case 0x8:
+				value = m_coprocessor0.registers.badvaddr;
+				break;
+			case 0x9:
+				value = m_coprocessor0.registers.bdam;
+				break;
+			case 11:
+				value = m_coprocessor0.registers.bpcm;
+				break;
+			case 12:
+				value = m_coprocessor0.registers.sr.reg;
+				break;
+			case 13:
+				value = m_coprocessor0.registers.cause.reg;
+				if (m_sys_status->interrupt_mask & m_sys_status->interrupt_request) {
+					value |= (1 << 10);
+				}
+				break;
+			case 14:
+				value = m_coprocessor0.registers.epc;
+				break;
+			case 15:
+				value = m_coprocessor0.registers.prid;
+				break;
+			default:
+				LOG_ERROR("CPU", "[EXCEPTION] Unusable COP0 in user mode at {:#x}",
+					m_pc);
+				m_sys_status->Exception(Excode::RI, false);
+				return 0;
+			}
+		}
+
+		return value;
+	}
+
 	void MIPS1::WriteCOP2_Data(u32 value, u8 cop2_reg) {
 		m_gte.WriteData(cop2_reg, value);
 	}
@@ -230,12 +296,20 @@ namespace psx::cpu {
 		m_sys_status->AddLoadDelay(m_gte.ReadData(cop2_reg), dest_reg);
 	}
 
+	u32 MIPS1::ReadCOP2_Data(u8 cop2_reg) {
+		return m_gte.ReadData(cop2_reg);
+	}
+
 	void MIPS1::WriteCOP2_Control(u32 value, u8 cop2_reg) {
 		m_gte.WriteControl(cop2_reg, value);
 	}
 
 	void MIPS1::ReadCOP2_Control(u8 cop2_reg, u8 dest_reg) {
 		m_sys_status->AddLoadDelay(m_gte.ReadControl(cop2_reg), dest_reg);
+	}
+
+	u32 MIPS1::ReadCOP2_Control(u8 cop2_reg) {
+		return m_gte.ReadControl(cop2_reg);
 	}
 
 	void MIPS1::COP2Cmd(u32 cmd) {

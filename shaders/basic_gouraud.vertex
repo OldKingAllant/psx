@@ -20,8 +20,8 @@ out vec3 vertex_color;
 out vec2 vram_coords;
 
 void main() {
-	float x = float(vram_x) / 1024.0;
-	float y = float(vram_y) / 512.0;
+	float x = float(vram_x + draw_x_off) / 1024.0;
+	float y = float(vram_y + draw_y_off) / 512.0;
 
 	x = x * 2 - 1;
 	y = y * 2 - 1;

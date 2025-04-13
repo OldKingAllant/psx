@@ -19,8 +19,8 @@ layout(std140, binding = 2) uniform globals {
 flat out uvec3 in_color; 
 
 void main() {
-	float x = float(vram_coords_x) / 1024.0;
-	float y = float(vram_coords_y) / 512.0;
+	float x = float(vram_coords_x + draw_x_off) / 1024.0;
+	float y = float(vram_coords_y + draw_y_off) / 512.0;
 
 	x = x * 2 - 1;
 	y = y * 2 - 1;

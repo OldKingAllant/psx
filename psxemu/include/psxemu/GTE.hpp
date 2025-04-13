@@ -90,8 +90,33 @@ namespace psx::cpu {
 		void MoveZFifo();
 		void PushZFifo(u16 coord);
 
+		void MoveColorFifo();
+		void PushColorFifo(GTE_Vec3<u32> color);
+		void PushColorFromMac();
+
 	private :
-		void RTPS(GTE_CmdEncoding);
+		void RTPS (GTE_CmdEncoding, u8 vec_number, bool set_mac0);
+		void NCLIP(GTE_CmdEncoding);
+		void OP   (GTE_CmdEncoding);
+		void DPCS (GTE_CmdEncoding, bool use_fifo);
+		void INTPL(GTE_CmdEncoding);
+		void MVMVA(GTE_CmdEncoding);
+		void NCDS (GTE_CmdEncoding, u8 vec_number);
+		void CDP  (GTE_CmdEncoding);
+		void NCDT (GTE_CmdEncoding);
+		void NCCS (GTE_CmdEncoding, u8 vec_number);
+		void CC   (GTE_CmdEncoding);
+		void NCS  (GTE_CmdEncoding, u8 vec_number);
+		void NCT  (GTE_CmdEncoding);
+		void SQR  (GTE_CmdEncoding);
+		void DPCL (GTE_CmdEncoding);
+		void DPCT (GTE_CmdEncoding);
+		void AVSZ3(GTE_CmdEncoding);
+		void AVSZ4(GTE_CmdEncoding);
+		void RTPT (GTE_CmdEncoding);
+		void GPF  (GTE_CmdEncoding);
+		void GPL  (GTE_CmdEncoding);
+		void NCCT (GTE_CmdEncoding);
 
 		void InterlockCommand();
 
@@ -251,6 +276,46 @@ namespace psx::cpu {
 
 			m_regs.ir0.vec[0] = final_value;
 			return final_value;
+		}
+
+		void SaturateOTZ(i64 value) {
+			auto clamp = [](auto value, auto min, auto max) {
+				if (value < min)
+					return min;
+				if (value > max)
+					return max;
+				return value;
+			};
+
+			auto final_value = u16(value);
+			if (value < 0 || value > 0xFFFF) {
+				m_regs.flags.otz_saturated = true;
+				final_value = u16(clamp(value, 0LL, 0xFFFFLL));
+			}
+
+			m_regs.avg_z.vec[0] = final_value;
+		}
+
+		void VectorMul(GTE_Vec3<i16>, GTE_Vec3<i16>, GTE_Vec3<i16>, bool lm, u32 sf);
+		void VectorMatMul(GTE_Matrix, GTE_Vec3<i16>, GTE_Vec3<i32>, bool lm, u32 sf);
+		void Interpolate(i64 mac1, i64 mac2, i64 mac3, bool lm, u32 sf);
+
+		void UpdateIRGB();
+
+		GTE_Vec3<i16> IRToVec() const {
+			GTE_Vec3<i16> vec{};
+			vec.vec[0] = m_regs.ir1.vec[0];
+			vec.vec[1] = m_regs.ir2.vec[0];
+			vec.vec[2] = m_regs.ir3.vec[0];
+			return vec;
+		}
+
+		GTE_Vec3<i16> IR0ToVec() const {
+			GTE_Vec3<i16> vec{};
+			vec.vec[0] = m_regs.ir0.vec[0];
+			vec.vec[1] = m_regs.ir0.vec[0];
+			vec.vec[2] = m_regs.ir0.vec[0];
+			return vec;
 		}
 
 	private :

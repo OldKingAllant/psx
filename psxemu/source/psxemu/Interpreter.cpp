@@ -92,6 +92,20 @@ namespace psx::cpu {
 					return ShiftReg<opcode>;
 			}
 			break;
+			case InstructionSubtype::COP_LOAD: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return CoprocessorLoad<opcode>;
+			}
+			break;
+			case InstructionSubtype::COP_STORE: {
+				constexpr auto opcode = std::get<1>(TYPE);
+
+				if constexpr (opcode != Opcode::NA)
+					return CoprocessorStore<opcode>;
+			}
+			break;
 			default:
 				break;
 			}
