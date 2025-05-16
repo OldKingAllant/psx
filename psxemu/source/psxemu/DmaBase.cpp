@@ -189,6 +189,7 @@ namespace psx {
 			m_curr_address += 4;
 
 		m_words_rem--;
+		sysbus->m_curr_cycles += 1;
 	}
 
 	void DmaBase::DoBurst() {
@@ -240,6 +241,7 @@ namespace psx {
 			m_curr_address += 4;
 
 		m_words_rem--;
+		sysbus->m_curr_cycles += 1;
 	}
 
 	void DmaBase::AdvanceTransfer() {

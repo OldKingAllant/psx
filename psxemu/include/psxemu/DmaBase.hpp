@@ -26,7 +26,7 @@ namespace psx {
 		void TransferStart(bool resume);
 		void TransferEnd(bool last_block);
 
-		bool Dreq() const {
+		virtual bool Dreq() const {
 			return true;
 		}
 

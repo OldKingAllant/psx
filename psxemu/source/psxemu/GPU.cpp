@@ -231,7 +231,8 @@ namespace psx {
 
 	void Gpu::UpdateDreq() {
 		m_stat.recv_dma = (m_cmd_status == Status::IDLE)
-			|| (m_cmd_status == Status::WAITING_PARAMETERS);
+			|| (m_cmd_status == Status::WAITING_PARAMETERS)
+			|| (m_cmd_status == Status::CPU_VRAM_BLIT);
 		m_stat.recv_cmd_word = (m_cmd_status == Status::IDLE);
 
 		m_stat.send_vram_cpu = (m_cmd_status == Status::VRAM_CPU_BLIT);

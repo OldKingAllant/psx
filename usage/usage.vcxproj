@@ -150,11 +150,13 @@
     <ClCompile Include="..\thirdparty\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\thirdparty\imgui\misc\cpp\imgui_stdlib.cpp" />
     <ClCompile Include="config\ConfigLoader.cpp" />
+    <ClCompile Include="display\DisplayWindow.cpp" />
     <ClCompile Include="imgui_debug\DebugView.cpp" />
     <ClCompile Include="tty\TTY_Console.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="config\ConfigLoader.hpp" />
+    <ClInclude Include="display\DisplayWindow.hpp" />
     <ClInclude Include="imgui_debug\DebugView.hpp" />
     <ClInclude Include="tty\TTY_Console.hpp" />
   </ItemGroup>

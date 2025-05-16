@@ -11,6 +11,7 @@
 #include <psxemu/include/psxemu/GPU.hpp>
 #include <psxemu/include/psxemu/CDDrive.hpp>
 #include <psxemu/include/psxemu/SIOPort.hpp>
+#include <psxemu/include/psxemu/MDEC.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
@@ -724,6 +725,16 @@ namespace psx {
 				return;
 			}
 
+			if (address >= MDEC0_ADDRESS && address < MDEC0_ADDRESS + 4) {
+				m_mdec.WriteCommand(u32(value));
+				return;
+			}
+
+			if (address >= MDEC1_ADDRESS && address < MDEC1_ADDRESS + 4) {
+				m_mdec.WriteControl(u32(value));
+				return;
+			}
+
 			LOG_ERROR("MEMORY", "[MEMORY] Write to invalid/unused/unimplemented register 0x{:x}", 
 				address);
 
@@ -863,6 +874,16 @@ namespace psx {
 				return 0x00;
 			}
 
+			if (address >= MDEC0_ADDRESS && address < MDEC0_ADDRESS + 4) {
+				auto off = address & 0x3;
+				return Ty(m_mdec.ReadData() >> (off * 8));
+			}
+
+			if (address >= MDEC1_ADDRESS && address < MDEC1_ADDRESS + 4) {
+				auto off = address & 0x3;
+				return Ty(m_mdec.ReadStat() >> (off * 8));
+			}
+
 			LOG_ERROR("MEMORY", "[MEMORY] Reading invalid/unused/unimplemented register 0x{:x}", 
 				address);
 
@@ -907,6 +928,10 @@ namespace psx {
 
 		SIOPort& GetSIO1() {
 			return m_sio1;
+		}
+
+		MDEC& GetMDEC() {
+			return m_mdec;
 		}
 
 		friend class DebugView;
@@ -1009,5 +1034,7 @@ namespace psx {
 
 		SIOPort m_sio0;
 		SIOPort m_sio1;
+
+		MDEC m_mdec;
 	};
 }

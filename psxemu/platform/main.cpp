@@ -15,6 +15,7 @@
 
 #include <usage/imgui_debug/DebugView.hpp>
 #include <usage/config/ConfigLoader.hpp>
+#include <usage/display/DisplayWindow.hpp>
 
 std::string GetRenderdocPath() {
 	char* buf{ nullptr };
@@ -63,9 +64,9 @@ int main(int argc, char* argv[]) {
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
 		"../shaders", "vram_view_blit", false, true, true);
 
-	psx::video::SdlWindow display("PSX-Display",
+	DisplayWindow display("PSX-Display",
 		psx::video::Rect{ .w = 640, .h = 480 },
-		"../shaders", "display_blit", true, true, true);
+		"../shaders", "display_blit", "display_blit24", true, true, true);
 
 	if(renderdoc)
 		renderdoc->SetCurrentWindow(vram_view.GetNativeWindowHandle());
@@ -161,8 +162,8 @@ int main(int argc, char* argv[]) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
 
-	//sys.LoadExe(std::string("../programs/MemoryTransfer16BPP.exe"), std::nullopt);
-	sys.LoadExe(std::string("../programs/gte/test-all/test-all.exe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/mdec/step-by-step-log/step-by-step-log.exe"), std::nullopt);
+	sys.LoadExe(std::string("../programs/mdec/frame/frame-24bit-dma.exe"), std::nullopt);
 
 	std::unique_ptr<DebugView> debug_view{};
 
@@ -228,13 +229,26 @@ int main(int argc, char* argv[]) {
 		else {
 			auto disp_range = gpu.ComputeDisplayRange();
 
-			display.SetTextureWindow(
-				disp_conf.disp_x,
-				disp_conf.disp_y,
-				psx::video::Rect{ .w = disp_range.xsize, .h = disp_range.ysize },
-				psx::video::Rect{ .w = 1024, .h = 512 }
-			);
-			display.Blit(handle);
+			using ColorDepth = psx::DisplayColorDepth;
+
+			if (gpu.GetStat().disp_color_depth == ColorDepth::BITS24) {
+				display.SetTextureWindow24(
+					disp_conf.disp_x,
+					disp_conf.disp_y,
+					psx::video::Rect{ .w = disp_range.xsize, .h = disp_range.ysize },
+					psx::video::Rect{ .w = 1024, .h = 512 }
+				);
+				display.Blit24(handle);
+			}
+			else {
+				display.SetTextureWindow(
+					disp_conf.disp_x,
+					disp_conf.disp_y,
+					psx::video::Rect{ .w = disp_range.xsize, .h = disp_range.ysize },
+					psx::video::Rect{ .w = 1024, .h = 512 }
+				);
+				display.Blit(handle);
+			}
 		}
 
 		display.Present();

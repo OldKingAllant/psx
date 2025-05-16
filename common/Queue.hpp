@@ -50,7 +50,7 @@ namespace psx {
 		}
 
 		constexpr bool empty() const {
-			return m_curr_size == 0;
+			return m_curr_size <= 0;
 		}
 
 		constexpr bool full() const {

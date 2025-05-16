@@ -1,0 +1,69 @@
+#version 430 core
+
+in flat vec2 tex_coordinates;
+in flat vec2 resolution;
+in vec2 win_coords;
+
+layout(binding = 0) uniform usampler2D vram_tex;
+
+out vec4 color;
+
+void main() {
+	//Compute pixel position inside VRAM
+	uint x_base = uint(tex_coordinates.x * 1024);
+	uint y_base = uint(tex_coordinates.y * 512);
+
+	//Resolution has full int range
+	uint x_off = uint(win_coords.x * resolution.x * 1.5);
+	uint y_off = uint(win_coords.y * resolution.y);
+
+	uint pixel_x = x_base + x_off;
+	uint pixel_y = y_base + y_off;
+
+	//Each pixel will occupy two texels in the texture,
+	//which will be consecutive on the x axis 
+	uint first_texel = texelFetch(vram_tex, ivec2(pixel_x, pixel_y), 0).r;
+	uint second_texel = texelFetch(vram_tex, ivec2(pixel_x + 1, pixel_y), 0).r;
+
+	/*uint first_texel = 
+		(uint(first_texel_f.r * 0x1F) << 0)  |
+		(uint(first_texel_f.g * 0x1F) << 5)  |
+		(uint(first_texel_f.b * 0x1F) << 10) |
+		(uint(first_texel_f.a) << 15);
+
+	uint second_texel = 
+		(uint(second_texel_f.r * 0x1F) << 0)  |
+		(uint(second_texel_f.g * 0x1F) << 5)  |
+		(uint(second_texel_f.b * 0x1F) << 10) |
+		(uint(second_texel_f.a) << 15);*/
+
+	uint pixel_state = pixel_x & 1;
+
+	uint r = 0;
+	uint g = 0;
+	uint b = 0;
+
+	//0: RG
+	//1: BR
+	//2: GB
+	//3: RG
+	//4: ...
+
+	//Pixel 0: 0 * 1.5 -> 0 1
+	//Pixel 1: 1 * 1.5 -> 1 2
+	//Pixel 2: 2 * 1.5 -> 3 4
+
+	if(pixel_state == 0) {
+		r = first_texel & 0xFF;
+		g = (first_texel >> 8) & 0xFF;
+		b = second_texel & 0xFF;
+	}
+	else if(pixel_state == 1) {
+		r = first_texel & 0xFF;
+		g = second_texel & 0xFF;
+		b = (second_texel >> 8) & 0xFF;
+	}
+
+	color = vec4(float(r) / 0xFF, float(g) / 0xFF, float(b) / 0xFF, 1.0);
+	//color = vec4(float(pixel_x) / 1024.0, float(pixel_y) / 512.0, 0.0, 1.0);
+}

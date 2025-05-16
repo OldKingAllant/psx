@@ -272,7 +272,7 @@ namespace psx::cpu {
 	void GTE::Cmd(u32 cmd) {
 		InterlockCommand();
 
-		LOG_INFO("COP2", "[COP2] Command {:#010x}", cmd);
+		LOG_DEBUG("COP2", "[COP2] Command {:#010x}", cmd);
 
 		//Reset all flags from prev command
 		m_regs.flags.raw = 0;

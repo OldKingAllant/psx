@@ -13,8 +13,11 @@ namespace psx {
 
 	DmaController::DmaController(system_status* sys_status) :
 		m_sys_status{ sys_status }, m_control{}, 
-		m_int_control{}, m_ot_dma{sys_status, this}, 
-		m_gpu_dma{sys_status, this},
+		m_int_control{}, 
+		m_ot_dma{sys_status, this}, 
+		m_gpu_dma{sys_status, this}, 
+		m_mdecin_dma{sys_status, this},
+		m_mdecout_dma{sys_status, this},
 		m_active_dmas{}, m_num_active{0} {
 		m_control.raw = DPCR_INIT;
 	}
@@ -93,6 +96,16 @@ namespace psx {
 			return;
 		}
 
+		if ((address & 0xF0) == DMA0_ADD) {
+			m_mdecin_dma.Write(address - DMA0_ADD, value, mask);
+			return;
+		}
+
+		if ((address & 0xF0) == DMA1_ADD) {
+			m_mdecout_dma.Write(address - DMA1_ADD, value, mask);
+			return;
+		}
+
 		fmt::println("[DMA CONTROLLER] Accessing invalid/unused register 0x{:x}", address);
 	}
 
@@ -112,6 +125,14 @@ namespace psx {
 
 		if ((address & 0xF0) == DMA2_ADD) {
 			return m_gpu_dma.Read(address - DMA2_ADD);
+		}
+
+		if ((address & 0xF0) == DMA0_ADD) {
+			return m_mdecin_dma.Read(address - DMA0_ADD);
+		}
+
+		if ((address & 0xF0) == DMA1_ADD) {
+			return m_mdecout_dma.Read(address - DMA1_ADD);
 		}
 
 		fmt::println("[DMA CONTROLLER] Accessing invalid/unused register 0x{:x}", address);
@@ -162,6 +183,12 @@ namespace psx {
 	void DmaController::AdvanceTransfer() {
 		switch (m_active_dmas[0].dma_id)
 		{
+		case 0x0:
+			m_mdecin_dma.AdvanceTransfer();
+			break;
+		case 0x1:
+			m_mdecout_dma.AdvanceTransfer();
+			break;
 		case 0x2:
 			m_gpu_dma.AdvanceTransfer();
 			break;

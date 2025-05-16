@@ -65,7 +65,7 @@ namespace psx::video {
 
 		void MakeContextCurrent() const;
 
-	private :
+	protected :
 		void* m_win;
 		void* m_gl_ctx;
 		Shader* m_blit;

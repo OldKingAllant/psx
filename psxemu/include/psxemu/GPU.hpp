@@ -177,6 +177,10 @@ namespace psx {
 			return m_disp_conf;
 		}
 
+		GpuStat& GetStat() {
+			return m_stat;
+		}
+
 		DisplayRange ComputeDisplayRange() const;
 
 		friend class DebugView;

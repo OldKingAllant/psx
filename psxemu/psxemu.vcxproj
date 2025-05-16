@@ -175,6 +175,9 @@
     <ClInclude Include="include\psxemu\Logger.hpp" />
     <ClInclude Include="include\psxemu\LoggerConfig.hpp" />
     <ClInclude Include="include\psxemu\LoggerMacros.hpp" />
+    <ClInclude Include="include\psxemu\MDEC.hpp" />
+    <ClInclude Include="include\psxemu\MDECInDma.hpp" />
+    <ClInclude Include="include\psxemu\MDECOutDma.hpp" />
     <ClInclude Include="include\psxemu\MemoryMapper.hpp" />
     <ClInclude Include="include\psxemu\MIPS1.hpp" />
     <ClInclude Include="include\psxemu\NullController.hpp" />
@@ -248,6 +251,9 @@
     <ClCompile Include="source\psxemu\KernelStrings.cpp" />
     <ClCompile Include="source\psxemu\KernelStructures.cpp" />
     <ClCompile Include="source\psxemu\Logger.cpp" />
+    <ClCompile Include="source\psxemu\MDEC.cpp" />
+    <ClCompile Include="source\psxemu\MDECInDma.cpp" />
+    <ClCompile Include="source\psxemu\MDECOutDma.cpp" />
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
     <ClCompile Include="source\psxemu\NullController.cpp" />
@@ -272,6 +278,8 @@
     <None Include="..\shaders\basic_gouraud.vertex" />
     <None Include="..\shaders\display_blit.fragment" />
     <None Include="..\shaders\display_blit.vertex" />
+    <None Include="..\shaders\display_blit24.fragment" />
+    <None Include="..\shaders\display_blit24.vertex" />
     <None Include="..\shaders\flat_untextured_opaque_triangle.fragment" />
     <None Include="..\shaders\flat_untextured_opaque_triangle.vertex" />
     <None Include="..\shaders\textured_triangle.fragment" />

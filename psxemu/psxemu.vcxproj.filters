@@ -100,6 +100,12 @@
     <Filter Include="Resource Files\cpu\gte">
       <UniqueIdentifier>{06d2e1e2-c100-477c-91c2-785943fa503f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\mdec">
+      <UniqueIdentifier>{a29e9b4f-0243-4902-b274-7b777b61d114}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\mdec">
+      <UniqueIdentifier>{fd0c6d5e-1f56-45de-bbd3-6443ff52b98d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -318,6 +324,15 @@
     <ClInclude Include="include\psxemu\GTEStructs.hpp">
       <Filter>Header Files\cpu\gte</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\MDEC.hpp">
+      <Filter>Header Files\mdec</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\MDECInDma.hpp">
+      <Filter>Header Files\dev\dma</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\MDECOutDma.hpp">
+      <Filter>Header Files\dev\dma</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -479,6 +494,15 @@
     <ClCompile Include="source\psxemu\GTEOpcodes.cpp">
       <Filter>Resource Files\cpu\gte</Filter>
     </ClCompile>
+    <ClCompile Include="source\psxemu\MDEC.cpp">
+      <Filter>Resource Files\mdec</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\MDECInDma.cpp">
+      <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\MDECOutDma.cpp">
+      <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\vram_view_blit.fragment">
@@ -515,6 +539,12 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\shaders\display_blit.vertex">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\display_blit24.vertex">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\display_blit24.fragment">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
