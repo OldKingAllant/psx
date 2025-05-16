@@ -133,6 +133,7 @@ namespace psx {
 			m_stat.missing_params = m_num_params - 1;
 			m_stat.curr_block = CurrBlockType::CR;
 			m_out_fifo.clear();
+			m_curr_out_pos = 0;
 		}
 		break;
 		case psx::MDEC_Cmd::SET_QUANT: {
