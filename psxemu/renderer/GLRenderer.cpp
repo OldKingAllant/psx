@@ -20,7 +20,9 @@ namespace psx::video {
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_uniform_buf{},
 		m_scissor{},
-		m_commands{}, m_renderdoc{nullptr}
+		m_commands{}, m_renderdoc{nullptr},
+		m_vram_blit_vertex_buf(6),
+		m_vram_blit_shader(std::string("../shaders"), std::string("vram_vram_blit"))
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_blit_shader.SetLabel("vram_blit_shader");
@@ -32,6 +34,8 @@ namespace psx::video {
 		m_uniform_buf.Bind();
 		m_uniform_buf.Upload();
 		m_uniform_buf.BindRange(2);
+		m_vram_blit_vertex_buf.SetLabel("vram_vram_blit_vertex_buf");
+		m_vram_blit_shader.SetLabel("vram_vram_blit_shader");
 	}
 
 	void Renderer::SyncTextures() {
@@ -58,6 +62,7 @@ namespace psx::video {
 
 	void Renderer::VBlank() {
 		FlushCommands();
+		SyncTextures();
 	}
 
 	void Renderer::AppendCommand(DrawCommand cmd) {
@@ -409,6 +414,54 @@ namespace psx::video {
 		m_framebuffer.Unbind();
 		SyncTextures();
 	}
+
+#pragma optimize("", off)
+	void Renderer::VramVramBlit(u32 srcx, u32 srcy, u32 dstx, u32 dsty, u32 w, u32 h, bool mask_enable) {
+		FlushCommands();
+		SyncTextures();
+
+		glDisable(GL_SCISSOR_TEST);
+		glViewport(0, 0, 1024, 512);
+
+		m_framebuffer.Bind();
+		m_vram_blit_vertex_buf.Bind();
+		m_vram_blit_shader.BindProgram();
+
+		m_vram_blit_shader.UpdateUniform("mask_enable", mask_enable);
+
+		m_vram_blit_vertex_buf.Clear();
+
+		/*
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff + h });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
+
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
+		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
+		*/
+
+		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty, srcx, srcy });
+		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty + h, srcx, srcy + h });
+		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
+
+		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty, srcx, srcy });
+		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
+		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty, srcx + w, srcy });
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		m_processing_cmd = true;
+		CommandFenceSync();
+
+		m_vram_blit_vertex_buf.Unbind();
+		m_framebuffer.Unbind();
+		SyncTextures();
+	}
+#pragma optimize("", on)
 
 	void Renderer::FlushCommands() {
 		UpdateUbo();

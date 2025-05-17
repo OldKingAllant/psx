@@ -1,0 +1,19 @@
+#version 430 core
+
+in uvec2 dst_coords;
+in uvec2 src_coords;
+
+out vec2 copy_source;
+out vec2 copy_dest;
+
+void main() {
+	float dstx = float(dst_coords.x) / 1024.0;
+    float dsty = float(dst_coords.y) / 512.0;
+	gl_Position = vec4(dstx * 2 - 1, dsty * 2 - 1, 0.0, 1.0);
+
+	float srcx = float(src_coords.x) / 1024.0;
+    float srcy = float(src_coords.y) / 512.0;
+
+	copy_source = vec2(srcx, srcy);
+	copy_dest = vec2(dstx, dsty);
+}

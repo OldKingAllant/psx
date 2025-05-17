@@ -166,9 +166,12 @@ namespace psx {
 			m_cmd_status = Status::WAITING_PARAMETERS;
 		}
 			break;
-		case psx::CommandType::VRAM_BLIT:
-			LOG_ERROR("GPU", "[GPU] UNIMPLEMENTED: VRAM-VRAM BLIT");
-			error::DebugBreak();
+		case psx::CommandType::VRAM_BLIT: {
+			m_cmd_fifo.queue(cmd);
+			m_cmd_status = Status::WAITING_PARAMETERS;
+			m_required_params = 3;
+			m_rem_params = 3;
+		}
 			break;
 		case psx::CommandType::CPU_VRAM_BLIT: {
 			m_cmd_fifo.queue(cmd);
@@ -318,6 +321,7 @@ namespace psx {
 			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");
 	}
 
+#pragma optimize("", off)
 	void Gpu::CommandEnd() {
 		if (m_cmd_fifo.empty())
 			error::DebugBreak();
@@ -358,8 +362,56 @@ namespace psx {
 			m_cmd_status = Status::IDLE;
 		}
 			break;
-		case psx::CommandType::VRAM_BLIT:
-			error::DebugBreak();
+		case psx::CommandType::VRAM_BLIT: {
+			u32 cmd = m_cmd_fifo.deque();
+			u32 src_coords = m_cmd_fifo.deque();
+			u32 dst_coords = m_cmd_fifo.deque();
+			u32 wh = m_cmd_fifo.deque();
+
+			u32 src_x = src_coords & 0xFFFF;
+			u32 src_y = (src_coords >> 16) & 0xFFFF;
+			u32 dst_x = dst_coords & 0xFFFF;
+			u32 dst_y = (dst_coords >> 16) & 0xFFFF;
+			u32 w = wh & 0xFFFF;
+			u32 h = (wh >> 16) & 0xFFFF;
+
+			src_x &= VRAM_X_SIZE - 1;
+			src_y &= VRAM_Y_SIZE - 1;
+
+			dst_x &= VRAM_X_SIZE - 1;
+			dst_y &= VRAM_Y_SIZE - 1;
+
+			if (w == 0) {
+				w = VRAM_X_SIZE;
+			}
+			else {
+				w = ((w - 1) & (VRAM_X_SIZE - 1)) + 1;
+			}
+
+			if (h == 0) {
+				h = VRAM_Y_SIZE;
+			}
+			else {
+				h = ((h - 1) & (VRAM_Y_SIZE - 1)) + 1;
+			}
+
+			if (src_x + w > VRAM_X_SIZE || dst_x + w > VRAM_X_SIZE) {
+				LOG_WARN("GPU", "[GPU] VRAM-VRAM BLIT OUT OF BOUNDS X");
+			}
+
+			if (src_y + h > VRAM_Y_SIZE || dst_y + h > VRAM_Y_SIZE) {
+				LOG_WARN("GPU", "[GPU] VRAM-VRAM BLIT OUT OF BOUNDS Y");
+			}
+
+			LOG_DEBUG("GPU", "[GPU] VRAM-VRAM BLIT");
+			LOG_DEBUG("GPU", "      SRC X = {}, Y = {}", src_x, src_y);
+			LOG_DEBUG("GPU", "      DST X = {}, Y = {}", dst_x, dst_y);
+			LOG_DEBUG("GPU", "      W = {}, H = {}", w, h);
+			m_cmd_status = Status::IDLE;
+
+			m_renderer->VramVramBlit(src_x, src_y, dst_x, dst_y,
+				w, h, m_stat.draw_over_mask_disable);
+		}
 			break;
 		case psx::CommandType::CPU_VRAM_BLIT: {
 			u32 cmd = m_cmd_fifo.deque();
@@ -453,4 +505,5 @@ namespace psx {
 			break;
 		}
 	}
+#pragma optimize("", on)
 }

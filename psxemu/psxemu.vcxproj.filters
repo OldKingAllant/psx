@@ -547,5 +547,11 @@
     <None Include="..\shaders\display_blit24.fragment">
       <Filter>shaders</Filter>
     </None>
+    <None Include="..\shaders\vram_vram_blit.vertex">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\vram_vram_blit.fragment">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

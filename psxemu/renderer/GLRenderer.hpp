@@ -99,6 +99,20 @@ namespace psx::video {
 		}
 	};
 
+	struct VramBlitVertex {
+#pragma pack(push, 1)
+		u32 dstx, dsty;
+		u32 srcx, srcy;
+#pragma pack(pop)
+
+		std::vector<VertexAttribute> attributes() const {
+			return {
+				VertexAttribute{ VertexAttributeType::UVEC2, (u8*)&dstx - (u8*)this },
+				VertexAttribute{ VertexAttributeType::UVEC2, (u8*)&srcx - (u8*)this }
+			};
+		}
+	};
+
 	enum class PipelineType {
 		UNTEXTURED_OPAQUE_FLAT_TRIANGLE,
 		BASIC_GOURAUD_TRIANGLE,
@@ -152,6 +166,9 @@ namespace psx::video {
 		void PrepareBlit(bool mask_enable);
 		void CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h);
 		void EndBlit();
+
+		void VramVramBlit(u32 srcx, u32 srcy, u32 dstx, u32 dsty,
+			u32 w, u32 h, bool mask_enable);
 
 		void Fill(i32 xoff, i32 yoff, u32 w, u32 h, u32 color);
 
@@ -232,5 +249,7 @@ namespace psx::video {
 		ScissorBox m_scissor;
 		std::list<DrawCommand> m_commands;
 		Renderdoc* m_renderdoc;
+		VertexBuffer<VramBlitVertex> m_vram_blit_vertex_buf;
+		Shader m_vram_blit_shader;
 	};
 }

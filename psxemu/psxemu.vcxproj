@@ -288,6 +288,8 @@
     <None Include="..\shaders\vram_blit.vertex" />
     <None Include="..\shaders\vram_view_blit.fragment" />
     <None Include="..\shaders\vram_view_blit.vertex" />
+    <None Include="..\shaders\vram_vram_blit.fragment" />
+    <None Include="..\shaders\vram_vram_blit.vertex" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

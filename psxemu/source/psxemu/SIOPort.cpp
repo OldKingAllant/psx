@@ -183,17 +183,17 @@ namespace psx {
 			m_control.reg = value;
 
 			if (old_port != m_control.port_select) {
-				if (old_port == PortSelect::PORT1)
+				if (old_port == PortSelect::PORT1 && m_port1)
 					m_port1->Unselect();
-				else
+				else if(m_port2)
 					m_port2->Unselect();
 				m_rx_fifo.num_bytes = 0;
 				m_stat.rx_not_empty = false;
 			}
 
 			if (!m_control.dtr_output_level) {
-				m_port1->Unselect();
-				m_port2->Unselect();
+				if(m_port1) m_port1->Unselect();
+				if(m_port2) m_port2->Unselect();
 			}
 
 			if (!old_tx_enable && m_control.tx_enable) {

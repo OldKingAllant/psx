@@ -1,0 +1,23 @@
+#version 430 core
+
+layout(binding = 0) uniform sampler2D vram_tex;
+
+uniform bool mask_enable;
+
+in vec2 copy_source;
+in vec2 copy_dest;
+out vec4 color;
+
+void main() {
+	if(mask_enable) {
+        vec4 curr_color = texture(vram_tex, copy_dest);
+
+        if(curr_color.a == 0.0) {
+            color = texture(vram_tex, copy_source);
+        } else {
+            color = curr_color;
+        }
+    } else {
+        color = texture(vram_tex, copy_source);
+    }
+}
