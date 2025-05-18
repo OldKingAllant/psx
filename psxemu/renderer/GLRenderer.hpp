@@ -75,10 +75,20 @@ namespace psx::video {
 		UntexturedOpaqueFlatVertex v2;
 	};
 
+	struct MonoLine {
+		UntexturedOpaqueFlatVertex v0;
+		UntexturedOpaqueFlatVertex v1;
+	};
+
 	struct BasicGouraudTriangle {
 		BasicGouraudVertex v0;
 		BasicGouraudVertex v1;
 		BasicGouraudVertex v2;
+	};
+
+	struct ShadedLine {
+		BasicGouraudVertex v0;
+		BasicGouraudVertex v1;
 	};
 
 	struct TexturedTriangle {
@@ -117,6 +127,8 @@ namespace psx::video {
 		UNTEXTURED_OPAQUE_FLAT_TRIANGLE,
 		BASIC_GOURAUD_TRIANGLE,
 		TEXTURED_TRIANGLE,
+		MONO_LINE,
+		SHADED_LINE,
 		ENUM_MAX //Use this to get the number
 				//of used elements in the enum
 	};
@@ -192,6 +204,10 @@ namespace psx::video {
 		void DrawBasicGouraud(BasicGouraudTriangle triangle);
 		void DrawTexturedTriangle(TexturedTriangle triangle);
 		void DrawTransparentUntexturedTriangle(UntexturedOpaqueFlatTriangle triangle, u8 transparency_type);
+		void DrawMonoLine(MonoLine line);
+		void DrawMonoTransparentLine(MonoLine line, u8 transparency_type);
+		void DrawShadedLine(ShadedLine line);
+		void DrawShadedTransparentLine(ShadedLine line, u8 transparency_type);
 
 		void DrawBatch();
 
@@ -251,5 +267,9 @@ namespace psx::video {
 		Renderdoc* m_renderdoc;
 		VertexBuffer<VramBlitVertex> m_vram_blit_vertex_buf;
 		Shader m_vram_blit_shader;
+		Pipeline<Primitive::LINES,
+			UntexturedOpaqueFlatVertex, NullData> m_mono_line_pipeline;
+		Pipeline<Primitive::LINES,
+			BasicGouraudVertex, NullData> m_shaded_line_pipeline;
 	};
 }

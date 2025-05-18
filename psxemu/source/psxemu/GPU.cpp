@@ -73,6 +73,23 @@ namespace psx {
 			LOG_WARN("GPU", "[GPU] Ignoring GP0 command during VRAM-CPU blit");
 		}
 		break;
+		case psx::Status::POLYLINE: {
+			if ((value & 0xF000F000) == 0x50005000) {
+				CommandEnd();
+			}
+			else {
+				m_cmd_fifo.queue(value);
+			}
+		} 
+		break;
+		case psx::Status::POLYLINE_GOURAUD: {
+			if ((m_cmd_fifo.len() & 1) == 0 && (value & 0xF000F000) == 0x50005000) {
+				CommandEnd();
+			}
+			else {
+				m_cmd_fifo.queue(value);
+			}
+		} break;
 		default:
 			error::DebugBreak();
 			break;

@@ -57,7 +57,9 @@ namespace psx {
 		WAITING_PARAMETERS,
 		BUSY,
 		CPU_VRAM_BLIT,
-		VRAM_CPU_BLIT
+		VRAM_CPU_BLIT,
+		POLYLINE,
+		POLYLINE_GOURAUD
 	};
 
 	/// <summary>
@@ -209,6 +211,7 @@ namespace psx {
 		void DrawQuad();
 		void DrawTriangle();
 		void DrawRect();
+		void DrawLine();
 
 		void PerformCpuVramBlit(u32 data);
 
@@ -216,8 +219,13 @@ namespace psx {
 		void DrawBasicGouraudQuad();
 		void DrawBasicGouraudTriangle();
 		void DrawTexturedQuad();
+		void DrawTexturedTriangle();
 		void DrawTexturedRect();
 		void DrawUntexturedRect();
+		void DrawMonoLine();
+		void DrawShadedLine();
+		void DrawMonoPolyline();
+		void DrawShadedPolyLine();
 
 		void QuickFill();
 

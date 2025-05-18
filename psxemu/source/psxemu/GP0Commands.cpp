@@ -148,9 +148,29 @@ namespace psx {
 			m_cmd_status = Status::WAITING_PARAMETERS;
 		}
 			break;
-		case psx::CommandType::LINE:
-			LOG_ERROR("GPU", "[GPU] UNIMPLEMENTED: LINE RENDER");
-			error::DebugBreak();
+		case psx::CommandType::LINE: {
+			bool gouraud = (cmd >> 28) & 1;
+			bool polyline = (cmd >> 27) & 1;
+
+			u32 words_per_vertex = gouraud ? 2 : 1;
+
+			m_cmd_fifo.queue(cmd);
+
+			if (polyline) {
+				m_cmd_status = gouraud ?
+					Status::POLYLINE_GOURAUD :
+					Status::POLYLINE;
+			}
+			else {
+				m_cmd_status = Status::WAITING_PARAMETERS;
+				m_rem_params = words_per_vertex * 2;
+
+				if (gouraud)
+					m_rem_params -= 1;
+
+				m_required_params = m_rem_params;
+			}
+		}
 			break;
 		case psx::CommandType::RECTANGLE: {
 			m_cmd_fifo.queue(cmd);
@@ -354,8 +374,10 @@ namespace psx {
 			m_cmd_status = Status::IDLE;
 		}
 			break;
-		case psx::CommandType::LINE:
-			error::DebugBreak();
+		case psx::CommandType::LINE: {
+			DrawLine();
+			m_cmd_status = Status::IDLE;
+		}
 			break;
 		case psx::CommandType::RECTANGLE: {
 			DrawRect();

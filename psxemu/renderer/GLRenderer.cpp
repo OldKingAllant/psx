@@ -22,7 +22,9 @@ namespace psx::video {
 		m_scissor{},
 		m_commands{}, m_renderdoc{nullptr},
 		m_vram_blit_vertex_buf(6),
-		m_vram_blit_shader(std::string("../shaders"), std::string("vram_vram_blit"))
+		m_vram_blit_shader(std::string("../shaders"), std::string("vram_vram_blit")),
+		m_mono_line_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
+		m_shaded_line_pipeline(std::string("../shaders"), std::string("basic_gouraud"))
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_blit_shader.SetLabel("vram_blit_shader");
@@ -36,6 +38,8 @@ namespace psx::video {
 		m_uniform_buf.BindRange(2);
 		m_vram_blit_vertex_buf.SetLabel("vram_vram_blit_vertex_buf");
 		m_vram_blit_shader.SetLabel("vram_vram_blit_shader");
+		m_mono_line_pipeline.SetLabel("mono_line_pipeline");
+		m_shaded_line_pipeline.SetLabel("shaded_line_pipeline");
 	}
 
 	void Renderer::SyncTextures() {
@@ -169,6 +173,80 @@ namespace psx::video {
 		AppendCommand(cmd);
 	}
 
+	void Renderer::DrawMonoLine(MonoLine line) {
+		if (m_mono_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
+		m_mono_line_pipeline.PushVertex(line.v0);
+		m_mono_line_pipeline.PushVertex(line.v1);
+
+		m_mono_line_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 2;
+		cmd.type = PipelineType::MONO_LINE;
+		cmd.semi_transparent = false;
+
+		AppendCommand(cmd);
+	}
+
+	void Renderer::DrawMonoTransparentLine(MonoLine line, u8 transparency_type) {
+		if (m_mono_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
+		m_mono_line_pipeline.PushVertex(line.v0);
+		m_mono_line_pipeline.PushVertex(line.v1);
+
+		m_mono_line_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 2;
+		cmd.type = PipelineType::MONO_LINE;
+		cmd.semi_transparent = true;
+		cmd.semi_transparency_type = transparency_type;
+
+		AppendCommand(cmd);
+	}
+
+	void Renderer::DrawShadedLine(ShadedLine line) {
+		if (m_shaded_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
+		m_shaded_line_pipeline.PushVertex(line.v0);
+		m_shaded_line_pipeline.PushVertex(line.v1);
+
+		m_shaded_line_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 2;
+		cmd.type = PipelineType::SHADED_LINE;
+		cmd.semi_transparent = false;
+
+		AppendCommand(cmd);
+	}
+
+	void Renderer::DrawShadedTransparentLine(ShadedLine line, u8 transparency_type) {
+		if (m_shaded_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
+		m_shaded_line_pipeline.PushVertex(line.v0);
+		m_shaded_line_pipeline.PushVertex(line.v1);
+
+		m_shaded_line_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 2;
+		cmd.type = PipelineType::SHADED_LINE;
+		cmd.semi_transparent = true;
+		cmd.semi_transparency_type = transparency_type;
+
+		AppendCommand(cmd);
+	}
+
 	void Renderer::DrawBatch() {
 		if (m_commands.empty())
 			return;
@@ -214,28 +292,16 @@ namespace psx::video {
 				switch (cmd.semi_transparency_type)
 				{
 				case 0:
-					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
-						glBlendFuncSeparate(GL_ONE, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
-					else
-						glBlendFuncSeparate(GL_CONSTANT_ALPHA, GL_CONSTANT_ALPHA, GL_ONE, GL_ZERO);
+					glBlendFuncSeparate(GL_CONSTANT_ALPHA, GL_CONSTANT_ALPHA, GL_ONE, GL_ZERO);
 					break;
 				case 1:
-					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
-						glBlendFuncSeparate(GL_ONE, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
-					else
-						glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
+					glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
 					break;
 				case 2:
-					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
-						glBlendFuncSeparate(GL_ONE, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
-					else 
-						glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
+					glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
 					break;
 				case 3:
-					if (cmd.type == PipelineType::TEXTURED_TRIANGLE)
-						glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_SRC_ALPHA, GL_ONE, GL_ZERO);
-					else
-						glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE, GL_ONE, GL_ZERO);
+					glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE, GL_ONE, GL_ZERO);
 					break;
 				default:
 					break;
@@ -271,10 +337,21 @@ namespace psx::video {
 				curr_primitive_index[(u32)pipeline_id] += count / 3;
 			}
 				break;
+			case psx::video::PipelineType::MONO_LINE: {
+				m_mono_line_pipeline.Draw(curr_offset, count);
+				curr_primitive_index[(u32)pipeline_id] += count / 2;
+			}
+				break;
+			case psx::video::PipelineType::SHADED_LINE: {
+				m_shaded_line_pipeline.Draw(curr_offset, count);
+				curr_primitive_index[(u32)pipeline_id] += count / 2;
+			}
+				break;
 			case psx::video::PipelineType::ENUM_MAX:
 				error::DebugBreak();
 				break;
 			default:
+				error::Unreachable();
 				break;
 			}
 
@@ -293,6 +370,12 @@ namespace psx::video {
 
 		m_textured_pipeline.ClearPrimitiveData();
 		m_textured_pipeline.ClearVertices();
+
+		m_mono_line_pipeline.ClearPrimitiveData();
+		m_mono_line_pipeline.ClearVertices();
+
+		m_shaded_line_pipeline.ClearPrimitiveData();
+		m_shaded_line_pipeline.ClearVertices();
 
 		glDisable(GL_SCISSOR_TEST);
 
@@ -415,7 +498,6 @@ namespace psx::video {
 		SyncTextures();
 	}
 
-#pragma optimize("", off)
 	void Renderer::VramVramBlit(u32 srcx, u32 srcy, u32 dstx, u32 dsty, u32 w, u32 h, bool mask_enable) {
 		FlushCommands();
 		SyncTextures();
@@ -430,16 +512,6 @@ namespace psx::video {
 		m_vram_blit_shader.UpdateUniform("mask_enable", mask_enable);
 
 		m_vram_blit_vertex_buf.Clear();
-
-		/*
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff + h });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
-
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
-		*/
 
 		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty, srcx, srcy });
 		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty + h, srcx, srcy + h });
@@ -461,7 +533,6 @@ namespace psx::video {
 		m_framebuffer.Unbind();
 		SyncTextures();
 	}
-#pragma optimize("", on)
 
 	void Renderer::FlushCommands() {
 		UpdateUbo();

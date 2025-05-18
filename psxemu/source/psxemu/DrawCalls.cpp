@@ -279,6 +279,77 @@ namespace psx {
 		m_renderer->DrawTexturedTriangle(triangle2);
 	}
 
+	void Gpu::DrawTexturedTriangle() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		u32 gouraud = (cmd >> 28) & 1;
+		u32 semi_trans = (cmd >> 25) & 1;
+		u32 raw = (cmd >> 24) & 1;
+		u32 first_color = (cmd & 0xFFFFFF);
+
+		uint32_t flags{ 0 };
+
+		if (gouraud)
+			flags |= video::TexturedVertexFlags::GOURAUD;
+
+		if (semi_trans)
+			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
+
+		if (raw)
+			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
+
+		video::TexturedVertex vertices[3] = {};
+
+		u32 clut_and_page = 0;
+
+		for (u32 i = 0; i < 3; i++) {
+			if (gouraud && i != 0) {
+				vertices[i].color = m_cmd_fifo.deque() & 0xFFFFFF;
+			}
+			else {
+				vertices[i].color = first_color;
+			}
+
+			u32 vertex_pos = m_cmd_fifo.deque();
+
+			vertices[i].x = sign_extend<i32, 15>(vertex_pos & 0xFFFF);
+			vertices[i].y = sign_extend<i32, 15>((vertex_pos >> 16) & 0xFFFF);
+
+			u32 uv = m_cmd_fifo.deque();
+
+			if (i == 0) {
+				u32 clut = (uv >> 16) & 0xFFFF;
+				clut_and_page |= (clut << 16);
+			}
+			else if (i == 1) {
+				u32 page = (uv >> 16) & 0xFFFF;
+				clut_and_page |= page;
+			}
+
+			vertices[i].uv = uv & 0xFFFF;
+
+			vertices[i].flags = flags;
+		}
+
+		vertices[0].clut_page = clut_and_page;
+		vertices[1].clut_page = clut_and_page;
+		vertices[2].clut_page = clut_and_page;
+
+		video::TexturedTriangle triangle = {};
+
+		triangle.v0 = vertices[0];
+		triangle.v1 = vertices[1];
+		triangle.v2 = vertices[2];
+
+		u16 page = (u16)clut_and_page;
+
+		TryUpdateTexpage(page);
+
+		LOG_INFO("DRAW", "[GPU] DRAW TEXTURED TRIANGLE");
+
+		m_renderer->DrawTexturedTriangle(triangle);
+	}
+
 	void Gpu::DrawQuad() {
 		u32 cmd = m_cmd_fifo.peek();
 
@@ -301,12 +372,6 @@ namespace psx {
 			DrawTexturedQuad();
 		}
 		else {
-			m_cmd_fifo.deque();
-
-			while (curr_params--) {
-				u32 param = m_cmd_fifo.deque();
-			}
-
 			error::DebugBreak();
 		}
 
@@ -329,7 +394,7 @@ namespace psx {
 			DrawBasicGouraudTriangle();
 		}
 		else if (tex) {
-			error::DebugBreak();
+			DrawTexturedTriangle();
 		}
 		else {
 			fmt::println("[GPU] DRAW TRIANGLE");
@@ -622,5 +687,225 @@ namespace psx {
 		}
 
 		CheckIfDrawNeeded();
+	}
+
+	void Gpu::DrawLine() {
+		u32 cmd = m_cmd_fifo.peek();
+		bool is_polyline = (cmd >> 27) & 1;
+		bool is_gouraud = (cmd >> 28) & 1;
+
+		if (!is_polyline && !is_gouraud) {
+			DrawMonoLine();
+		}
+		else if (!is_polyline && is_gouraud) {
+			DrawShadedLine();
+		}
+		else if (is_polyline && !is_gouraud) {
+			DrawMonoPolyline();
+		} 
+		else {
+			DrawShadedPolyLine();
+		}
+	}
+
+	void Gpu::DrawMonoLine() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		if (m_cmd_fifo.len() != 2) {
+			LOG_ERROR("DRAW", "[GPU] INVALID NUMBER OF PARAMS FOR LINE RENDER");
+			m_cmd_fifo.clear();
+			return;
+		}
+
+		u32 vertex0_pos = m_cmd_fifo.deque();
+		u32 vertex1_pos = m_cmd_fifo.deque();
+
+		u32 color = (cmd & 0xFFFFFF);
+
+		video::MonoLine line{};
+
+		video::UntexturedOpaqueFlatVertex v0{};
+		video::UntexturedOpaqueFlatVertex v1{};
+
+		v0.x = sign_extend<i32, 15>(vertex0_pos & 0xFFFF);
+		v0.y = sign_extend<i32, 15>((vertex0_pos >> 16) & 0xFFFF);
+
+		v0.r = (color & 0xFF);
+		v0.g = ((color >> 8) & 0xFF);
+		v0.b = ((color >> 16) & 0xFF);
+
+		v1.x = sign_extend<i32, 15>(vertex1_pos & 0xFFFF);
+		v1.y = sign_extend<i32, 15>((vertex1_pos >> 16) & 0xFFFF);
+
+		v1.r = v0.r;
+		v1.g = v0.g;
+		v1.b = v0.b;
+
+		line.v0 = v0;
+		line.v1 = v1;
+
+		if ((cmd >> 25) & 1) {
+			LOG_DEBUG("DRAW", "[GPU] DRAW LINE MONO COLOR (TRANSPARENT)");
+			u8 transparency_type = u8(m_stat.semi_transparency);
+			m_renderer->DrawMonoTransparentLine(line, transparency_type);
+		}
+		else {
+			LOG_DEBUG("DRAW", "[GPU] DRAW LINE MONO COLOR (OPAQUE)");
+			m_renderer->DrawMonoLine(line);
+		}
+	}
+
+	void Gpu::DrawShadedLine() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		if (m_cmd_fifo.len() != 3) {
+			LOG_ERROR("DRAW", "[GPU] INVALID NUMBER OF PARAMS FOR SHADED LINE RENDER");
+			m_cmd_fifo.clear();
+			return;
+		}
+
+		video::ShadedLine line{};
+
+		video::BasicGouraudVertex v0{};
+		video::BasicGouraudVertex v1{};
+
+		u32 vertex0_color = cmd & 0xFFFFFF;
+		u32 vertex0_pos = m_cmd_fifo.deque();
+
+		u32 vertex1_color = m_cmd_fifo.deque() & 0xFFFFFF;
+		u32 vertex1_pos = m_cmd_fifo.deque();
+
+		v0.color = vertex0_color;
+		v1.color = vertex1_color;
+
+		v0.x = sign_extend<i32, 15>(vertex0_pos & 0xFFFF);
+		v0.y = sign_extend<i32, 15>((vertex0_pos >> 16) & 0xFFFF);
+
+		v1.x = sign_extend<i32, 15>(vertex1_pos & 0xFFFF);
+		v1.y = sign_extend<i32, 15>((vertex1_pos >> 16) & 0xFFFF);
+
+		line.v0 = v0;
+		line.v1 = v1;
+
+		if ((cmd >> 25) & 1) {
+			LOG_DEBUG("DRAW", "[GPU] DRAW SHADED LINE (TRANSPARENT)");
+			u8 transparency_type = u8(m_stat.semi_transparency);
+			m_renderer->DrawShadedTransparentLine(line, transparency_type);
+		}
+		else {
+			LOG_DEBUG("DRAW", "[GPU] DRAW SHADED LINE (OPAQUE)");
+			m_renderer->DrawShadedLine(line);
+		}
+		
+	}
+
+	void Gpu::DrawMonoPolyline() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		if (m_cmd_fifo.len() < 2) {
+			LOG_ERROR("DRAW", "[GPU] POLYLINE RENDER REQUIRES AT LEAST TWO VERTICES");
+			m_cmd_fifo.clear();
+			return;
+		}
+
+		u32 color_packed = cmd & 0xFFFFFF;
+		u32 r = color_packed & 0xFF;
+		u32 g = (color_packed >> 8) & 0xFF;
+		u32 b = (color_packed >> 16) & 0xFF;
+
+		u32 first_vertex = m_cmd_fifo.deque();
+		i32 prev_x = sign_extend<i32, 15>(first_vertex & 0xFFFF);
+		i32 prev_y = sign_extend<i32, 15>((first_vertex >> 16) & 0xFFFF);
+
+		video::MonoLine line{};
+
+		video::UntexturedOpaqueFlatVertex v0{};
+		video::UntexturedOpaqueFlatVertex v1{};
+
+		u8 transparency_type = u8(m_stat.semi_transparency);
+		bool is_semi_transparent = (cmd >> 25) & 1;
+
+		while (!m_cmd_fifo.empty()) {
+			u32 curr_vertex = m_cmd_fifo.deque();
+			i32 curr_x = sign_extend<i32, 15>(curr_vertex & 0xFFFF);
+			i32 curr_y = sign_extend<i32, 15>((curr_vertex >> 16) & 0xFFFF);
+
+			v0.x = prev_x;
+			v0.y = prev_y;
+			v0.r = r;
+			v0.g = g;
+			v0.b = b;
+
+			v1.x = curr_x;
+			v1.y = curr_y;
+			v1.r = r;
+			v1.g = g;
+			v1.b = b;
+
+			line.v0 = v0;
+			line.v1 = v1;
+
+			if(is_semi_transparent) {
+				m_renderer->DrawMonoTransparentLine(line, transparency_type);
+			}
+			else {
+				m_renderer->DrawMonoLine(line);
+			}
+
+			prev_x = curr_x;
+			prev_y = curr_y;
+		}
+	}
+
+	void Gpu::DrawShadedPolyLine() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		if (m_cmd_fifo.len() < 3) {
+			LOG_ERROR("DRAW", "[GPU] SHADED POLYLINE RENDER REQUIRES AT LEAST TWO VERTICES");
+			m_cmd_fifo.clear();
+			return;
+		}
+
+		u32 prev_color = cmd & 0xFFFFFF;
+
+		u32 first_vertex = m_cmd_fifo.deque();
+		i32 prev_x = sign_extend<i32, 15>(first_vertex & 0xFFFF);
+		i32 prev_y = sign_extend<i32, 15>((first_vertex >> 16) & 0xFFFF);
+
+		video::ShadedLine line{};
+		video::BasicGouraudVertex v0{};
+		video::BasicGouraudVertex v1{};
+
+		u8 transparency_type = u8(m_stat.semi_transparency);
+		bool is_semi_transparent = (cmd >> 25) & 1;
+
+		while (!m_cmd_fifo.empty()) {
+			u32 curr_color = m_cmd_fifo.deque();
+			u32 curr_vertex = m_cmd_fifo.deque();
+			i32 curr_x = sign_extend<i32, 15>(curr_vertex & 0xFFFF);
+			i32 curr_y = sign_extend<i32, 15>((curr_vertex >> 16) & 0xFFFF);
+
+			v0.x = prev_x;
+			v0.y = prev_y;
+			v0.color = prev_color;
+
+			v1.x = curr_x;
+			v1.y = curr_y;
+			v1.color = curr_color;
+
+			line.v0 = v0;
+			line.v1 = v1;
+
+			if (is_semi_transparent) {
+				m_renderer->DrawShadedTransparentLine(line, transparency_type);
+			}
+			else {
+				m_renderer->DrawShadedLine(line);
+			}
+
+			prev_x = curr_x;
+			prev_y = curr_y;
+			prev_color = curr_color;
+		}
 	}
 }
