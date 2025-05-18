@@ -62,6 +62,16 @@ void clut4(in uint texpage_x, in uint texpage_y,
 		   index = (clut_index >> (4 * x_affine)) & 0xF;
 } 
 
+void clut8(in uint texpage_x, in uint texpage_y, 
+           in uint u, in uint v, out uint index) {
+		   uint x = texpage_x + (u / 2);
+		   uint y = texpage_y + v;
+		   uint clut_index ;
+		   vram_clut_index(x, y, clut_index);
+		   uint x_affine = (texpage_x + u) & 1;
+		   index = (clut_index >> (8 * x_affine)) & 0xFF;
+}
+
 bool is_fully_transparent(in vec4 color) {
 	return color.r == 0 && color.g == 0 && color.b == 0;
 }
@@ -117,7 +127,10 @@ void main() {
 		uint effective_clut_x = clut_base_x + clut_index_affine;
 		vram_fetch(effective_clut_x, clut_base_y, color);
 	} else if(texpage_colors == 1) {
-		color = vec4(1.0, 1.0, 0.0, 0.0);
+		clut8(texpage_x, texpage_y, u, v, 
+			clut_index_affine);
+		uint effective_clut_x = clut_base_x + clut_index_affine;
+		vram_fetch(effective_clut_x, clut_base_y, color);
 	} else if(texpage_colors == 2) {
 		uint effective_u = texpage_x + u;
 		uint effective_v = texpage_y + v;
