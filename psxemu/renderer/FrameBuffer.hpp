@@ -24,6 +24,10 @@ namespace psx::video {
 			return m_fbo_tex;
 		}
 
+		FORCE_INLINE u32 GetMaskTexture() const {
+			return m_mask_texture;
+		}
+
 		void Bind();
 		void Unbind();
 
@@ -34,5 +38,6 @@ namespace psx::video {
 	private :
 		u32 m_fbo;
 		u32 m_fbo_tex;
+		u32 m_mask_texture;
 	};
 }

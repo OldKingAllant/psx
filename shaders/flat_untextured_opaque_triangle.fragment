@@ -12,15 +12,34 @@ layout(std140, binding = 2) uniform globals {
 	bool check_mask;
 };
 
+layout(binding = 3, r8) uniform restrict coherent image2D mask_image;
+
 flat in uvec3 in_color;
+in vec2 coords;
 
 out vec4 out_color;
 
 void main() {
+	uint x = uint(coords.x); 
+	uint y = uint(coords.y); 
+
+	if(check_mask) {
+		if(imageLoad(mask_image, ivec2(x, y)).r == 1.0) {
+			discard;
+		}
+	}
+
 	out_color = vec4(
 		float((in_color.r >> 3) & 0x1F) / 31.0,
 		float((in_color.g >> 3) & 0x1F) / 31.0,
 		float((in_color.b >> 3) & 0x1F) / 31.0,
-		1.0
+		0.0
 	);
+
+	if(set_mask) {
+		out_color.a = 1.0;
+	}
+
+	imageStore(mask_image, ivec2(x, y), vec4(out_color.a, 0.0, 0.0, 0.0));
+	memoryBarrierImage();
 }

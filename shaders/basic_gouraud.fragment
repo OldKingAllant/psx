@@ -15,6 +15,8 @@ layout(std140, binding = 2) uniform globals {
 	bool check_mask;
 };
 
+layout(binding = 3, r8) uniform restrict coherent image2D mask_image;
+
 out vec4 color;
 
 const mat4 dither_table = mat4(
@@ -30,6 +32,12 @@ void main() {
 	uint b = uint(vertex_color.b);
 	uint x = uint(vram_coords.x);
 	uint y = uint(vram_coords.y);
+
+	if(check_mask) {
+		if(imageLoad(mask_image, ivec2(x, y)).r == 1.0) {
+			discard;
+		}
+	}
 
 	if(use_dither) {
 	    uint dither_x = x % 4;
@@ -47,6 +55,13 @@ void main() {
 		float(r) / 255.0,
 		float(g) / 255.0,
 		float(b) / 255.0,
-		1.0
+		0.0
 	);
+
+	if(set_mask) {
+		color.a = 1.0;
+	}
+
+	imageStore(mask_image, ivec2(x, y), vec4(color.a, 0.0, 0.0, 0.0));
+	memoryBarrierImage();
 }

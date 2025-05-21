@@ -292,7 +292,7 @@ namespace psx {
 		DecodedBlock block{};
 		block.fill(0);
 
-		while (*iter == 0xFE00 && iter != end_iter) {
+		while (iter != end_iter && *iter == 0xFE00) {
 			iter++;
 		}
 

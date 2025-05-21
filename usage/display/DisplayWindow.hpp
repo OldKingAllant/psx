@@ -18,11 +18,12 @@ public :
 	~DisplayWindow();
 
 	void SetTextureWindow24(u32 start_x, u32 start_y, Rect window_size, Rect texture_size);
-	void Blit24(uint32_t m_texture_id);
+	void Blit24(uint32_t texture_id);
 
 private :
 	psx::video::Shader* m_blit24_shader;
 	GLuint m_24bit_tex;
 	std::vector<u8> m_24bit_buf;
 	std::vector<u16> m_temp_buf;
+	GLuint m_ssbo_buf;
 };

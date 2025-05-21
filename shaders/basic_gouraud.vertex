@@ -37,5 +37,6 @@ void main() {
 	 float(g), 
 	 float(b)
 	);
-	vram_coords = vec2(float(vram_x), float(vram_y));
+	vram_coords = vec2(float(vram_x + draw_x_off), 
+	                   float(vram_y + draw_y_off));
 }

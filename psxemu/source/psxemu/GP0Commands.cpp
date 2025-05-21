@@ -336,6 +336,7 @@ namespace psx {
 		uniforms.set_mask = m_stat.set_mask;
 		uniforms.check_mask = m_stat.draw_over_mask_disable;
 		m_renderer->RequestUniformBufferUpdate();
+		m_renderer->SetDrawOverMaskDisable(m_stat.draw_over_mask_disable);
 
 		if (m_stat.set_mask || m_stat.draw_over_mask_disable)
 			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");

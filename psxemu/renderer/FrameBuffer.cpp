@@ -8,10 +8,12 @@
 
 namespace psx::video {
 	FrameBuffer::FrameBuffer() :
-		m_fbo{}, m_fbo_tex{} {
+		m_fbo{}, m_fbo_tex{},
+		m_mask_texture{} {
 		glGenFramebuffers(1, &m_fbo);
 		glGenTextures(1, &m_fbo_tex);
 
+		///////////////////////////////////////////////////////
 		glBindTexture(GL_TEXTURE_2D, m_fbo_tex);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -28,6 +30,21 @@ namespace psx::video {
 		glPixelStorei(GL_PACK_ALIGNMENT, 2);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
+		///////////////////////////////////////////////////////
+
+		glGenTextures(1, &m_mask_texture);
+		glBindTexture(GL_TEXTURE_2D, m_mask_texture);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+		glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, 1024, 512);
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		///////////////////////////////////////////////////////
 
 		glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 
@@ -70,6 +87,7 @@ namespace psx::video {
 
 	FrameBuffer::~FrameBuffer() {
 		glDeleteTextures(1, &m_fbo_tex);
+		glDeleteTextures(1, &m_mask_texture);
 		glDeleteFramebuffers(1, &m_fbo);
 	}
 
@@ -84,7 +102,10 @@ namespace psx::video {
 		glObjectLabel(GL_FRAMEBUFFER, m_fbo, (GLsizei)label.size(),
 			label.data());
 		std::string tex_label{ std::string(label) + "_texture" };
+		std::string depth_label{ std::string(label) + "_mask_texture" };
 		glObjectLabel(GL_TEXTURE, m_fbo_tex, (GLsizei)tex_label.size(),
 			tex_label.data());
+		glObjectLabel(GL_TEXTURE, m_mask_texture, (GLsizei)depth_label.size(),
+			depth_label.data());
 	}
 }

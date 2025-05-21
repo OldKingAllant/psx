@@ -175,7 +175,7 @@ namespace psx::video {
 
 		void VramCpuBlit(u32 xoff, u32 yoff, u32 w, u32 h);
 		void BeginCpuVramBlit();
-		void PrepareBlit(bool mask_enable);
+		void PrepareBlit(bool mask_enable, bool set_mask);
 		void CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h);
 		void EndBlit();
 
@@ -239,6 +239,10 @@ namespace psx::video {
 			m_renderdoc = renderdoc;
 		}
 
+		void SetDrawOverMaskDisable(bool disable) {
+			m_draw_over_mask_disable = disable;
+		}
+
 		FORCE_INLINE Renderdoc* GetRenderDoc() const {
 			return m_renderdoc;
 		}
@@ -271,5 +275,7 @@ namespace psx::video {
 			UntexturedOpaqueFlatVertex, NullData> m_mono_line_pipeline;
 		Pipeline<Primitive::LINES,
 			BasicGouraudVertex, NullData> m_shaded_line_pipeline;
+		bool m_draw_over_mask_disable;
+		std::vector<u8> m_blank_image;
 	};
 }

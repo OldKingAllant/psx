@@ -17,6 +17,7 @@ layout(std140, binding = 2) uniform globals {
 };
 
 flat out uvec3 in_color; 
+out vec2 coords;
 
 void main() {
 	float x = float(vram_coords_x + draw_x_off) / 1024.0;
@@ -27,4 +28,6 @@ void main() {
 
 	gl_Position = vec4(x, y, 0.0, 1.0);
 	in_color = color;
+	coords = vec2(float(vram_coords_x + draw_x_off), 
+				  float(vram_coords_y + draw_y_off));
 }

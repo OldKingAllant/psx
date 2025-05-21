@@ -28,11 +28,21 @@ DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::strin
 	m_temp_buf.resize(1024ULL * 512);
 
 	std::fill(m_24bit_buf.begin(), m_24bit_buf.end(), 0xFF);
+
+	////////////////////////
+
+	glGenBuffers(1, &m_ssbo_buf);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_ssbo_buf);
+	glBufferData(GL_PIXEL_PACK_BUFFER, 1024ULL * 512 * 2,
+		nullptr, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_ssbo_buf);
 }
 
 DisplayWindow::~DisplayWindow() {
 	delete m_blit24_shader;
-	glDeleteTextures(0, &m_24bit_tex);
+	glDeleteTextures(1, &m_24bit_tex);
+	glDeleteBuffers(1, &m_ssbo_buf);
 }
 
 void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_size, Rect texture_size) {
@@ -48,16 +58,28 @@ void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_siz
 
 	using psx::video::HostVertex2D;
 
-	m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  xoff, yoff });
-	m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  endx, endy });
-	m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, xoff, endy });
+	//m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  xoff, yoff });
+	//m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  endx, endy });
+	//m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, xoff, endy });
+	//
+	//m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, xoff, yoff });
+	//m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  endx, yoff });
+	//m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, endx, endy });
 
-	m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, xoff, yoff });
-	m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  endx, yoff });
-	m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, endx, endy });
+	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 0.0  });
+	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 1.0  });
+	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 1.0 });
+	
+	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 0.0 });
+	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 0.0 });
+	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 1.0 });
+
+	m_blit24_shader->BindProgram();
+	m_blit24_shader->UpdateUniform("resolution_x", float(window_size.w));
+	m_blit24_shader->UpdateUniform("resolution_y", float(window_size.h));
 }
 
-void DisplayWindow::Blit24(uint32_t m_texture_id) {
+void DisplayWindow::Blit24(uint32_t texture_id) {
 	SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
 
 	if (!m_blit || !m_vert_buf)
@@ -71,15 +93,15 @@ void DisplayWindow::Blit24(uint32_t m_texture_id) {
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	m_blit->BindProgram();
+	m_blit24_shader->BindProgram();
 	m_vert_buf->Bind();
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, m_texture_id);
+	glBindTexture(GL_TEXTURE_2D, texture_id);
 
 	////////////////////////////////////////////////
 
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
+	/*glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
 		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, 
 		std::bit_cast<void*>(m_temp_buf.data()));
 	for (std::size_t y = 0; y < 512; y++) {
@@ -111,7 +133,16 @@ void DisplayWindow::Blit24(uint32_t m_texture_id) {
 	}
 	glBindTexture(GL_TEXTURE_2D, m_24bit_tex);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, 512,
-		GL_RGB, GL_UNSIGNED_BYTE, std::bit_cast<void*>(m_24bit_buf.data()));
+		GL_RGB, GL_UNSIGNED_BYTE, std::bit_cast<void*>(m_24bit_buf.data()));*/
+
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
+		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,
+		std::bit_cast<void*>(m_temp_buf.data()));
+	
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 1024ULL * 512 * 2,
+		std::bit_cast<void*>(m_temp_buf.data()));
+	glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+
 
 	////////////////////////////////////////////////
 

@@ -17,6 +17,7 @@ const uint SEMI_TRANSPARENT = 0x2;
 const uint RAW_TEXTURE = 0x4;
 
 layout(binding = 0) uniform sampler2D vram_tex;
+layout(binding = 3, r8) uniform restrict coherent image2D mask_image;
 
 layout(std140, binding = 2) uniform globals {
 	bool use_dither;
@@ -108,6 +109,13 @@ out vec4 color;
 void main() {
 	uint x = uint(coords.x); 
 	uint y = uint(coords.y); 
+
+	if(check_mask) {
+		if(imageLoad(mask_image, ivec2(x, y)).r == 1.0) {
+			discard;
+		}
+	}
+
 	vec2 final_uv;
 	compute_uv(out_uv, final_uv);
 	uint u = uint(final_uv.x);
@@ -181,5 +189,10 @@ void main() {
 		color = vec4(color.rgb / 255.0, a_channel);
 	}
 
-	if((flags & SEMI_TRANSPARENT) != 0) {}
+	if(set_mask) {
+		color.a = 1.0;
+	}
+
+	imageStore(mask_image, ivec2(x, y), vec4(color.a, 0.0, 0.0, 0.0));
+	memoryBarrierImage();
 }

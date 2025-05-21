@@ -24,7 +24,9 @@ namespace psx::video {
 		m_vram_blit_vertex_buf(6),
 		m_vram_blit_shader(std::string("../shaders"), std::string("vram_vram_blit")),
 		m_mono_line_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
-		m_shaded_line_pipeline(std::string("../shaders"), std::string("basic_gouraud"))
+		m_shaded_line_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
+		m_draw_over_mask_disable{false},
+		m_blank_image{}
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_blit_shader.SetLabel("vram_blit_shader");
@@ -40,11 +42,17 @@ namespace psx::video {
 		m_vram_blit_shader.SetLabel("vram_vram_blit_shader");
 		m_mono_line_pipeline.SetLabel("mono_line_pipeline");
 		m_shaded_line_pipeline.SetLabel("shaded_line_pipeline");
+		m_blank_image.resize(1024ULL * 512);
+
+		std::fill(m_blank_image.begin(), m_blank_image.end(), 0x0);
+		glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+			0, 0, 0, 1024, 512, GL_RED, GL_UNSIGNED_BYTE,
+			m_blank_image.data());
 	}
 
 	void Renderer::SyncTextures() {
 		if (m_need_host_to_gpu_copy && m_need_gpu_to_host_copy) {
-			fmt::println("[RENDERER] Texture are out of sync!");
+			fmt::println("[RENDERER] Textures are out of sync!");
 			error::DebugBreak();
 		}
 
@@ -54,14 +62,14 @@ namespace psx::video {
 			//2. Download input VRAM to host mapped buffer
 			m_framebuffer.CopyToTexture(m_vram.GetTextureHandle());
 			m_need_gpu_to_host_copy = false;
+			glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
 		}
 
 		if (m_need_host_to_gpu_copy) {
 			m_framebuffer.UpdateInternalTexture(m_vram.GetTextureHandle());
 			m_need_host_to_gpu_copy = false;
+			glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
 		}
-
-		glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
 
 	void Renderer::VBlank() {
@@ -258,6 +266,9 @@ namespace psx::video {
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
 
+		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
+			0, 0, 0, GL_READ_WRITE, GL_R8);
+
 		glScissor(m_scissor.top_x, m_scissor.top_y,
 			m_scissor.bottom_x - m_scissor.top_x + 1,
 			m_scissor.bottom_y - m_scissor.top_y + 1);
@@ -358,6 +369,10 @@ namespace psx::video {
 			pipeline_offsets[(u32)pipeline_id] += count;
 
 			m_commands.pop_front();
+
+			if (m_draw_over_mask_disable) {
+				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+			}
 		}
 
 		m_framebuffer.Unbind();
@@ -453,7 +468,7 @@ namespace psx::video {
 		DrawBatch();
 	}
 
-	void Renderer::PrepareBlit(bool mask_enable) {
+	void Renderer::PrepareBlit(bool mask_enable, bool set_mask) {
 		CommandFenceSync();
 		SyncTextures();
 
@@ -465,6 +480,7 @@ namespace psx::video {
 		m_blit_shader.BindProgram();
 
 		m_blit_shader.UpdateUniform("mask_enable", mask_enable);
+		m_blit_shader.UpdateUniform("set_mask", set_mask);
 	}
 
 	void Renderer::CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h) {
@@ -484,6 +500,8 @@ namespace psx::video {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
 		glActiveTexture(GL_TEXTURE0);
+		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
+			0, 0, 0, GL_READ_WRITE, GL_R8);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -524,6 +542,9 @@ namespace psx::video {
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
 
+		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
+			0, 0, 0, GL_READ_WRITE, GL_R8);
+
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		m_processing_cmd = true;
@@ -557,8 +578,9 @@ namespace psx::video {
 
 		m_framebuffer.Bind();
 
-		glViewport(0, 0, 1024, 512);
 		glEnable(GL_SCISSOR_TEST);
+
+		glViewport(0, 0, 1024, 512);
 		glClearColor(r, g, b, 0.0);
 
 		if (xoff + w > 1024 && yoff + h > 512) {
@@ -570,22 +592,53 @@ namespace psx::video {
 			glClear(GL_COLOR_BUFFER_BIT);
 			glScissor(xoff, 0, 1024 - (GLsizei)xoff, (yoff + h) - 512);
 			glClear(GL_COLOR_BUFFER_BIT);
+			
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, xoff, yoff, 1024 - xoff, 512 - yoff, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, 0, 0, (xoff + w) - 1024, (yoff + h) - 512, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, 0, yoff, (xoff + w) - 1024, 512 - yoff, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, xoff, 0, 1024 - xoff, (yoff + h) - 512, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
 		}
 		else if (xoff + w > 1024) {
 			glScissor(xoff, yoff, 1024 - (GLsizei)xoff, (GLsizei)h);
 			glClear(GL_COLOR_BUFFER_BIT);
 			glScissor(0, yoff, (xoff + w) - 1024, (GLsizei)h);
 			glClear(GL_COLOR_BUFFER_BIT);
+
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, xoff, yoff, 1024 - xoff, h, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, 0, yoff, (xoff + w) - 1024, h, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
 		}
 		else if (yoff + h > 512) {
 			glScissor(xoff, yoff, (GLsizei)w, 512 - (GLsizei)yoff);
 			glClear(GL_COLOR_BUFFER_BIT);
 			glScissor(xoff, 0, (GLsizei)w, (yoff + h) - 512);
 			glClear(GL_COLOR_BUFFER_BIT);
+
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, xoff, yoff, w, 512 - yoff, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, xoff, 0, w, (yoff + h) - 512, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
 		}
 		else {
 			glScissor(xoff, yoff, (GLsizei)w, (GLsizei)h);
 			glClear(GL_COLOR_BUFFER_BIT);
+
+			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
+				0, xoff, yoff, w, h, GL_RED, GL_UNSIGNED_BYTE,
+				m_blank_image.data());
 		}
 		
 		glDisable(GL_SCISSOR_TEST);

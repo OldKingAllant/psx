@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	//sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
-	sys.LoadExe(std::string("../programs/RenderTexturePolygonCLUT8BPP.exe"), std::nullopt);
+	sys.LoadExe(std::string("../programs/SpinningCube.exe"), std::nullopt);
 
 	std::unique_ptr<DebugView> debug_view{};
 

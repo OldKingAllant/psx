@@ -375,7 +375,7 @@ namespace psx {
 			error::DebugBreak();
 		}
 
-		CheckIfDrawNeeded();
+		//CheckIfDrawNeeded();
 	}
 
 	void Gpu::DrawTriangle() {
@@ -406,7 +406,7 @@ namespace psx {
 			error::DebugBreak();
 		}
 
-		CheckIfDrawNeeded();
+		//CheckIfDrawNeeded();
 	}
 
 	void Gpu::QuickFill() {
@@ -522,13 +522,11 @@ namespace psx {
 		u8 v4 = v1 + sizey;
 
 		if (m_tex_x_flip) {
-			std::swap(u1, u3);
-			std::swap(u2, u4);
+			u4 = u3 = u8(std::max(0, i32(u1 + 1 - sizex)));
 		}
 
 		if (m_tex_y_flip) {
-			std::swap(v1, v2);
-			std::swap(v3, v4);
+			v4 = v2 = u8(std::max(0, i32(v1 + 1 - sizey)));
 		}
 
 		video::TexturedVertex vertices[4] = {};
@@ -686,7 +684,7 @@ namespace psx {
 			DrawUntexturedRect();
 		}
 
-		CheckIfDrawNeeded();
+		//CheckIfDrawNeeded();
 	}
 
 	void Gpu::DrawLine() {
