@@ -333,6 +333,18 @@
     <ClInclude Include="include\psxemu\MDECOutDma.hpp">
       <Filter>Header Files\dev\dma</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\CDROM.hpp">
+      <Filter>Header Files\dev\cdrom</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\CueBin.hpp">
+      <Filter>Header Files\dev\cdrom</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\CueSheet.hpp">
+      <Filter>Header Files\dev\cdrom</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\CDROMDma.hpp">
+      <Filter>Header Files\dev\dma</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -501,6 +513,15 @@
       <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
     <ClCompile Include="source\psxemu\MDECOutDma.cpp">
+      <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\CueBin.cpp">
+      <Filter>Resource Files\dev\cdrom</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\CueSheet.cpp">
+      <Filter>Resource Files\dev\cdrom</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\CDROMDma.cpp">
       <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
   </ItemGroup>

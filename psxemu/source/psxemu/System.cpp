@@ -34,6 +34,7 @@ namespace psx {
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
 		m_status.sysbus->GetGPU().InitEvents();
+		m_status.sys_conf = m_sys_conf;
 
 		m_cpu.SetHLEHandler([this](u32 address, bool enter) {
 			if (!m_hle_enable)
@@ -436,6 +437,11 @@ namespace psx {
 		m_kernel.SetHooksEnable(m_sys_conf->advanced_conf.enable_syscall_hooks);
 
 		SilenceSyscallsDefault();
+	}
+
+	bool System::InsertDisc(std::filesystem::path const& path) {
+		return m_status.sysbus->GetCdDrive()
+			.InsertDisc(path);
 	}
 
 	System::~System() {

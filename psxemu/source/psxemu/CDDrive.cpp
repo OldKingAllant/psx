@@ -1,11 +1,14 @@
 #include <psxemu/include/psxemu/CDDrive.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
+#include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/Interrupts.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <common/Errors.hpp>
+
+#include <psxemu/include/psxemu/CueBin.hpp>
 
 namespace psx {
 	CDDrive::CDDrive(system_status* sys_status) :
@@ -16,7 +19,11 @@ namespace psx {
 		m_read_paused{false}, m_motor_on{false},
 		m_mode{}, m_stat{}, m_sys_status {sys_status},
 		m_idle{ true }, m_has_next_cmd{ false }, m_event_id{INVALID_EVENT},
-		m_keep_history{ false }, m_history{} {
+		m_keep_history{ false }, m_history{}, m_cdrom{},
+		m_lid_open{ false }, m_seek_loc{}, m_unprocessed_seek_loc{},
+		m_has_unprocessed_seek{ false }, m_read_event{INVALID_EVENT},
+		m_has_pending_read{ false }, m_curr_sector{}, m_pending_sector{},
+		m_has_data_to_load{ false }, m_has_loaded_data{ false } {
 		m_index_reg.param_fifo_empty = true;
 
 		//Yes, this does not really make sense
@@ -175,6 +182,21 @@ namespace psx {
 		case 0:
 			m_want_data = (bool)((value >> 7) & 1);
 			m_cmd_start_interrupt = (bool)((value >> 5) & 1);
+			if (m_want_data) {
+				if (m_has_data_to_load) {
+					m_index_reg.data_fifo_empty = true;
+					m_has_data_to_load = false;
+					m_has_loaded_data = true;
+
+					auto& dma = m_sys_status->sysbus->GetDMAControl()
+						.GetCDROMDma();
+					dma.SetDreq(true);
+					dma.DreqRisingEdge();
+				}
+				else {
+					LOG_ERROR("CDROM", "[CDROM] Attempted data request even if no sectors are available");
+				}
+			}
 			break;
 		case 1:
 			m_int_flag.reg &= ~value;
@@ -221,6 +243,7 @@ namespace psx {
 		return 0;
 	}
 
+#pragma optimize("", off)
 	u8 CDDrive::ReadReg2() {
 		switch (m_index_reg.index)
 		{
@@ -236,6 +259,7 @@ namespace psx {
 		}
 		return 0;
 	}
+#pragma optimize("", on)
 
 	u8 CDDrive::ReadReg3() {
 		switch (m_index_reg.index)
@@ -264,7 +288,11 @@ namespace psx {
 		TEST = 0x19,
 		GETID = 0x1A,
 		SETMODE = 0xE,
-		STOP = 0x8
+		STOP = 0x8,
+		READTOC = 0x1E,
+		SETLOC = 0x2,
+		SEEKL = 0x15,
+		READN = 0x6
 	};
 
 	void CDDrive::CommandExecute() {
@@ -289,6 +317,18 @@ namespace psx {
 			break;
 		case DriveCommands::STOP:
 			Command_Stop();
+			break;
+		case DriveCommands::READTOC:
+			Command_ReadTOC();
+			break;
+		case DriveCommands::SETLOC:
+			Command_SetLoc();
+			break;
+		case DriveCommands::SEEKL:
+			Command_SeekL();
+			break;
+		case DriveCommands::READN:
+			Command_ReadN();
 			break;
 		default:
 			LOG_ERROR("CDROM", "[CDROM] Unknown/invalid command {:#x}",
@@ -407,6 +447,47 @@ namespace psx {
 		return return_value;
 	}
 
+	void CDDrive::OpenLid() {
+		m_lid_open = true;
+		m_stat.shell_open = m_lid_open;
+		m_stat.seek_err = true;
+		m_motor_on = false;
+		PushResponse(CdInterrupt::INT5_ERR, 
+			{ u8(CommandError::DRIVE_DOOR_OPEN) }, 0);
+	}
+
+	void CDDrive::CloseLid() {
+		m_lid_open = false;
+		m_motor_on = true;
+	}
+
+	bool CDDrive::InsertDisc(std::filesystem::path const& path) {
+		auto extension = path.extension().string();
+		if (extension != ".cue") {
+			LOG_ERROR("CDROM", "[CDROM] Unsupported file extension {}",
+				extension);
+			return false;
+		}
+
+		if (!std::filesystem::exists(path) || !std::filesystem::is_regular_file(path)) {
+			LOG_ERROR("CDROM", "[CDROM] Invalid path {}",
+				path.string());
+			return false;
+		}
+
+		m_cdrom.reset(new CueBin(path));
+
+		if (!m_cdrom->Init()) {
+			m_cdrom.reset(nullptr);
+			return false;
+		}
+
+		m_lid_open = false;
+		m_motor_on = true;
+
+		return true;
+	}
+
 	void CDDrive::HandlePendingCommand() {
 		if (m_idle && m_has_next_cmd) {
 			m_index_reg.transmission_busy = false;
@@ -421,9 +502,44 @@ namespace psx {
 		std::bit_cast<CDDrive*>(userdata)->DeliverInterrupt(cycles_late);
 	}
 
+	void read_callback(void* userdata, u64 cycles_late) {
+		std::bit_cast<CDDrive*>(userdata)->ReadCallback(cycles_late);
+	}
+
 	void CDDrive::ScheduleInterrupt(u64 cycles) {
 		m_event_id = m_sys_status->scheduler.Schedule(cycles,
 			event_callback, this);
+	}
+
+#pragma optimize("", off)
+	void CDDrive::ReadCallback(u64 cycles_late) {
+		m_stat.seeking = false;
+		m_stat.reading = true;
+
+		bool contains_data_response = false;
+		for (auto it = m_response_fifo.begin(); it != m_response_fifo.end(); ++it) {
+			if (it->interrupt == CdInterrupt::INT1_DATA_RESPONSE) {
+				contains_data_response = true;
+				break;
+			}
+		}
+
+		if (m_response_fifo.full() || m_has_pending_read || contains_data_response) {
+			m_has_pending_read = true;
+		}
+		else {
+			PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
+				0);
+			m_has_data_to_load = true;
+		}
+
+		m_read_event = m_sys_status->scheduler.Schedule( ResponseTimings::READ,
+			read_callback, std::bit_cast<void*>(this));
+	}
+#pragma optimize("", on)
+
+	std::string const& CDDrive::GetConsoleRegion() const {
+		return m_sys_status->sys_conf->console_region;
 	}
 
 	void CDDrive::DeliverInterrupt(u64 cycles_late) {

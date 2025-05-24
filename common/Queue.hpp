@@ -61,6 +61,14 @@ namespace psx {
 			m_curr_size = 0;
 		}
 
+		constexpr Ty* begin() {
+			return &arr[0];
+		}
+
+		constexpr Ty* end() {
+			return (arr + m_curr_size);
+		}
+
 		static constexpr size_t CAPACITY = size;
 
 	private :

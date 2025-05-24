@@ -6,6 +6,7 @@
 #include <psxemu/include/psxemu/GpuDma.hpp>
 #include <psxemu/include/psxemu/MDECInDma.hpp>
 #include <psxemu/include/psxemu/MDECOutDma.hpp>
+#include <psxemu/include/psxemu/CDROMDma.hpp>
 
 class DebugView;
 
@@ -100,6 +101,10 @@ namespace psx {
 			return m_mdecout_dma;
 		}
 
+		CDROMDma& GetCDROMDma() {
+			return m_cdrom_dma;
+		}
+
 		void AddTransfer(u8 dma_id);
 		void RemoveTransfer();
 
@@ -130,6 +135,7 @@ namespace psx {
 		GpuDma  m_gpu_dma;
 		MDECIn  m_mdecin_dma;
 		MDECOut m_mdecout_dma;
+		CDROMDma m_cdrom_dma;
 
 		Transfer m_active_dmas[8];
 		u8 m_num_active;

@@ -77,6 +77,9 @@ namespace psx {
 		std::string mc_1_file = "../memcards/mc1.mc";
 		std::string mc_2_file = "";
 
+		std::string cdrom_file = "";
+		std::string console_region = "AMERICA";
+
 		////////////////////////////////
 		//DEBUGGING
 
@@ -112,6 +115,8 @@ namespace psx {
 			mc_1_connected,
 			mc_2_connected,
 			mc_1_file,
-			mc_2_file)
+			mc_2_file,
+			cdrom_file,
+			console_region)
 	};
 }

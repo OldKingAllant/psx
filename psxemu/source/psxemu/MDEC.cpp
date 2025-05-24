@@ -126,7 +126,6 @@ namespace psx {
 		switch (cmd)
 		{
 		case psx::MDEC_Cmd::DECODE: {
-			LOG_DEBUG("MDEC", "[MDEC] Decode block");
 			m_curr_cmd = MDEC_Cmd::DECODE;
 			m_stat.cmd_busy = true;
 			m_num_params = u16(value & 0xFFFF);
@@ -134,12 +133,37 @@ namespace psx {
 			m_stat.curr_block = CurrBlockType::CR;
 			m_out_fifo.clear();
 			m_curr_out_pos = 0;
+
+			const char* color_depth_repr = "INVALID";
+
+			switch (m_stat.out_depth)
+			{
+			case OutputDepth::BIT4:
+				color_depth_repr = "4BPP";
+				break;
+			case OutputDepth::BIT8:
+				color_depth_repr = "8BPP";
+				break;
+			case OutputDepth::BIT15:
+				color_depth_repr = "15BPP";
+				break;
+			case OutputDepth::BIT24:
+				color_depth_repr = "24BPP";
+				break;
+			default:
+				error::Unreachable();
+				break;
+			}
+
+			LOG_DEBUG("MDEC", "[MDEC] DECODE MACROBLOCKS (bytes={:#x}, signed={}, set_mask={}, out_depth={})", 
+				(m_num_params - 1) * 4, bool(m_stat.data_out_signed), 
+				bool(m_stat.data_out_bit15), color_depth_repr);
 		}
 		break;
 		case psx::MDEC_Cmd::SET_QUANT: {
 			bool set_color = bool(value & 1);
-			LOG_DEBUG("MDEC", "[MDEC] Set quant table");
-			LOG_DEBUG("MDEC", "       Set color = {}", set_color);
+			LOG_DEBUG("MDEC", "[MDEC] SET QUANT (color = {})", 
+				set_color);
 			m_num_params = (64 + (64 * set_color)) / 4;
 			m_stat.missing_params = m_num_params - 1;
 			m_curr_cmd = MDEC_Cmd::SET_QUANT;
@@ -147,7 +171,7 @@ namespace psx {
 		}
 		break;
 		case psx::MDEC_Cmd::SET_SCALE: {
-			LOG_DEBUG("MDEC", "[MDEC] Set scale table");
+			LOG_DEBUG("MDEC", "[MDEC] SET SCALE");
 			m_curr_cmd = MDEC_Cmd::SET_SCALE;
 			m_num_params = 32; //64 signed shorts
 			m_stat.missing_params = m_num_params - 1;

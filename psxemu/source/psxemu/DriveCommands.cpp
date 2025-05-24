@@ -5,6 +5,8 @@
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
+#include <psxemu/include/psxemu/SystemStatus.hpp>
+
 #include <array>
 #include <fmt/format.h>
 
@@ -18,26 +20,54 @@ namespace psx {
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE,
 			{ m_stat.reg }, ResponseTimings::GETSTAT_NORMAL);
 
-		m_stat.shell_open = false;
+		m_stat.shell_open = m_lid_open;
 	}
 
 	void CDDrive::Command_GetID() {
 		m_stat.motor_on = m_motor_on;
 
-		std::array<u8, 8> fixed = { 
-			0x08, 0x40, 0x00, 0x00,  
-			0x00, 0x00, 0x00, 0x00
-		};
+		std::array<u8, 8> response{};
 
-		LOG_DEBUG("CDROM", "[CDROM] GetID() -> INT3({:#x}) -> INT5({:#x})", 
-			m_stat.reg, fmt::join(fixed, ","));
+		if (m_cdrom) {
+			auto const& region = GetConsoleRegion();
+
+			const char* region_string = "    ";
+
+			if (region == "AMERICA") {
+				region_string = "SCEA";
+			}
+			else if (region == "EUROPE") {
+				region_string = "SCEE";
+			}
+			else if (region == "JAPAN") {
+				region_string = "SCEI";
+			}
+
+			response = {
+				0x02, 0x00, 0x20, 0x00,
+				u8(region_string[0]), u8(region_string[1]), 
+				u8(region_string[2]), u8(region_string[3])
+			};
+
+			LOG_DEBUG("CDROM", "[CDROM] GetID() -> INT3({:#x}) -> INT2({:#x})",
+				m_stat.reg, fmt::join(response, ","));
+		}
+		else {
+			response = {
+				0x08, 0x40, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			LOG_DEBUG("CDROM", "[CDROM] GetID() -> INT3({:#x}) -> INT5({:#x})",
+				m_stat.reg, fmt::join(response, ","));
+		}
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE,
 			{ m_stat.reg }, 0);
-		PushResponse(CdInterrupt::INT5_ERR,
+		PushResponse(m_cdrom ? CdInterrupt::INT2_SECOND_RESPONSE : CdInterrupt::INT5_ERR,
 			{ 
-				fixed[0], fixed[1], fixed[2], fixed[3], 
-				fixed[4], fixed[5], fixed[6], fixed[7]
+				response[0], response[1], response[2], response[3],
+				response[4], response[5], response[6], response[7]
 			}, ResponseTimings::GET_ID);
 	}
 
@@ -70,6 +100,11 @@ namespace psx {
 	}
 
 	void CDDrive::Command_Stop() {
+		m_sys_status->scheduler.Deschedule(m_read_event);
+
+		m_seek_loc = {};
+		m_read_paused = false;
+
 		m_stat.reading = false;
 		u8 first_stat = m_stat.reg;
 		m_stat.motor_on = false;
@@ -82,5 +117,88 @@ namespace psx {
 			ResponseTimings::GETSTAT_NORMAL);
 		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { second_stat },
 			ResponseTimings::STOP);
+	}
+
+	void CDDrive::Command_ReadTOC() {
+		m_stat.motor_on = m_motor_on;
+		
+		LOG_DEBUG("CDROM", "[CDROM] ReadTOC() -> INT3({:#x}) -> INT2({:#x})",
+			m_stat.reg, m_stat.reg);
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { m_stat.reg },
+			ResponseTimings::READ_TOC);
+	}
+
+	void CDDrive::Command_SetLoc() {
+		if (!ValidateParams(3))
+			return;
+
+		m_stat.motor_on = m_motor_on;
+
+		u8 amm = m_param_fifo.deque();
+		u8 ass = m_param_fifo.deque();
+		u8 asect = m_param_fifo.deque();
+
+		m_unprocessed_seek_loc.mm = amm;
+		m_unprocessed_seek_loc.ss = ass;
+		m_unprocessed_seek_loc.sect = asect;
+		m_has_unprocessed_seek = true;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		LOG_DEBUG("CDROM", "[CDROM] SetLoc(mm={:#x}, ss={:#x}, sect={:#x}) -> INT3({:#x})",
+			amm, ass, asect, m_stat.reg);
+	}
+
+	void CDDrive::Command_SeekL() {
+		m_stat.motor_on = m_motor_on;
+
+		if (m_has_unprocessed_seek) {
+			m_has_unprocessed_seek = false;
+			m_seek_loc = m_unprocessed_seek_loc;
+		}
+
+		m_stat.playing = false;
+		m_stat.seeking = true;
+		m_stat.reading = false;
+		u8 first_stat = m_stat.reg;
+		m_stat.seeking = false;
+		u8 second_stat = m_stat.reg;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { first_stat },
+			ResponseTimings::GETSTAT_NORMAL);
+		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { second_stat },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		LOG_DEBUG("CDROM", "[CDROM] SeekL() -> INT3({:#x}) -> INT2({:#x})", 
+			first_stat, second_stat);
+	}
+
+	extern void read_callback(void* userdata, u64 cycles_late);
+
+	void CDDrive::Command_ReadN() {
+		m_stat.motor_on = m_motor_on;
+
+		if (m_has_unprocessed_seek) {
+			m_has_unprocessed_seek = false;
+			m_seek_loc = m_unprocessed_seek_loc;
+			m_stat.seeking = true;
+		}
+		else {
+			m_stat.reading = true;
+		}
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		m_read_event = m_sys_status->scheduler.Schedule(
+			ResponseTimings::GETSTAT_NORMAL + ResponseTimings::READ,
+			read_callback, std::bit_cast<void*>(this));
+
+		LOG_DEBUG("CDROM", "[CDROM] ReadN() -> INT3({:#x})",
+			m_stat.reg);
 	}
 }

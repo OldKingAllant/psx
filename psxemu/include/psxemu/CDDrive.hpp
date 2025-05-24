@@ -5,8 +5,12 @@
 #include <common/Queue.hpp>
 
 #include "CDDriveStructs.hpp"
+#include "CDROM.hpp"
 
 #include <list>
+#include <memory>
+#include <filesystem>
+#include <array>
 
 class DebugView;
 
@@ -15,6 +19,12 @@ namespace psx {
 
 	static constexpr u32 CDROM_REGS_BASE = 0x800;
 	static constexpr u32 CDROM_REGS_END = 0x803;
+
+	struct CdLocation {
+		u64 mm;
+		u64 ss;
+		u64 sect;
+	};
 
 	class CDDrive {
 	public :
@@ -49,6 +59,11 @@ namespace psx {
 		u8 ReadReg3();
 
 		friend void event_callback(void* userdata, u64 cycles_late);
+		friend void read_callback(void* userdata, u64 cycles_late);
+
+		void OpenLid();
+		void CloseLid();
+		bool InsertDisc(std::filesystem::path const& path);
 
 	private :
 		void HandlePendingCommand();
@@ -61,6 +76,10 @@ namespace psx {
 		void Command_GetID();
 		void Command_Setmode();
 		void Command_Stop();
+		void Command_ReadTOC();
+		void Command_SetLoc();
+		void Command_SeekL();
+		void Command_ReadN();
 
 		///////////
 
@@ -76,6 +95,9 @@ namespace psx {
 		u8 PopResponseByte();
 		void DeliverInterrupt(u64 cycles_late);
 		void ScheduleInterrupt(u64 cycles);
+		void ReadCallback(u64 cycles_late);
+
+		std::string const& GetConsoleRegion() const;
 
 		friend class DebugView;
 
@@ -110,5 +132,19 @@ namespace psx {
 
 		bool m_keep_history;
 		std::list<DriveCommand> m_history;
+
+		std::unique_ptr<CDROM> m_cdrom;
+		bool m_lid_open;
+
+		CdLocation m_seek_loc;
+		CdLocation m_unprocessed_seek_loc;
+		bool m_has_unprocessed_seek;
+
+		u64 m_read_event;
+		bool m_has_pending_read;
+		std::array<u8, CDROM::FULL_SECTOR_SIZE> m_curr_sector;
+		std::array<u8, CDROM::FULL_SECTOR_SIZE> m_pending_sector;
+		bool m_has_data_to_load;
+		bool m_has_loaded_data;
 	};
 }

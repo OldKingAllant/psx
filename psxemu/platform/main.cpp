@@ -163,7 +163,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	//sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
-	sys.LoadExe(std::string("../programs/SpinningCube.exe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/gpu/lines/lines.exe"), std::nullopt);
+
+	if (!config->cdrom_file.empty()) {
+		if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
+			fmt::println("[CDROM] Could not load file");
+		}
+	}
 
 	std::unique_ptr<DebugView> debug_view{};
 

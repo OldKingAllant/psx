@@ -7,6 +7,8 @@
 #include <vector>
 #include <optional>
 
+class DebugView;
+
 namespace psx {
 	struct system_status;
 
@@ -120,6 +122,8 @@ namespace psx {
 
 		using block_iter = std::vector<u16>::const_iterator;
 		using DecodedBlock = std::array<i16, 64>;
+
+		friend class DebugView;
 
 	private :
 		void Reset();

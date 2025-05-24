@@ -149,9 +149,13 @@
     <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
     <ClInclude Include="include\psxemu\CDDrive.hpp" />
     <ClInclude Include="include\psxemu\CDDriveStructs.hpp" />
+    <ClInclude Include="include\psxemu\CDROM.hpp" />
+    <ClInclude Include="include\psxemu\CDROMDma.hpp" />
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
+    <ClInclude Include="include\psxemu\CueBin.hpp" />
+    <ClInclude Include="include\psxemu\CueSheet.hpp" />
     <ClInclude Include="include\psxemu\DmaBase.hpp" />
     <ClInclude Include="include\psxemu\DmaCommon.hpp" />
     <ClInclude Include="include\psxemu\DmaController.hpp" />
@@ -233,8 +237,11 @@
     <ClCompile Include="renderer\WindowManager.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\CDDrive.cpp" />
+    <ClCompile Include="source\psxemu\CDROMDma.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
+    <ClCompile Include="source\psxemu\CueBin.cpp" />
+    <ClCompile Include="source\psxemu\CueSheet.cpp" />
     <ClCompile Include="source\psxemu\DmaBase.cpp" />
     <ClCompile Include="source\psxemu\DmaController.cpp" />
     <ClCompile Include="source\psxemu\DrawCalls.cpp" />

@@ -67,6 +67,7 @@ void DebugView::Update() {
 	GpuWindow();
 	KernelWindow();
 	DriveWindow();
+	MdecWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -1408,6 +1409,34 @@ void DebugView::DriveWindow() {
 
 		ImGui::EndChild();
 	}
+
+	ImGui::End();
+}
+
+void DebugView::MdecWindow() {
+	if (!ImGui::Begin("MDEC")) {
+		ImGui::End();
+		return;
+	}
+
+	auto& mdec = m_psx->GetStatus().sysbus->m_mdec;
+	auto stat = mdec.m_stat;
+
+	ImGui::Text("Current command: %s", magic_enum::enum_name(mdec.m_curr_cmd)
+		.data());
+
+	ImGui::Text("Missing params : %d", stat.missing_params);
+	ImGui::Text("Curr block     : %s", magic_enum::enum_name(stat.curr_block)
+		.data());
+	ImGui::Text("Set mask bit   : %s", stat.data_out_bit15 ? "true" : "false");
+	ImGui::Text("Signed output  : %s", stat.data_out_signed ? "true" : "false");
+	ImGui::Text("Color depth    : %s", magic_enum::enum_name(stat.out_depth)
+		.data());
+	ImGui::Text("DMA out        : %s", stat.data_out_request ? "true" : "false");
+	ImGui::Text("DMA in         : %s", stat.data_in_request ? "true" : "false");
+	ImGui::Text("CMD Busy       : %s", stat.cmd_busy ? "true" : "false");
+	ImGui::Text("Data in full   : %s", stat.data_in_full ? "true" : "false");
+	ImGui::Text("Data out empty : %s", stat.data_out_empty ? "true" : "false");
 
 	ImGui::End();
 }

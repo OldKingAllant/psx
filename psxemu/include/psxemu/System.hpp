@@ -140,6 +140,8 @@ namespace psx {
 		/// <param name="type">Controller type</param>
 		void ConnectController(u32 slot, std::string const& type);
 
+		bool InsertDisc(std::filesystem::path const& path);
+
 	private :
 		void InterpreterSingleStep();
 		void SilenceSyscallsDefault();

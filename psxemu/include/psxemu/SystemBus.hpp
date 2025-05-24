@@ -934,6 +934,10 @@ namespace psx {
 			return m_mdec;
 		}
 
+		CDDrive& GetCdDrive() {
+			return m_cdrom;
+		}
+
 		friend class DebugView;
 
 	private :

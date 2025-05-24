@@ -43,6 +43,7 @@ private :
 	void GpuWindow();
 	void KernelWindow();
 	void DriveWindow();
+	void MdecWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
 

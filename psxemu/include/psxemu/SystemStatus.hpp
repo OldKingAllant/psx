@@ -2,6 +2,7 @@
 
 #include <psxemu/include/psxemu/MIPS1.hpp>
 #include <psxemu/include/psxemu/Scheduler.hpp>
+#include "SystemConf.hpp"
 
 namespace psx {
 	class SystemBus;
@@ -69,6 +70,8 @@ namespace psx {
 		Scheduler scheduler;
 
 		bool vblank;
+
+		std::shared_ptr<SystemConf> sys_conf;
 
 		void CoprocessorUnusableException(u8 cop_number) {
 			cpu->GetCOP0().registers.cause.cop_number = cop_number;
