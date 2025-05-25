@@ -91,7 +91,10 @@ namespace psx {
 		{
 		case SyncMode::BURST:
 			m_words_rem = m_shadow_block_control & 0xFFFF;
-			break;
+			if (m_words_rem == 0) {
+				m_words_rem = 0x10000;
+			}
+			break; 
 		case SyncMode::SLICE: {
 			auto block_control = *reinterpret_cast<SliceBlockControl*>(&m_shadow_block_control);
 			m_words_rem = block_control.blocksize;
@@ -188,12 +191,45 @@ namespace psx {
 		else
 			m_curr_address += 4;
 
+		m_curr_address &= 0xFFFFFC;
+
 		m_words_rem--;
 		sysbus->m_curr_cycles += 1;
 	}
 
 	void DmaBase::DoBurst() {
 		error::DebugBreak();
+
+		if (m_words_rem == 0) {
+			TransferEnd(true);
+			return;
+		}
+
+		auto sysbus = m_sys_status->sysbus;
+		u32 port = GetPort();
+
+		if (!m_control.transfer_dir) {
+			u32 data = sysbus->Read<u32, true, false>(port);
+			sysbus->Write<u32, true, false>(m_curr_address, data);
+		}
+		else {
+			//RAM to device
+			u32 data = sysbus->Read<u32, true, false>(m_curr_address);
+			sysbus->Write<u32, true, false>(port, data);
+		}
+
+		if (m_sys_status->exception)
+			m_controller->SignalException();
+
+		if (m_control.decrement)
+			m_curr_address -= 4;
+		else
+			m_curr_address += 4;
+
+		m_curr_address &= 0xFFFFFC;
+
+		m_words_rem--;
+		sysbus->m_curr_cycles += 1;
 	}
 
 	void DmaBase::DoSlice() {
@@ -239,6 +275,8 @@ namespace psx {
 			m_curr_address -= 4;
 		else
 			m_curr_address += 4;
+
+		m_curr_address &= 0xFFFFFC;
 
 		m_words_rem--;
 		sysbus->m_curr_cycles += 1;

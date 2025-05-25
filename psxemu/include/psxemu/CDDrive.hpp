@@ -20,12 +20,6 @@ namespace psx {
 	static constexpr u32 CDROM_REGS_BASE = 0x800;
 	static constexpr u32 CDROM_REGS_END = 0x803;
 
-	struct CdLocation {
-		u64 mm;
-		u64 ss;
-		u64 sect;
-	};
-
 	class CDDrive {
 	public :
 		CDDrive(system_status* sys_status);
@@ -80,6 +74,8 @@ namespace psx {
 		void Command_SetLoc();
 		void Command_SeekL();
 		void Command_ReadN();
+		void Command_Pause();
+		void Command_Init();
 
 		///////////
 
@@ -146,5 +142,8 @@ namespace psx {
 		std::array<u8, CDROM::FULL_SECTOR_SIZE> m_pending_sector;
 		bool m_has_data_to_load;
 		bool m_has_loaded_data;
+		u32 m_curr_sector_size;
+		u32 m_pending_sector_size;
+		u32 m_curr_sector_pos;
 	};
 }

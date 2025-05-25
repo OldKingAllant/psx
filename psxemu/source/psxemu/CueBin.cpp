@@ -28,7 +28,7 @@ namespace psx {
 		return true;
 	}
 
-	std::array<u8, CDROM::SECTOR_SIZE> CueBin::ReadSector(u64 amm, u64 ass, u64 asect) {
+	std::array<u8, CDROM::FULL_SECTOR_SIZE> CueBin::ReadSector(u64 amm, u64 ass, u64 asect) {
 		return {};
 	}
 

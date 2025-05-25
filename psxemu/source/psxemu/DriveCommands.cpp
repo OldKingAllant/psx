@@ -171,7 +171,7 @@ namespace psx {
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { first_stat },
 			ResponseTimings::GETSTAT_NORMAL);
 		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { second_stat },
-			ResponseTimings::GETSTAT_NORMAL);
+			ResponseTimings::GETSTAT_NORMAL * 2);
 
 		LOG_DEBUG("CDROM", "[CDROM] SeekL() -> INT3({:#x}) -> INT2({:#x})", 
 			first_stat, second_stat);
@@ -201,4 +201,35 @@ namespace psx {
 		LOG_DEBUG("CDROM", "[CDROM] ReadN() -> INT3({:#x})",
 			m_stat.reg);
 	}
+
+#pragma optimize("", off)
+	void CDDrive::Command_Pause() {
+		m_stat.motor_on = m_motor_on;
+
+		auto first_stat = m_stat.reg;
+		m_stat.reading = false;
+		auto second_stat = m_stat.reg;
+
+		m_sys_status->scheduler.Deschedule(m_read_event);
+		m_read_event = INVALID_EVENT;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { first_stat },
+			ResponseTimings::GETSTAT_NORMAL);
+		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { second_stat },
+			ResponseTimings::GETSTAT_NORMAL * 2);
+
+		LOG_DEBUG("CDROM", "[CDROM] Pause() -> INT3({:#x}) -> INT2({:#x})",
+			first_stat, second_stat);
+	}
+
+	void CDDrive::Command_Init() {
+		m_motor_on = true;
+		m_stat.motor_on = m_motor_on;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL * 2);
+	}
+#pragma optimize("", on)
 }

@@ -23,7 +23,9 @@ namespace psx {
 		m_lid_open{ false }, m_seek_loc{}, m_unprocessed_seek_loc{},
 		m_has_unprocessed_seek{ false }, m_read_event{INVALID_EVENT},
 		m_has_pending_read{ false }, m_curr_sector{}, m_pending_sector{},
-		m_has_data_to_load{ false }, m_has_loaded_data{ false } {
+		m_has_data_to_load{ false }, m_has_loaded_data{ false },
+		m_curr_sector_size{}, m_pending_sector_size{}, 
+		m_curr_sector_pos{} {
 		m_index_reg.param_fifo_empty = true;
 
 		//Yes, this does not really make sense
@@ -60,12 +62,12 @@ namespace psx {
 
 	u16 CDDrive::Read16(u32 address) {
 		return (u16)Read8(address) |
-			((u16)Read8(address + 1) << 8);
+			((u16)Read8(address) << 8);
 	}
 
 	u32 CDDrive::Read32(u32 address) {
 		return (u32)Read16(address) |
-			((u32)Read16(address + 2) << 16);
+			((u32)Read16(address) << 16);
 	}
 
 	void CDDrive::Write8(u32 address, u8 value) {
@@ -187,6 +189,7 @@ namespace psx {
 					m_index_reg.data_fifo_empty = true;
 					m_has_data_to_load = false;
 					m_has_loaded_data = true;
+					m_curr_sector_pos = 0;
 
 					auto& dma = m_sys_status->sysbus->GetDMAControl()
 						.GetCDROMDma();
@@ -251,7 +254,27 @@ namespace psx {
 		case 1:
 		case 2:
 		case 3:
-			LOG_DEBUG("CDROM", "[CDROM] Data FIFO read");
+			if (!m_has_loaded_data) {
+				if (m_curr_sector_size == 0) {
+					return 0;
+				}
+
+				if (m_curr_sector_size == CDROM::FULL_SECTOR_SIZE) {
+					return m_curr_sector[CDROM::FULL_SECTOR_SIZE - 0x4];
+				}
+				else {
+					return m_curr_sector[CDROM::SECTOR_SIZE - 0x8];
+				}
+			}
+
+			{
+				u8 value = m_curr_sector[m_curr_sector_pos++];
+				if (m_curr_sector_pos == m_curr_sector_size) {
+					m_curr_sector_pos = 0;
+					m_has_loaded_data = false;
+				}
+				return value;
+			}
 			break;
 		default:
 			error::DebugBreak();
@@ -292,7 +315,9 @@ namespace psx {
 		READTOC = 0x1E,
 		SETLOC = 0x2,
 		SEEKL = 0x15,
-		READN = 0x6
+		READN = 0x6,
+		PAUSE = 0x9,
+		INIT = 0xA
 	};
 
 	void CDDrive::CommandExecute() {
@@ -329,6 +354,12 @@ namespace psx {
 			break;
 		case DriveCommands::READN:
 			Command_ReadN();
+			break;
+		case DriveCommands::PAUSE:
+			Command_Pause();
+			break;
+		case DriveCommands::INIT:
+			Command_Init();
 			break;
 		default:
 			LOG_ERROR("CDROM", "[CDROM] Unknown/invalid command {:#x}",
@@ -516,6 +547,15 @@ namespace psx {
 		m_stat.seeking = false;
 		m_stat.reading = true;
 
+		decltype(m_curr_sector) sector{};
+
+		if (m_mode.read_whole_sector) {
+			sector = m_cdrom->ReadFullSector(m_seek_loc.mm, m_seek_loc.ss, m_seek_loc.sect);
+		}
+		else {
+			sector = m_cdrom->ReadSector(m_seek_loc.mm, m_seek_loc.ss, m_seek_loc.sect);
+		}
+
 		bool contains_data_response = false;
 		for (auto it = m_response_fifo.begin(); it != m_response_fifo.end(); ++it) {
 			if (it->interrupt == CdInterrupt::INT1_DATA_RESPONSE) {
@@ -526,15 +566,24 @@ namespace psx {
 
 		if (m_response_fifo.full() || m_has_pending_read || contains_data_response) {
 			m_has_pending_read = true;
+			m_pending_sector = sector;
+			m_pending_sector_size = m_mode.read_whole_sector ?
+				CDROM::FULL_SECTOR_SIZE : CDROM::SECTOR_SIZE;
+			error::DebugBreak();
 		}
 		else {
 			PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
 				0);
 			m_has_data_to_load = true;
+			m_curr_sector_size = m_mode.read_whole_sector ?
+				CDROM::FULL_SECTOR_SIZE : CDROM::SECTOR_SIZE;
+			m_curr_sector = sector;
 		}
 
 		m_read_event = m_sys_status->scheduler.Schedule( ResponseTimings::READ,
 			read_callback, std::bit_cast<void*>(this));
+
+		m_seek_loc++;
 	}
 #pragma optimize("", on)
 

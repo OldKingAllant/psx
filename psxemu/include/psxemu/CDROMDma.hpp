@@ -23,6 +23,8 @@ namespace psx {
 			return m_dreq;
 		}
 
+		void DoBurst() override;
+
 	private:
 		bool m_dreq;
 	};
