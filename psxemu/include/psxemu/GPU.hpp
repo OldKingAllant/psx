@@ -226,6 +226,7 @@ namespace psx {
 		void DrawShadedLine();
 		void DrawMonoPolyline();
 		void DrawShadedPolyLine();
+		void DrawNormalTriangle();
 
 		void QuickFill();
 

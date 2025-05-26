@@ -38,7 +38,8 @@ namespace psx {
 		}
 
 		if (address >= STAT_ADDRESS && address < STAT_ADDRESS + 4) {
-			m_stat.dsr_input_level = m_has_ack;
+			m_stat.dsr_input_level = !m_has_ack;
+			m_has_ack = false;
 			u64 timestamp = m_sys_status->scheduler.GetTimestamp();
 			u32 baudrate_timer = u32(timestamp % m_baud_rate);
 			return m_stat.reg | (baudrate_timer << 11);
@@ -105,6 +106,7 @@ namespace psx {
 		}
 
 		LOG_WARN("SIO", "[SIO{}] 8 bit read!", m_id);
+		error::DebugBreak();
 		return 0;
 	}
 

@@ -65,6 +65,52 @@ namespace psx {
 		}
 	};
 
+	static u64 bcd_to_normal(u64 value) {
+		u64 result{};
+		u64 curr_power{1};
+		while (value) {
+			result += (value & 0xF) * curr_power;
+			curr_power *= 10;
+			value >>= 4;
+		}
+		return result;
+	}
+
+	/*
+	  000h 0Ch  Sync   (00h,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,00h)
+	  00Ch 4    Header (Minute,Second,Sector,Mode=02h)
+	  010h 4    Sub-Header (File, Channel, Submode AND DFh, Codinginfo)
+	  014h 4    Copy of Sub-Header
+	  018h 800h Data (2048 bytes)
+	  818h 4    EDC (checksum across [010h..817h])
+	  81Ch 114h ECC (error correction codes)
+	*/
+	struct SectorHeader {
+		u8 mm;
+		u8 ss;
+		u8 sect;
+		u8 mode;
+	};
+
+	struct SectorMode2SubHeader {
+		u8 file;
+		u8 channel;
+		u8 submode;
+		u8 codinginfo;
+	};
+
+#pragma pack(push, 1)
+	struct SectorMode2Form1 {
+		char sync[0xC];
+		SectorHeader header;
+		SectorMode2SubHeader subheader;
+		SectorMode2SubHeader subheader_copy;
+		char data[0x800];
+		u32 edc;
+		char ecc[0x114];
+	};
+#pragma pack(pop)
+
 	class CDROM {
 	public :
 		CDROM(std::filesystem::path const& rom_path) :

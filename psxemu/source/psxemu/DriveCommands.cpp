@@ -141,15 +141,15 @@ namespace psx {
 		u8 ass = m_param_fifo.deque();
 		u8 asect = m_param_fifo.deque();
 
-		m_unprocessed_seek_loc.mm = amm;
-		m_unprocessed_seek_loc.ss = ass;
-		m_unprocessed_seek_loc.sect = asect;
+		m_unprocessed_seek_loc.mm = bcd_to_normal(amm);
+		m_unprocessed_seek_loc.ss = bcd_to_normal(ass);
+		m_unprocessed_seek_loc.sect = bcd_to_normal(asect);
 		m_has_unprocessed_seek = true;
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
 			ResponseTimings::GETSTAT_NORMAL);
 
-		LOG_DEBUG("CDROM", "[CDROM] SetLoc(mm={:#x}, ss={:#x}, sect={:#x}) -> INT3({:#x})",
+		LOG_DEBUG("CDROM", "[CDROM] SetLoc(mm={:x}, ss={:x}, sect={:x}) -> INT3({:#x})",
 			amm, ass, asect, m_stat.reg);
 	}
 
@@ -202,7 +202,6 @@ namespace psx {
 			m_stat.reg);
 	}
 
-#pragma optimize("", off)
 	void CDDrive::Command_Pause() {
 		m_stat.motor_on = m_motor_on;
 
@@ -230,6 +229,18 @@ namespace psx {
 			ResponseTimings::GETSTAT_NORMAL);
 		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { m_stat.reg },
 			ResponseTimings::GETSTAT_NORMAL * 2);
+
+		LOG_INFO("CDROM", "[CDROM] Init() -> INT3({:#x}) -> INT2({:#x})",
+			m_stat.reg, m_stat.reg);
 	}
-#pragma optimize("", on)
+
+	void CDDrive::Command_Demute() {
+		m_motor_on = true;
+		m_stat.motor_on = m_motor_on;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		LOG_ERROR("CDROM", "[CDROM] STUBBED FUNCTION Demute()");
+	}
 }

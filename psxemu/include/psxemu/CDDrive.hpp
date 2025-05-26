@@ -76,6 +76,7 @@ namespace psx {
 		void Command_ReadN();
 		void Command_Pause();
 		void Command_Init();
+		void Command_Demute();
 
 		///////////
 

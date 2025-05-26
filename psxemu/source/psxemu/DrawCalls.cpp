@@ -390,20 +390,18 @@ namespace psx {
 
 		u32 curr_params = m_required_params;
 
-		if (gouraud && !transparent && !tex) {
+		if (gouraud && !tex) {
+			if (transparent) {
+				fmt::println("[GPU] TRANSPARENT GOURAUD TRIANGLE");
+				error::DebugBreak();
+			}
 			DrawBasicGouraudTriangle();
 		}
 		else if (tex) {
 			DrawTexturedTriangle();
 		}
 		else {
-			fmt::println("[GPU] DRAW TRIANGLE");
-			fmt::println("      Gouraud          = {}", gouraud);
-			fmt::println("      Textured         = {}", tex);
-			fmt::println("      Semi-transparent = {}", transparent);
-			fmt::println("      Raw texture      = {}", raw);
-			fmt::println("      First colour     = 0x{:x}", cmd & 0xFFFFFF);
-			error::DebugBreak();
+			DrawNormalTriangle();
 		}
 
 		//CheckIfDrawNeeded();
@@ -906,4 +904,66 @@ namespace psx {
 			prev_color = curr_color;
 		}
 	}
+
+#pragma optimize("", off)
+	void Gpu::DrawNormalTriangle() {
+		u32 cmd = m_cmd_fifo.deque();
+
+		u32 color_packed = cmd & 0xFFFFFF;
+
+		video::UntexturedOpaqueFlatVertex v0{};
+		video::UntexturedOpaqueFlatVertex v1{};
+		video::UntexturedOpaqueFlatVertex v2{};
+		video::UntexturedOpaqueFlatTriangle triangle{};
+
+		u32 vertex_1 = m_cmd_fifo.deque();
+		u32 vertex_2 = m_cmd_fifo.deque();
+		u32 vertex_3 = m_cmd_fifo.deque();
+
+		u32 r = color_packed & 0xFF;
+		u32 g = (color_packed >> 8) & 0xFF;
+		u32 b = (color_packed >> 16) & 0xFF;
+
+		v0.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
+		v0.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
+
+		v1.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
+
+		v2.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
+
+		//fmt::println("[GPU]  R = {}, G = {}, B = {}", r, g, b);
+		//fmt::println("       X0 = {:#x}, Y0 = {:#x}", v0.x, v0.y);
+		//fmt::println("       X1 = {:#x}, Y1 = {:#x}", v1.x, v1.y);
+		//fmt::println("       X2 = {:#x}, Y2 = {:#x}", v2.x, v2.y);
+
+		v0.r = r;
+		v0.g = g;
+		v0.b = b;
+
+		v1.r = r;
+		v1.g = g;
+		v1.b = b;
+
+		v2.r = r;
+		v2.g = g;
+		v2.b = b;
+
+		triangle.v0 = v0;
+		triangle.v1 = v1;
+		triangle.v2 = v2;
+
+		bool transparent = (cmd >> 25) & 1;
+
+		if (transparent) {
+			u8 transparency_type = u8(m_stat.semi_transparency);
+			m_renderer->DrawTransparentUntexturedTriangle(triangle,
+				transparency_type);
+		}
+		else {
+			m_renderer->DrawFlatUntexturedOpaque(triangle);
+		}
+	}
+#pragma optimize("", on)
 }

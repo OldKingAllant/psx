@@ -145,7 +145,14 @@ namespace psx {
 			{ 0xB4E, "void _card_write(port=UINT,sector=UINT,src=VOID_PTR,)" },
 			{ 0xB4F, "void _card_read(port=UINT,sector=UINT,dst=VOID_PTR,)" },
 			{ 0xB5C, "mc_status _card_status(port=UINT,)" },
-			{ 0xB5D, "mc_status _card_wait(port=UINT,)" }
+			{ 0xB5D, "mc_status _card_wait(port=UINT,)" },
+			{ 0xAA1, "void SystemError(type=CHAR,code=UINT,)" },
+			{ 0xA42, "bool Load(filename=CHAR_PTR,headerbuf=VOID_PTR,)" },
+			{ 0xA43, "void Exec(headerbuf=VOID_PTR,param1=UINT,param2=UINT,)" },
+			{ 0xB0E, "uint OpenThread(pc=UINT,SP=UINT,GP=UINT,)" },
+			{ 0xB0F, "uint CloseThread(handle=UINT,)" },
+			{ 0xB10, "uint ChangeThread(handle=UINT,)" },
+			{ 0xB0A, "uint WaitEvent(event=UINT,)" }
 		};
 
 		for (auto const& [id, syscall] : syscalls) {

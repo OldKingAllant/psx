@@ -260,7 +260,7 @@ namespace psx {
 				}
 
 				if (m_curr_sector_size == CDROM::FULL_SECTOR_SIZE) {
-					return m_curr_sector[CDROM::FULL_SECTOR_SIZE - 0x4];
+					return m_curr_sector[0x920];
 				}
 				else {
 					return m_curr_sector[CDROM::SECTOR_SIZE - 0x8];
@@ -317,7 +317,8 @@ namespace psx {
 		SEEKL = 0x15,
 		READN = 0x6,
 		PAUSE = 0x9,
-		INIT = 0xA
+		INIT = 0xA,
+		DEMUTE = 0xC
 	};
 
 	void CDDrive::CommandExecute() {
@@ -360,6 +361,9 @@ namespace psx {
 			break;
 		case DriveCommands::INIT:
 			Command_Init();
+			break;
+		case DriveCommands::DEMUTE:
+			Command_Demute();
 			break;
 		default:
 			LOG_ERROR("CDROM", "[CDROM] Unknown/invalid command {:#x}",
@@ -550,7 +554,9 @@ namespace psx {
 		decltype(m_curr_sector) sector{};
 
 		if (m_mode.read_whole_sector) {
-			sector = m_cdrom->ReadFullSector(m_seek_loc.mm, m_seek_loc.ss, m_seek_loc.sect);
+			auto temp_sector = m_cdrom->ReadFullSector(m_seek_loc.mm, m_seek_loc.ss, m_seek_loc.sect);
+			SectorMode2Form1* form1 = std::bit_cast<SectorMode2Form1*>(temp_sector.data());
+			std::copy_n(std::bit_cast<u8*>(&form1->header), 0x924, sector.data());
 		}
 		else {
 			sector = m_cdrom->ReadSector(m_seek_loc.mm, m_seek_loc.ss, m_seek_loc.sect);
@@ -568,7 +574,7 @@ namespace psx {
 			m_has_pending_read = true;
 			m_pending_sector = sector;
 			m_pending_sector_size = m_mode.read_whole_sector ?
-				CDROM::FULL_SECTOR_SIZE : CDROM::SECTOR_SIZE;
+				0x924 : CDROM::SECTOR_SIZE;
 			error::DebugBreak();
 		}
 		else {
@@ -576,7 +582,7 @@ namespace psx {
 				0);
 			m_has_data_to_load = true;
 			m_curr_sector_size = m_mode.read_whole_sector ?
-				CDROM::FULL_SECTOR_SIZE : CDROM::SECTOR_SIZE;
+				0x924 : CDROM::SECTOR_SIZE;
 			m_curr_sector = sector;
 		}
 

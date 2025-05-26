@@ -142,6 +142,19 @@ int main(int argc, char* argv[]) {
 				psx::u32 ch = sys.GetCPU().GetRegs().a0;
 				if(console) console->Putchar((char)ch);
 			});
+	kernel
+		.InsertEnterHook(std::string("SystemError"),
+			[&sys](psx::u32 pc, psx::u32 id) {
+				auto const& regs = sys.GetCPU().GetRegs();
+				auto type = char(regs.a0);
+				auto errcode = regs.a1;
+
+				auto errmessage = fmt::format("SystemError called\nType: {}, Code: {:#x}",
+					type, errcode);
+
+				MessageBoxA(NULL, errmessage.c_str(),
+					"Fatal error", MB_OK | MB_ICONERROR);
+			});
 
 	if (renderdoc) {
 		sys.GetStatus()
