@@ -86,6 +86,8 @@ namespace psx {
 
 		bool ValidateParams(u32 num_params);
 
+		void UpdateIndexRegister();
+
 		void InterruptAckd();
 		void RequestInterrupt(CdInterrupt interrupt);
 		void PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args, u64 delay);
@@ -108,7 +110,7 @@ namespace psx {
 		InterruptEnable m_int_enable;
 		InterruptFlag m_int_flag;
 
-		bool m_cmd_start_interrupt;
+		bool m_soundmap_en;
 		bool m_want_data;
 
 		XA_ADPCM_Volume m_volume;

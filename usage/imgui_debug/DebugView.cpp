@@ -1306,13 +1306,13 @@ void DebugView::DriveWindow() {
 		ImGui::Text("%d", drive.m_index_reg.param_fifo_empty);
 		ImGui::TextColored(yellow, "Param fifo full     :");
 		ImGui::SameLine();
-		ImGui::Text("%d", drive.m_index_reg.param_fifo_full);
+		ImGui::Text("%d", drive.m_index_reg.param_fifo_not_full);
 		ImGui::TextColored(yellow, "Response fifo empty :");
 		ImGui::SameLine();
-		ImGui::Text("%d", drive.m_index_reg.response_fifo_empty);
+		ImGui::Text("%d", drive.m_index_reg.response_fifo_not_empty);
 		ImGui::TextColored(yellow, "Data fifo empty     :");
 		ImGui::SameLine();
-		ImGui::Text("%d", drive.m_index_reg.data_fifo_empty);
+		ImGui::Text("%d", drive.m_index_reg.data_fifo_not_empty);
 		ImGui::TextColored(yellow, "Transmission busy   :");
 		ImGui::SameLine();
 		ImGui::Text("%d", drive.m_index_reg.transmission_busy);
@@ -1328,10 +1328,10 @@ void DebugView::DriveWindow() {
 		ImGui::Text("%s", int_text.data());
 		ImGui::TextColored(yellow, "Cmd start irq     :");
 		ImGui::SameLine();
-		ImGui::Text("%d", drive.m_int_flag.cmd_start);
+		ImGui::Text("%d", drive.m_int_flag.soundmap_write_ready);
 		ImGui::TextColored(yellow, "Want cmd start irq:");
 		ImGui::SameLine();
-		ImGui::Text("%d", drive.m_cmd_start_interrupt);
+		ImGui::Text("%d", drive.m_soundmap_en);
 	}
 
 	if (ImGui::CollapsingHeader("Mode")) {

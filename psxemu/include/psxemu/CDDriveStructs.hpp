@@ -13,9 +13,9 @@ namespace psx {
 			u8 index : 2;
 			bool xa_adpcm_fifo_empty : 1;
 			bool param_fifo_empty : 1;
-			bool param_fifo_full : 1;
-			bool response_fifo_empty : 1;
-			bool data_fifo_empty : 1;
+			bool param_fifo_not_full : 1;
+			bool response_fifo_not_empty : 1;
+			bool data_fifo_not_empty : 1;
 			bool transmission_busy : 1;
 		};
 #pragma pack(pop)
@@ -58,8 +58,8 @@ namespace psx {
 #pragma pack(push, 1)
 		struct {
 			CdInterrupt irq : 3;
-			bool : 1;
-			bool cmd_start : 1;
+			bool soundmap_buffer_empty : 1;
+			bool soundmap_write_ready : 1;
 		};
 #pragma pack(pop)
 
@@ -100,10 +100,12 @@ namespace psx {
 		static constexpr u32 READ_TOC = INIT;
 		static constexpr u32 GET_ID = 0x0004a00;
 		static constexpr u32 PAUSE = 0x021181c;
+		static constexpr u32 PAUSE_DOUBLE_SPEED = PAUSE / 2;
 		static constexpr u32 PAUSE_PAUSED = 0x0001df2;
 		static constexpr u32 STOP = 0x0d38aca;
 		static constexpr u32 STOP_STOPPED = 0x0001d7b;
-		static constexpr u32 READ = (u32)SYSTEM_CLOCK * 0x930 / 4 / 44100;
+		static constexpr u32 READ = 0x6e1cd;
+		static constexpr u32 READ_DOUBLE_SPEED = READ / 2;
 	};
 
 	union Mode {

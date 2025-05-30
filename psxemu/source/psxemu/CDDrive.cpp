@@ -14,7 +14,7 @@ namespace psx {
 	CDDrive::CDDrive(system_status* sys_status) :
 		m_index_reg{}, m_curr_cmd{}, m_new_cmd{}, 
 		m_response_fifo{}, m_param_fifo{}, m_int_enable {}, m_int_flag{},
-		m_cmd_start_interrupt{false}, m_want_data{false},
+		m_soundmap_en{false}, m_want_data{false},
 		m_volume{}, m_mute_adpcm{true}, m_sound_coding{},
 		m_read_paused{false}, m_motor_on{false},
 		m_mode{}, m_stat{}, m_sys_status {sys_status},
@@ -27,9 +27,7 @@ namespace psx {
 		m_curr_sector_size{}, m_pending_sector_size{}, 
 		m_curr_sector_pos{} {
 		m_index_reg.param_fifo_empty = true;
-
-		//Yes, this does not really make sense
-		m_index_reg.param_fifo_full = true;
+		m_index_reg.param_fifo_not_full = true;
 		m_stat.shell_open = false;
 		m_motor_on = true;
 	}
@@ -39,6 +37,7 @@ namespace psx {
 		switch (address)
 		{
 		case 0x00: {
+			UpdateIndexRegister();
 			return m_index_reg.reg;
 		}
 			break;
@@ -119,6 +118,9 @@ namespace psx {
 				m_index_reg.transmission_busy = false;
 			}
 			else {
+				if (m_has_next_cmd) {
+					error::DebugBreak();
+				}
 				m_new_cmd = value;
 				m_has_next_cmd = true;
 				m_index_reg.transmission_busy = true;
@@ -159,7 +161,7 @@ namespace psx {
 			m_index_reg.param_fifo_empty = false;
 			
 			if (m_param_fifo.full())
-				m_index_reg.param_fifo_full = false;
+				m_index_reg.param_fifo_not_full = false;
 			break;
 		case 1:
 			m_int_enable.enable_bits = value & 0x1F;
@@ -183,10 +185,34 @@ namespace psx {
 		{
 		case 0:
 			m_want_data = (bool)((value >> 7) & 1);
-			m_cmd_start_interrupt = (bool)((value >> 5) & 1);
+			m_soundmap_en = (bool)((value >> 5) & 1);
+			if (m_soundmap_en) {
+				LOG_ERROR("CDROM", "[CDROM] ENABLE SOUNDMAP");
+			}
+
 			if (m_want_data) {
-				if (m_has_data_to_load) {
-					m_index_reg.data_fifo_empty = true;
+				m_want_data = false;
+
+				//Return if:
+				//1. There is already loaded data (buffer has not been read)
+				//2. There is literally no available data
+				//MGS1 uses the following trick:
+				//1. Send data request
+				//2. Read first 0xC bytes (header+2 subheaders)
+				//3. Send another data request
+				//4. Read all 0x800 data bytes
+				//Second data request should not reset position in buffer
+				if ((!m_has_data_to_load && (m_curr_sector_size != m_curr_sector_pos)) || 
+					m_curr_sector_size == 0) {
+					LOG_WARN("CDROM", "[CDROM] Attempted data request even if no sectors are available");
+					return;
+				}
+
+				//There's an unread sector, or current sector has been fully
+				//read, reset position to beginning
+				if(m_has_data_to_load || m_curr_sector_size == m_curr_sector_pos) {
+					LOG_INFO("CDROM", "[CDROM] DATA REQUEST");
+					m_index_reg.data_fifo_not_empty = true;
 					m_has_data_to_load = false;
 					m_has_loaded_data = true;
 					m_curr_sector_pos = 0;
@@ -196,19 +222,28 @@ namespace psx {
 					dma.SetDreq(true);
 					dma.DreqRisingEdge();
 				}
-				else {
-					LOG_ERROR("CDROM", "[CDROM] Attempted data request even if no sectors are available");
-				}
+			}
+			else {
+				m_index_reg.data_fifo_not_empty = false;
+				m_has_loaded_data = false;
+				m_curr_sector_pos = 0;
 			}
 			break;
 		case 1:
-			m_int_flag.reg &= ~value;
-			
 			if ((value >> 6) & 1) {
 				LOG_DEBUG("CDROM", "[CDROM] Param FIFO reset");
 				m_param_fifo.clear();
 			}
-			InterruptAckd();
+
+			{
+				auto ack_int = value & 0x7;
+				
+				if (ack_int != 0 && u8(m_int_flag.irq) != 0) {
+					InterruptAckd();
+				}
+
+				m_int_flag.irq = CdInterrupt( u8(m_int_flag.irq) & ~ack_int);
+			}
 			break;
 		case 2:
 			m_volume.left_to_right = value;
@@ -272,6 +307,7 @@ namespace psx {
 				if (m_curr_sector_pos == m_curr_sector_size) {
 					m_curr_sector_pos = 0;
 					m_has_loaded_data = false;
+					m_index_reg.data_fifo_not_empty = false;
 				}
 				return value;
 			}
@@ -322,11 +358,6 @@ namespace psx {
 	};
 
 	void CDDrive::CommandExecute() {
-		if (m_cmd_start_interrupt) {
-			m_int_flag.cmd_start = true;
-			m_sys_status->Interrupt(u32(Interrupts::CDROM));
-		}
-
 		switch (m_curr_cmd)
 		{
 		case DriveCommands::GETSTAT:
@@ -373,14 +404,15 @@ namespace psx {
 		}
 
 		m_index_reg.param_fifo_empty = m_param_fifo.empty();
-		m_index_reg.param_fifo_full = !m_param_fifo.full();
+		m_index_reg.param_fifo_not_full = !m_param_fifo.full();
 	}
 
 	void CDDrive::RequestInterrupt(CdInterrupt interrupt) {
-		m_index_reg.response_fifo_empty = !m_response_fifo.empty();
+		m_index_reg.response_fifo_not_empty = !m_response_fifo.empty();
 		m_int_flag.irq = interrupt;
 
-		if ((m_int_enable.enable_bits & u8(interrupt)) != u8(interrupt)) {
+		//(HINTMSK & HINTSTS) != 0
+		if ((m_int_enable.enable_bits & u8(interrupt)) == 0) {
 			//INT disabled
 			return;
 		}
@@ -409,12 +441,21 @@ namespace psx {
 			.timestamp = curr_time
 			});
 
+		//Interrupt requests are performed by function
+		//that emulates INT ack., here we request 
+		//interrupt only if there is nothing else
+		//that would do it
+
+		//If delay is zero, immediately fire INT
 		if (m_response_fifo.len() == 1 && delay == 0) {
 			RequestInterrupt(interrupt);
+			return;
 		}
 
-		if (delay != 0)
+		//Delay is > 0, use scheduler
+		if (delay != 0 && m_response_fifo.len() == 1) {
 			ScheduleInterrupt(delay);
+		}
 	}
 
 	bool CDDrive::ValidateParams(u32 num_params) {
@@ -427,13 +468,31 @@ namespace psx {
 		return true;
 	}
 
+	void CDDrive::UpdateIndexRegister() {
+		m_index_reg.response_fifo_not_empty = !m_response_fifo.empty();
+		m_index_reg.data_fifo_not_empty = (m_curr_sector_pos != m_curr_sector_size) &&
+			m_curr_sector_size != 0;
+		m_index_reg.param_fifo_empty = m_param_fifo.empty();
+		m_index_reg.param_fifo_not_full = !m_param_fifo.full();
+	}
+
 	void CDDrive::InterruptAckd() {
 		if (m_response_fifo.empty())
 			return;
 
+		{
+			auto& response = m_response_fifo.peek();
+			auto curr_timestamp = m_sys_status->scheduler.GetTimestamp();
+
+			if (response.timestamp + response.delay > curr_timestamp) {
+				LOG_WARN("CDROM", "[CDROM] INTERRUPT ACKNOWLEDGE OF UNDELIVERED INTERRUPT");
+				return;
+			}
+		}
+
 		(void)m_response_fifo.deque();
 
-		m_index_reg.response_fifo_empty = false;
+		m_index_reg.response_fifo_not_empty = false;
 
 		if (!m_response_fifo.empty()) {
 			auto const& response = m_response_fifo.peek();
@@ -475,7 +534,7 @@ namespace psx {
 
 		if (response.fifo.curr_index >=
 			response.fifo.num_bytes)
-			m_index_reg.response_fifo_empty = false;
+			m_index_reg.response_fifo_not_empty = false;
 
 		response.fifo.curr_index %= 16;
 
@@ -586,7 +645,10 @@ namespace psx {
 			m_curr_sector = sector;
 		}
 
-		m_read_event = m_sys_status->scheduler.Schedule( ResponseTimings::READ,
+		u64 read_time = m_mode.double_speed ? ResponseTimings::READ_DOUBLE_SPEED :
+			ResponseTimings::READ;
+
+		m_read_event = m_sys_status->scheduler.Schedule( read_time,
 			read_callback, std::bit_cast<void*>(this));
 
 		m_seek_loc++;

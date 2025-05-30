@@ -181,6 +181,7 @@ namespace psx {
 
 	void CDDrive::Command_ReadN() {
 		m_stat.motor_on = m_motor_on;
+		m_read_paused = false;
 
 		if (m_has_unprocessed_seek) {
 			m_has_unprocessed_seek = false;
@@ -194,8 +195,11 @@ namespace psx {
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
 			ResponseTimings::GETSTAT_NORMAL);
 
+		u64 read_time = m_mode.double_speed ? ResponseTimings::READ_DOUBLE_SPEED :
+			ResponseTimings::READ;
+
 		m_read_event = m_sys_status->scheduler.Schedule(
-			ResponseTimings::GETSTAT_NORMAL + ResponseTimings::READ,
+			ResponseTimings::GETSTAT_NORMAL + read_time,
 			read_callback, std::bit_cast<void*>(this));
 
 		LOG_DEBUG("CDROM", "[CDROM] ReadN() -> INT3({:#x})",
@@ -204,6 +208,19 @@ namespace psx {
 
 	void CDDrive::Command_Pause() {
 		m_stat.motor_on = m_motor_on;
+
+		if (m_read_paused || !m_stat.reading) {
+			PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+				ResponseTimings::GETSTAT_NORMAL);
+			PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { m_stat.reg },
+				ResponseTimings::GETSTAT_NORMAL + ResponseTimings::PAUSE_PAUSED);
+			LOG_DEBUG("CDROM", "[CDROM] Pause() -> INT3({:#x}) -> INT2({:#x})",
+				m_stat.reg, m_stat.reg);
+		}
+
+		if (m_stat.reading) {
+			m_read_paused = true;
+		}
 
 		auto first_stat = m_stat.reg;
 		m_stat.reading = false;
@@ -215,15 +232,21 @@ namespace psx {
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { first_stat },
 			ResponseTimings::GETSTAT_NORMAL);
 		PushResponse(CdInterrupt::INT2_SECOND_RESPONSE, { second_stat },
-			ResponseTimings::GETSTAT_NORMAL * 2);
+			m_mode.double_speed ? ResponseTimings::PAUSE_DOUBLE_SPEED : 
+			ResponseTimings::PAUSE);
 
 		LOG_DEBUG("CDROM", "[CDROM] Pause() -> INT3({:#x}) -> INT2({:#x})",
 			first_stat, second_stat);
 	}
 
 	void CDDrive::Command_Init() {
+		m_stat.reg = 0x0;
 		m_motor_on = true;
 		m_stat.motor_on = m_motor_on;
+		m_read_paused = false;
+
+		m_sys_status->scheduler.Deschedule(m_event_id);
+		m_sys_status->scheduler.Deschedule(m_read_event);
 
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
 			ResponseTimings::GETSTAT_NORMAL);
