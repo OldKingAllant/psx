@@ -106,6 +106,12 @@
     <Filter Include="Resource Files\mdec">
       <UniqueIdentifier>{fd0c6d5e-1f56-45de-bbd3-6443ff52b98d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\dev\spu">
+      <UniqueIdentifier>{f2205826-efd7-410b-b1df-7621e9e38cf0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\dev\spu">
+      <UniqueIdentifier>{e88c803e-80f9-4f29-9932-d3fa5b248a07}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -345,6 +351,18 @@
     <ClInclude Include="include\psxemu\CDROMDma.hpp">
       <Filter>Header Files\dev\dma</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\SPU.hpp">
+      <Filter>Header Files\dev\spu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SPUStructs.hpp">
+      <Filter>Header Files\dev\spu</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SPURegisters.hpp">
+      <Filter>Header Files\dev\spu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\CpuFeatures.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -523,6 +541,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\CDROMDma.cpp">
       <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\SPU.cpp">
+      <Filter>Resource Files\dev\spu</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

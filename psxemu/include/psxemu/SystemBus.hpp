@@ -12,6 +12,7 @@
 #include <psxemu/include/psxemu/CDDrive.hpp>
 #include <psxemu/include/psxemu/SIOPort.hpp>
 #include <psxemu/include/psxemu/MDEC.hpp>
+#include <psxemu/include/psxemu/SPU.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
@@ -632,11 +633,7 @@ namespace psx {
 					to_write, mask << ((address & 3) * 8));
 				return;
 			}
-
-			if (address >= memory::IO::SPU_START &&
-				address < memory::IO::SPU_END)
-				return;
-
+			
 			if (address >= GP0_ADD && address < GP0_ADD + 4) {
 				u32 to_write = value;
 
@@ -735,6 +732,26 @@ namespace psx {
 				return;
 			}
 
+			if (address >= memory::IO::SPU_START &&
+				address < memory::IO::SPU_END) {
+				if constexpr (AddCycles)
+					compute_access_time(m_spu_config);
+
+				//address -= memory::IO::SPU_START;
+
+				if constexpr (sizeof(Ty) == 1) {
+					m_spu.Write8(address, value);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					m_spu.Write16(address, value);
+				}
+				else {
+					m_spu.Write32(address, value);
+				}
+
+				return;
+			}
+
 			LOG_ERROR("MEMORY", "[MEMORY] Write to invalid/unused/unimplemented register 0x{:x}", 
 				address);
 
@@ -795,10 +812,6 @@ namespace psx {
 
 				return (Ty)(m_dma_controller.Read(address) >> shift);
 			}
-
-			if (address >= memory::IO::SPU_START &&
-				address < memory::IO::SPU_END)
-				return 0;
 
 			if (address >= GP0_ADD && address < GP0_ADD + 4) {
 				u32 shift = (address & 3) * 8;
@@ -884,6 +897,26 @@ namespace psx {
 				return Ty(m_mdec.ReadStat() >> (off * 8));
 			}
 
+			if (address >= memory::IO::SPU_START &&
+				address < memory::IO::SPU_END) {
+				if constexpr (AddCycles)
+					compute_access_time(m_spu_config);
+
+				//address -= memory::IO::SPU_START;
+
+				if constexpr (sizeof(Ty) == 1) {
+					return m_spu.Read8(address);
+				}
+				else if constexpr (sizeof(Ty) == 2) {
+					return m_spu.Read16(address);
+				}
+				else {
+					return m_spu.Read32(address);
+				}
+
+				return 0x0;
+			}
+
 			LOG_ERROR("MEMORY", "[MEMORY] Reading invalid/unused/unimplemented register 0x{:x}", 
 				address);
 
@@ -936,6 +969,10 @@ namespace psx {
 
 		CDDrive& GetCdDrive() {
 			return m_cdrom;
+		}
+
+		SPU& GetSPU() {
+			return m_spu;
 		}
 
 		friend class DebugView;
@@ -1040,5 +1077,6 @@ namespace psx {
 		SIOPort m_sio1;
 
 		MDEC m_mdec;
+		SPU m_spu;
 	};
 }

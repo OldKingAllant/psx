@@ -209,6 +209,12 @@ namespace psx {
 		m_sysbus.m_curr_cycles = 0;
 
 		m_status.scheduler.Advance(num_cycles);
+
+		while (!m_status.sync_callback_buffer.isEmpty()) {
+			system_status::SyncCallback callback{};
+			m_status.sync_callback_buffer.remove(callback);
+			callback.first(&m_status, callback.second);
+		}
 	}
 
 	void System::RunInterpreter(u32 num_instruction) {

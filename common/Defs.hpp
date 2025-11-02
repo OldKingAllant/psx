@@ -111,7 +111,7 @@ namespace psx {
 			constexpr u64 DMA_START = 0x80;
 			constexpr u64 DMA_END = 0x100;
 			constexpr u64 SPU_START = 0xC00;
-			constexpr u64 SPU_END = 0xE00;
+			constexpr u64 SPU_END = 0x1000;
 			constexpr u64 CACHE_CONTROL = 0xFFFE0130;
 		}
 	}

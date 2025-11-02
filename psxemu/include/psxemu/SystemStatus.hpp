@@ -2,7 +2,12 @@
 
 #include <psxemu/include/psxemu/MIPS1.hpp>
 #include <psxemu/include/psxemu/Scheduler.hpp>
+#include <thirdparty/ringbuffer/ringbuffer.hpp>
+
 #include "SystemConf.hpp"
+
+#include <functional>
+#include <mutex>
 
 namespace psx {
 	class SystemBus;
@@ -72,6 +77,12 @@ namespace psx {
 		bool vblank;
 
 		std::shared_ptr<SystemConf> sys_conf;
+
+		using SyncCallbackFunc = void(*)(system_status*, void*);
+		using SyncCallback = std::pair<SyncCallbackFunc, void*>;
+
+		std::mutex sync_producer_mux;
+		jnk0le::Ringbuffer<SyncCallback, 32> sync_callback_buffer;
 
 		void CoprocessorUnusableException(u8 cop_number) {
 			cpu->GetCOP0().registers.cause.cop_number = cop_number;

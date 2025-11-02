@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\common\CpuFeatures.hpp" />
     <ClInclude Include="..\common\Defs.hpp" />
     <ClInclude Include="..\common\Errors.hpp" />
     <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp" />
@@ -197,6 +198,9 @@
     <ClInclude Include="include\psxemu\SIOPadMemcardDriver.hpp" />
     <ClInclude Include="include\psxemu\SIOPort.hpp" />
     <ClInclude Include="include\psxemu\SIOStructs.hpp" />
+    <ClInclude Include="include\psxemu\SPU.hpp" />
+    <ClInclude Include="include\psxemu\SPURegisters.hpp" />
+    <ClInclude Include="include\psxemu\SPUStructs.hpp" />
     <ClInclude Include="include\psxemu\StandardController.hpp" />
     <ClInclude Include="include\psxemu\SyscallTables.hpp" />
     <ClInclude Include="include\psxemu\System.hpp" />
@@ -274,6 +278,7 @@
     <ClCompile Include="source\psxemu\ServerExtensionPackets.cpp" />
     <ClCompile Include="source\psxemu\SIOPadMemcardDriver.cpp" />
     <ClCompile Include="source\psxemu\SIOPort.cpp" />
+    <ClCompile Include="source\psxemu\SPU.cpp" />
     <ClCompile Include="source\psxemu\StandardController.cpp" />
     <ClCompile Include="source\psxemu\Syscalls.cpp" />
     <ClCompile Include="source\psxemu\System.cpp" />

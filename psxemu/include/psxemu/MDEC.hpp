@@ -2,10 +2,18 @@
 
 #include <common/Defs.hpp>
 #include <common/Queue.hpp>
+#include <common/CpuFeatures.hpp>
 
 #include <array>
 #include <vector>
 #include <optional>
+#include <stop_token>
+#include <thread>
+#include <condition_variable>
+#include <mutex>
+#include <memory>
+
+#include <thirdparty/ringbuffer/ringbuffer.hpp>
 
 class DebugView;
 
@@ -67,6 +75,15 @@ namespace psx {
 
 		u32 ReadData();
 		u32 ReadStat();
+
+		~MDEC();
+
+		void StartDecodeThread();
+		void StopDecodeThread();
+
+		inline void UseSimd() {
+			m_use_simd = true;
+		}
 
 		static constexpr u32 STAT_RESET_VALUE = 0x80040000;
 
@@ -145,6 +162,14 @@ namespace psx {
 
 		void IdctCore(std::array<i16, 64>& blk);
 
+		void DecodeThread(std::stop_token);
+
+		friend void mono_dma1_update_callback(system_status*, void*);
+		friend void rgb_dma1_update_callback(system_status*, void*);
+
+		void UpdateDma1Mono();
+		void UpdateDma1RGB();
+
 	private :
 		MDEC_Status m_stat;
 		bool m_enable_dma0;
@@ -156,9 +181,19 @@ namespace psx {
 		MDEC_Cmd m_curr_cmd;
 		system_status* m_sys_status;
 		bool m_can_use_fast_idct;
+
 		std::vector<u16> m_in_fifo;
-		std::vector<u32> m_out_fifo;
+
+		constexpr static size_t RINGBUF_SIZE = 524288;
+		std::unique_ptr<jnk0le::Ringbuffer<u32, RINGBUF_SIZE>> m_out_fifo;
 		std::size_t m_curr_in_pos;
-		std::size_t m_curr_out_pos;
+
+		bool m_run_thread;
+		std::mutex m_decode_mux;
+		std::condition_variable m_decode_cv;
+		std::jthread m_decode_th;
+		std::atomic_bool m_start_decode;
+
+		bool m_use_simd;
 	};
 }

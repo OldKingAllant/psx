@@ -7,6 +7,10 @@
 
 #include <common/Errors.hpp>
 
+#include <immintrin.h>
+#include <xmmintrin.h>
+#include <emmintrin.h>
+
 namespace psx {
 	MDEC::MDEC(system_status* sys_status) :
 		m_stat{},
@@ -22,10 +26,22 @@ namespace psx {
 		m_can_use_fast_idct{false},
 		m_out_fifo{},
 		m_curr_in_pos{},
-		m_curr_out_pos{}
-	{}
+		m_run_thread{false}, m_decode_mux{},
+		m_decode_cv{}, m_decode_th{},
+		m_start_decode{false},
+		m_use_simd{false}
+	{
+		m_out_fifo = std::make_unique<jnk0le::Ringbuffer<u32, RINGBUF_SIZE>>();
+	}
 
 	void MDEC::WriteCommand(u32 value) {
+		//All writes require the decoding to
+		//be halted
+		bool has_to_lock = m_start_decode.load();
+		if (has_to_lock) {
+			m_decode_mux.lock();
+		}
+
 		if (m_num_params > 0) {
 			m_in_fifo[m_curr_in_pos++] = u16(value);
 			m_in_fifo[m_curr_in_pos++] = u16(value >> 16);
@@ -37,8 +53,15 @@ namespace psx {
 			if (m_stat.data_in_full) {
 				switch (m_curr_cmd)
 				{
-				case MDEC_Cmd::DECODE:
-					Decode();
+				case MDEC_Cmd::DECODE: {
+					if (!m_run_thread) {
+						Decode();
+					}
+					else {
+						m_start_decode.store(true);
+						m_decode_cv.notify_one();
+					}
+				}
 					break;
 				case MDEC_Cmd::SET_QUANT:
 					FillLuminance();
@@ -64,54 +87,100 @@ namespace psx {
 		else {
 			CmdStart(value);
 		}
+
+		if (has_to_lock) {
+			m_decode_mux.unlock();
+		}
 	}
 
 	void MDEC::WriteControl(u32 value) {
+		bool has_to_lock = m_start_decode.load();
+		if (has_to_lock) {
+			m_decode_mux.lock();
+		}
+
 		if ((value >> 31) & 1) {
-			LOG_DEBUG("MDEC", "[MDEC] RESET");
+			LOG_DEBUG("MDEC", "[MDEC] Reset()");
 			Reset();
 		}
 
 		if ((value >> 30) & 1) {
-			LOG_DEBUG("MDEC", "[MDEC] Enable Data-In");
+			LOG_DEBUG("MDEC", "[MDEC] DmaIn()");
 			m_enable_dma0 = true;
 		}
 
 		if ((value >> 29) & 1) {
-			LOG_DEBUG("MDEC", "[MDEC] Enable Data-Out");
+			LOG_DEBUG("MDEC", "[MDEC] DmaOut()");
 			m_enable_dma1 = true;
 		}
 
 		UpdateDMA0Req();
 		UpdateDMA1Req();
+
+		if (has_to_lock) {
+			m_decode_mux.unlock();
+		}
 	}
 
 	u32 MDEC::ReadData() {
-		if (m_out_fifo.empty() || m_curr_out_pos == m_out_fifo.size()) {
+		//do not block waiting for
+		//decoded data
+		if (m_out_fifo->isEmpty()) {
 			return 0;
 		}
-		auto value = m_out_fifo[m_curr_out_pos++];
+		u32 color = {};
+		m_out_fifo->remove(color);
 
 		UpdateDMA0Req();
 		UpdateDMA1Req();
-		return value;
+		return color;
 	}
 
 	u32 MDEC::ReadStat() {
-		m_stat.data_out_empty = m_out_fifo.empty() ||
-			m_curr_out_pos == m_out_fifo.size();
+		m_stat.data_out_empty = m_out_fifo->isEmpty();
 		return m_stat.raw;
+	}
+
+	MDEC::~MDEC() {
+		StopDecodeThread();
+	}
+
+	void MDEC::StartDecodeThread() {
+		if (m_run_thread) {
+			return;
+		}
+
+		m_start_decode.store(false);
+		m_decode_th = std::jthread([this](std::stop_token stop) {
+			this->DecodeThread(stop);
+		});
+		m_run_thread = true;
+	}
+
+	void MDEC::StopDecodeThread() {
+		if (!m_run_thread) {
+			return;
+		}
+
+		{
+			std::unique_lock<std::mutex> _lk{ m_decode_mux };
+			m_decode_th.request_stop();
+			m_decode_cv.notify_one();
+		}
+		
+		m_decode_th.join();
+
+		m_run_thread = false;
 	}
 
 	void MDEC::Reset() {
 		m_stat.raw = STAT_RESET_VALUE;
 		m_num_params = 0;
 		m_in_fifo.clear();
-		m_out_fifo.clear();
+		m_out_fifo->consumerClear();
 		m_enable_dma0 = false;
 		m_enable_dma1 = false;
 		m_curr_in_pos = 0;
-		m_curr_out_pos = 0;
 		UpdateDMA0Req();
 		UpdateDMA1Req();
 	}
@@ -131,8 +200,7 @@ namespace psx {
 			m_num_params = u16(value & 0xFFFF);
 			m_stat.missing_params = m_num_params - 1;
 			m_stat.curr_block = CurrBlockType::CR;
-			m_out_fifo.clear();
-			m_curr_out_pos = 0;
+			m_out_fifo->consumerClear();
 
 			const char* color_depth_repr = "INVALID";
 
@@ -195,11 +263,12 @@ namespace psx {
 	}
 
 	void MDEC::FillLuminance() {
-		for (std::size_t index = 0; index < 64; index += 2) {
-			auto curr_entry = m_in_fifo[index >> 1];
-			m_luminance_table[index + 0] = u8(curr_entry >> 0);
-			m_luminance_table[index + 1] = u8(curr_entry >> 8);
-		}
+		std::copy_n(std::bit_cast<u8*>(m_in_fifo.data()), 64, m_luminance_table.data());
+		//for (std::size_t index = 0; index < 64; index += 2) {
+		//	auto curr_entry = m_in_fifo[index >> 1];
+		//	m_luminance_table[index + 0] = u8(curr_entry >> 0);
+		//	m_luminance_table[index + 1] = u8(curr_entry >> 8);
+		//}
 
 		if (m_curr_in_pos > 32) {
 			FillColor(32);
@@ -207,11 +276,13 @@ namespace psx {
 	}
 
 	void MDEC::FillColor(std::size_t index_base) {
-		for (std::size_t index = 0; index < 64; index += 2) {
-			auto curr_entry = m_in_fifo[index_base + (index >> 1)];
-			m_color_table[index + 0] = u8(curr_entry >> 0);
-			m_color_table[index + 1] = u8(curr_entry >> 8);
-		}
+		std::copy_n(std::bit_cast<u8*>(m_in_fifo.data() + index_base), 64, m_color_table.data());
+
+		//for (std::size_t index = 0; index < 64; index += 2) {
+		//	auto curr_entry = m_in_fifo[index_base + (index >> 1)];
+		//	m_color_table[index + 0] = u8(curr_entry >> 0);
+		//	m_color_table[index + 1] = u8(curr_entry >> 8);
+		//}
 	}
 
 	void MDEC::FillScale() {
@@ -224,6 +295,23 @@ namespace psx {
 		m_can_use_fast_idct = std::memcmp(DEFAULT_SCALE_TABLE.data(),
 			m_scale_table.data(), m_scale_table.size() * 
 			sizeof(decltype(m_scale_table)::value_type)) == 0;
+	}
+
+	void mono_dma1_update_callback(system_status*, void* mdec) {
+		std::bit_cast<MDEC*>(mdec)->UpdateDma1Mono();
+	}
+
+	void rgb_dma1_update_callback(system_status*, void* mdec) {
+		std::bit_cast<MDEC*>(mdec)->UpdateDma1RGB();
+	}
+
+	void MDEC::UpdateDma1Mono() {
+		UpdateDMA1Req();
+		m_stat.curr_block = CurrBlockType(4);
+	}
+
+	void MDEC::UpdateDma1RGB() {
+		UpdateDMA1Req();
 	}
 
 	void MDEC::Decode() {
@@ -244,8 +332,18 @@ namespace psx {
 				//Push to output fifo
 				VecToOutFifo(block);
 				//Start DMA
-				UpdateDMA1Req();
-				m_stat.curr_block = CurrBlockType(4);
+
+				if (m_start_decode.load()) {
+					std::unique_lock<std::mutex> _lk{ m_sys_status->sync_producer_mux };
+					m_sys_status->sync_callback_buffer.insert({ 
+						mono_dma1_update_callback, std::bit_cast<void*>(this)
+					});
+				}
+				else {
+					UpdateDMA1Req();
+					m_stat.curr_block = CurrBlockType(4);
+				}
+				
 			}
 		}
 		else {
@@ -273,7 +371,16 @@ namespace psx {
 				YUVToRGB(y4.value(), cr.value(), cb.value(), macroblock, 8, 8);
 
 				VecToOutFifo(macroblock);
-				UpdateDMA1Req();
+				
+				if (m_start_decode.load()) {
+					std::unique_lock<std::mutex> _lk{ m_sys_status->sync_producer_mux };
+					m_sys_status->sync_callback_buffer.insert({
+						rgb_dma1_update_callback, std::bit_cast<void*>(this)
+					});
+				}
+				else {
+					UpdateDMA1Req();
+				}
 			}
 		}
 	}
@@ -292,7 +399,7 @@ namespace psx {
 
 	void MDEC::UpdateDMA1Req() {
 		m_stat.data_out_request = m_enable_dma1 && 
-			m_curr_out_pos < m_out_fifo.size();
+			!m_out_fifo->isEmpty();
 
 		m_sys_status->sysbus->GetDMAControl()
 			.GetMDECOutDma().SetDreq(m_stat.data_out_request);
@@ -361,75 +468,225 @@ namespace psx {
 			val = (sign_extend<i32, 9>(n & 0x3FF) * qt[k] * qscale + 4) / 8;
 		}	
 
-		/*
-		if (iter == end_iter && k < 63) {
-			return std::nullopt;
-		}
-
-		if (k < 64)
-		{
-			if (qscale == 0) {
-				val = sign_extend<i32, 9>(n & 0x3FF) * 2;
-			}
-
-			val = std::clamp(i32(val), -0x400, 0x3FF);
-
-			if (qscale > 0) {
-				block[ZAGZIG[k]] = i16(val);
-			}
-			else if (qscale == 0) {
-				block[k] = i16(val);
-			}
-		}*/
-
 		IdctCore(block);
 		return block;
 	}
-
+	
 	std::array<u32, 256> MDEC::YToMono(DecodedBlock& block) const {
 		std::array<u32, 256> rgb_block{};
 
-		for (std::size_t idx = 0; idx < 64; idx++) {
-			i32 curr_val     = sign_extend<i32, 8>(block[idx]);
-			curr_val     = i32(std::clamp(i32(curr_val), -128, 127));
-			if (!m_stat.data_out_signed) {
-				curr_val += 0x80;
+		if (m_use_simd) {
+			for (std::size_t idx = 0; idx < 64; idx += 8) {
+				__m128i values =  std::bit_cast<__m128i>
+					(_mm_loadu_ps(std::bit_cast<float*>(&block[idx])));
+
+				//First make unsigned if requested
+				//
+				//then perform clamping:
+				//temp = max(value, min_val)
+				//result = min(temp, max_val)
+
+				if (!m_stat.data_out_signed) {
+					values = _mm_add_epi16(values, _mm_set1_epi16(128));
+
+					__m128i temp = _mm_max_epi16(values, _mm_set1_epi16(0));
+					values = _mm_min_epi16(temp, _mm_set1_epi16(255));
+				}
+				else {
+					__m128i temp = _mm_max_epi16(values, _mm_set1_epi16(-128));
+					values = _mm_min_epi16(temp, _mm_set1_epi16(127));
+				}
+
+				//Sign extend 16 bit values to 32 bits
+				__m256i packed_words = _mm256_cvtepi16_epi32(values);
+
+				//Store result
+				_mm256_store_ps(std::bit_cast<float*>(&rgb_block[idx]), 
+					std::bit_cast<__m256>(packed_words));
 			}
-			rgb_block[idx] = u32(curr_val);
+		}
+		else {
+			for (std::size_t idx = 0; idx < 64; idx++) {
+				i16 curr_val = block[idx];
+
+				if (!m_stat.data_out_signed) {
+					curr_val += 0x80;
+					curr_val = std::clamp(curr_val, i16(0), i16(255));
+				}
+				else {
+					curr_val = std::clamp(curr_val, i16(-128), i16(127));
+				}
+				
+				rgb_block[idx] = u32(curr_val);
+			}
 		}
 
 		return rgb_block;
 	}
 
 	void MDEC::YUVToRGB(DecodedBlock& block, DecodedBlock& cr, DecodedBlock& cb, std::array<u32, 256>& out, std::size_t xx, std::size_t yy) const {
-		for (std::size_t y = 0; y < 8; y++) {
-			for (std::size_t x = 0; x < 8; x++) {
-				auto cr_sample = cr[((x + xx) / 2) + ((y + yy) / 2) * 8];
-				auto cb_sample = cb[((x + xx) / 2) + ((y + yy) / 2) * 8];
-				auto Y = block[x + y * 8];
+		if (m_use_simd) {
+			for (std::size_t y = 0; y < 8; y++) {
+				//Only 4 values are used for each line, load
+				//all 4 using 64 bit pointer cast
+				auto cr_samples_64 = *std::bit_cast<u64*>(cr.data() + ((xx / 2) + ((y + yy) / 2) * 8));
+				auto cb_samples_64 = *std::bit_cast<u64*>(cb.data() + ((xx / 2) + ((y + yy) / 2) * 8));
 
-				auto R = i16(1.402f * float(cr_sample));
-				auto B = i16(1.772f * float(cb_sample));
-				auto G = i16(-(0.3437f * float(cb_sample)) - (0.7143f * float(cr_sample)));
-				
-				R = i16(std::clamp(Y+R, -127, 128));
-				G = i16(std::clamp(Y+G, -127, 128));
-				B = i16(std::clamp(Y+B, -127, 128));
-				if (!m_stat.data_out_signed) {
-					R += 0x80;
-					G += 0x80;
-					B += 0x80;
+				//CR samples 0 0 1 1 2 2 3 3
+				__m256 cr_samples = {};
+
+				{
+					//Duplicate each second value (e.g. from 1 2 ... 7 to 0 0 1 1 2 2 3 3),
+					//while doing sign extension and int32 to f32 conversion
+
+					//1) extract and duplicate first two samples, obtaining 0 0 1 1 x x x x
+					__m128i cr_samples_low = _mm_shufflelo_epi16(_mm_set_epi64x(0, cr_samples_64), 0b0101'0000);
+					//2) extract and duplicate last two samples, obtaining x x x x 2 2 3 3
+					__m128i cr_samples_hig = _mm_shufflehi_epi16(_mm_setr_epi64x(0, cr_samples_64), 0b1111'1010);
+					//3) Blend the previous vectors to 0 0 1 1 2 2 3 3
+					__m128i cr_samples_temp = _mm_blend_epi16(cr_samples_low, cr_samples_hig, 0b11110000);
+					//4) Sign extend from i16 to i32
+					__m256i cr_samples_i32 = _mm256_cvtepi16_epi32(cr_samples_temp);
+					//5) Convert from i32 to f32
+					cr_samples = _mm256_cvtepi32_ps(cr_samples_i32);
 				}
-				u32 color{};
-				color |= (u32(R) << 0);
-				color |= (u32(G) << 8);
-				color |= (u32(B) << 16);
-				out[(x + xx) + (y + yy) * 16] = color;
+
+				//Repeat for CB
+				__m256 cb_samples = {};
+				
+				{
+					__m128i cb_samples_low = _mm_shufflelo_epi16(_mm_set_epi64x(0, cb_samples_64), 0b0101'0000);
+					__m128i cb_samples_hig = _mm_shufflehi_epi16(_mm_setr_epi64x(0, cb_samples_64), 0b1111'1010);
+					__m128i cb_samples_temp = _mm_blend_epi16(cb_samples_low, cb_samples_hig, 0b11110000);
+					__m256i cb_samples_i32 = _mm256_cvtepi16_epi32(cb_samples_temp);
+					cb_samples = _mm256_cvtepi32_ps(cb_samples_i32);
+				}
+				
+				//Repeat for luma
+				__m256 Y = {};
+
+				{
+					__m128i Y_i16 = std::bit_cast<__m128i>
+						(_mm_loadu_ps(std::bit_cast<float*>(&block[y * 8])));
+					__m256i Y_i32 = _mm256_cvtepi16_epi32(Y_i16);
+					Y = _mm256_cvtepi32_ps(Y_i32);
+				}
+
+				//Combine luma and chroma
+				
+				__m256 R = _mm256_add_ps(Y, _mm256_mul_ps(_mm256_set1_ps(1.402f), cr_samples));
+				__m256 B = _mm256_add_ps(Y, _mm256_mul_ps(_mm256_set1_ps(1.772f), cb_samples));
+				__m256 G = _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(-0.3437f), cb_samples),
+					_mm256_mul_ps(_mm256_set1_ps(-0.7143f), cr_samples));
+				G = _mm256_add_ps(Y, G);
+
+				auto mm_clamp = [](__m256 val, float min, float max) {
+					__m256 temp = _mm256_max_ps(val, _mm256_set1_ps(min));
+					return _mm256_min_ps(temp, _mm256_set1_ps(max));
+				};
+
+				if (!m_stat.data_out_signed) {
+					//Make unsigned
+					R = _mm256_add_ps(R, _mm256_set1_ps(128.0f));
+					G = _mm256_add_ps(G, _mm256_set1_ps(128.0f));
+					B = _mm256_add_ps(B, _mm256_set1_ps(128.0f));
+
+					R = mm_clamp(R, 0.0f, 255.0f);
+					G = mm_clamp(G, 0.0f, 255.0f);
+					B = mm_clamp(B, 0.0f, 255.0f);
+				}
+				else {
+					R = mm_clamp(R, -128.0f, 127.0f);
+					G = mm_clamp(G, -128.0f, 127.0f);
+					B = mm_clamp(B, -128.0f, 127.0f);
+				}
+
+				//Convert to i32
+				auto R_u32 = _mm256_cvtps_epi32(R);
+				auto G_u32 = _mm256_cvtps_epi32(G);
+				auto B_u32 = _mm256_cvtps_epi32(B);
+
+				__m256i color = {};
+
+				//Combine RGB data in 8 u32
+				color = R_u32;
+				color = _mm256_or_epi32(color, _mm256_slli_epi32(G_u32, 8));
+				color = _mm256_or_epi32(color, _mm256_slli_epi32(B_u32, 16));
+
+				_mm256_store_ps(std::bit_cast<float*>(out.data() + (xx + (y + yy) * 16)),
+					std::bit_cast<__m256>(color));
 			}
 		}
+		else {
+			for (std::size_t y = 0; y < 8; y++) {
+				for (std::size_t x = 0; x < 8; x++) {
+					i32 cr_sample = cr[((x + xx) / 2) + ((y + yy) / 2) * 8];
+					i32 cb_sample = cb[((x + xx) / 2) + ((y + yy) / 2) * 8];
+					i32 Y = block[x + y * 8];
+
+					i32 R = Y + i32(1.402f * float(cr_sample));
+					i32 B = Y + i32(1.772f * float(cb_sample));
+					i32 G = Y + i32(-(0.3437f * float(cb_sample)) - (0.7143f * float(cr_sample)));
+
+					if (!m_stat.data_out_signed) {
+						R += 0x80;
+						G += 0x80;
+						B += 0x80;
+
+						R = u8(std::clamp(R, 0, 255));
+						G = u8(std::clamp(G, 0, 255));
+						B = u8(std::clamp(B, 0, 255));
+					}
+					else {
+						R = u8(std::clamp(R, -128, 127));
+						G = u8(std::clamp(G, -128, 127));
+						B = u8(std::clamp(B, -128, 127));
+					}
+
+					u32 color{};
+					color |= (u32(R) << 0);
+					color |= (u32(G) << 8);
+					color |= (u32(B) << 16);
+					out[(x + xx) + (y + yy) * 16] = color;
+				}
+			}
+		}
+		
 	}
 	
 	void MDEC::VecToOutFifo(std::array<u32, 256> const& src) {
+		size_t required_space = 0;
+		switch (m_stat.out_depth)
+		{
+		case OutputDepth::BIT4:
+			required_space = 8;
+			break;
+		case OutputDepth::BIT8:
+			required_space = 16;
+			break;
+		case OutputDepth::BIT15:
+			required_space = 128;
+			break;
+		case OutputDepth::BIT24:
+			required_space = 256;
+			break;
+		default:
+			error::Unreachable();
+			break;
+		}
+
+		bool is_enough_space = m_out_fifo->writeAvailable() >= required_space;
+		if (!m_run_thread && !is_enough_space) {
+			LOG_ERROR("MDEC", "[MDEC] NOT ENOUGH SPACE IN OUTPUT BUFFER");
+			error::DebugBreak();
+		}
+		else if(!is_enough_space) {
+			LOG_WARN("MDEC", "[MDEC] Waiting for buffer to empty a bit");
+			while (m_out_fifo->writeAvailable() < required_space) {
+				std::this_thread::yield();
+			}
+		}
+
 		switch (m_stat.out_depth)
 		{
 		case OutputDepth::BIT4: {
@@ -442,7 +699,7 @@ namespace psx {
 				curr_value |= (src[idx + 5] >> 4) << 20;
 				curr_value |= (src[idx + 6] >> 4) << 24;
 				curr_value |= (src[idx + 7] >> 4) << 28;
-				m_out_fifo.push_back(curr_value);
+				m_out_fifo->insert(curr_value);
 			}
 		}
 			break;
@@ -452,7 +709,7 @@ namespace psx {
 				curr_value |= (src[idx + 1] << 8);
 				curr_value |= (src[idx + 2] << 16);
 				curr_value |= (src[idx + 3] << 24);
-				m_out_fifo.push_back(curr_value);
+				m_out_fifo->insert(curr_value);
 			}
 		}
 			break;
@@ -483,7 +740,7 @@ namespace psx {
 
 				curr_value |= color1;
 				curr_value |= (color2 << 16);
-				m_out_fifo.push_back(curr_value);
+				m_out_fifo->insert(curr_value);
 			}
 		}
 			break;
@@ -510,7 +767,7 @@ namespace psx {
 					u32 temp = src[idx];
 					//color = RGBR
 					color |= ((temp & 0xFF) << 24);
-					m_out_fifo.push_back(color);
+					m_out_fifo->insert(color);
 					//color = GB--
 					color = (temp >> 8);
 					state = 2;
@@ -520,7 +777,7 @@ namespace psx {
 					u32 temp = src[idx];
 					//color = GBRG
 					color |= ((temp & 0xFFFF) << 16);
-					m_out_fifo.push_back(color);
+					m_out_fifo->insert(color);
 					//color = B---
 					color = (temp >> 16);
 					state = 3;
@@ -530,7 +787,7 @@ namespace psx {
 					u32 temp = src[idx];
 					//color = BRGB
 					color |= ((temp & 0xFFFFFF) << 8);
-					m_out_fifo.push_back(color);
+					m_out_fifo->insert(color);
 
 					//No need to set color again, full color
 					//data from current index has been used
@@ -554,6 +811,7 @@ namespace psx {
 	void MDEC::IdctCore(std::array<i16, 64>& blk) {
 		std::array<i64, 64> temp{};
 
+		
 		for (std::size_t x = 0; x < 8; x++) {
 			for (std::size_t y = 0; y < 8; y++) {
 				i64 sum = 0;
@@ -573,11 +831,27 @@ namespace psx {
 				}
 
 				int round = (sum >> 31) & 1;
-				blk[x + y * 8] = i16(std::clamp<i32>(
-					sign_extend<i32, 8>((sum >> 32) + round), 
-					-128, 127
-				));
+				//blk[x + y * 8] = i16(std::clamp<i32>(
+				//	sign_extend<i32, 8>((sum >> 32) + round), 
+				//	-128, 127
+				//));
+				blk[x + y * 8] = u16((sum >> 32) + round);
 			}
+		}
+	}
+
+	void MDEC::DecodeThread(std::stop_token stop) {
+		while (!stop.stop_requested()) {
+			std::unique_lock<std::mutex> _lk{ m_decode_mux };
+			m_decode_cv.wait(_lk, [this, stop]() { return this->m_start_decode.load() ||
+				stop.stop_requested(); });
+
+			if (stop.stop_requested()) {
+				break;
+			}
+
+			Decode();
+			m_start_decode.store(false);
 		}
 	}
 
