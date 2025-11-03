@@ -85,6 +85,10 @@ namespace psx {
 			m_use_simd = true;
 		}
 
+		inline void UseInaccurateIdct() {
+			m_accurate_idct = false;
+		}
+
 		static constexpr u32 STAT_RESET_VALUE = 0x80040000;
 
 		static constexpr std::array<i16, 64> DEFAULT_SCALE_TABLE = {
@@ -195,5 +199,6 @@ namespace psx {
 		std::atomic_bool m_start_decode;
 
 		bool m_use_simd;
+		bool m_accurate_idct;
 	};
 }

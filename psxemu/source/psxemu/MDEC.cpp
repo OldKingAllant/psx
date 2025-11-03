@@ -29,7 +29,8 @@ namespace psx {
 		m_run_thread{false}, m_decode_mux{},
 		m_decode_cv{}, m_decode_th{},
 		m_start_decode{false},
-		m_use_simd{false}
+		m_use_simd{false},
+		m_accurate_idct{true}
 	{
 		m_out_fifo = std::make_unique<jnk0le::Ringbuffer<u32, RINGBUF_SIZE>>();
 	}
@@ -808,37 +809,96 @@ namespace psx {
 		}
 	}
 
+#pragma optimize("", off)
 	void MDEC::IdctCore(std::array<i16, 64>& blk) {
 		std::array<i64, 64> temp{};
 
-		
-		for (std::size_t x = 0; x < 8; x++) {
+		if (m_use_simd) {
 			for (std::size_t y = 0; y < 8; y++) {
-				i64 sum = 0;
-				for (std::size_t z = 0; z < 8; z++) {
-					sum += i64(blk[x+z*8] * m_scale_table[y*8+z]);
+				for (std::size_t x = 0; x < 8; x += 4) {
+					__m256i sum = {};
+					for (std::size_t z = 0; z < 8; z++) {
+						__m128i left = _mm_cvtepi16_epi32(_mm_set1_epi64x(
+							*std::bit_cast<u64*>(blk.data() + (z * 8 + x))
+						));
+						__m128i right = _mm_set1_epi32(i32(m_scale_table[y * 8 + z]));
+						__m256i mul_res = _mm256_cvtepi32_epi64(_mm_mullo_epi32(left, right));
+
+						sum = _mm256_add_epi64(sum, mul_res);
+					}
+					_mm256_storeu_ps(
+						std::bit_cast<float*>(temp.data() + (y*8+x)),
+						std::bit_cast<__m256>(sum)
+					);
 				}
-				temp[x+y*8] = sum;
+			}
+
+			if (!m_accurate_idct) {
+				for (std::size_t x = 0; x < 8; x++) {
+					for (std::size_t y = 0; y < 8; y++) {
+						__m256i sum = {};
+						for (std::size_t z = 0; z < 8; z += 4) {
+							//Load 4 consecutive 64 bit values
+							__m256i left_temp = std::bit_cast<__m256i>(_mm256_load_ps(
+								std::bit_cast<float*>(temp.data() + (y*8+z))
+							));
+							//Drop lower 8 bits, to make sure that the
+							//result can fit in 32 bits
+							left_temp = _mm256_srli_epi64(left_temp, 8);
+							//Convert to 32 bits and fill new vector
+							__m128i left = _mm_set_epi32(
+								i32(_mm256_extract_epi64(left_temp, 3)),
+								i32(_mm256_extract_epi64(left_temp, 2)),
+								i32(_mm256_extract_epi64(left_temp, 1)),
+								i32(_mm256_extract_epi64(left_temp, 0)));
+							//Load 4 16 bit values and 
+							__m128i right = _mm_cvtepi16_epi32(_mm_set1_epi64x(
+								*std::bit_cast<u64*>(m_scale_table.data() + (x * 8 + z))
+							));
+							__m256i mul_res = _mm256_cvtepi32_epi64(_mm_mullo_epi32(left, right));
+							
+							sum = _mm256_add_epi64(sum, _mm256_slli_epi64(mul_res, 8));
+						}
+
+						i64 true_sum = _mm256_extract_epi64(sum, 0) +
+							_mm256_extract_epi64(sum, 1) +
+							_mm256_extract_epi64(sum, 2) +
+							_mm256_extract_epi64(sum, 3);
+
+						int round = (true_sum >> 31) & 1;
+						blk[x + y * 8] = u16((true_sum >> 32) + round);
+					}
+				}
+			}
+		}
+		else {
+			for (std::size_t y = 0; y < 8; y++) {
+				for (std::size_t x = 0; x < 8; x++) {
+					i64 sum = 0;
+					for (std::size_t z = 0; z < 8; z++) {
+						sum += i64(blk[x + z * 8] * m_scale_table[y * 8 + z]);
+					}
+					temp[x + y * 8] = sum;
+				}
 			}
 		}
 
-		//Repeat with src/dst exchanged
-		for (std::size_t x = 0; x < 8; x++) {
-			for (std::size_t y = 0; y < 8; y++) {
-				i64 sum = 0;
-				for (std::size_t z = 0; z < 8; z++) {
-					sum += i64(temp[y*8+z] * m_scale_table[x*8+z]);
-				}
+		if (!m_use_simd || m_accurate_idct) {
+			//Repeat with src/dst exchanged
+			for (std::size_t x = 0; x < 8; x++) {
+				for (std::size_t y = 0; y < 8; y++) {
+					i64 sum = 0;
+					for (std::size_t z = 0; z < 8; z++) {
+						sum += i64(temp[y * 8 + z] * m_scale_table[x * 8 + z]);
+					}
 
-				int round = (sum >> 31) & 1;
-				//blk[x + y * 8] = i16(std::clamp<i32>(
-				//	sign_extend<i32, 8>((sum >> 32) + round), 
-				//	-128, 127
-				//));
-				blk[x + y * 8] = u16((sum >> 32) + round);
+					int round = (sum >> 31) & 1;
+					blk[x + y * 8] = u16((sum >> 32) + round);
+				}
 			}
 		}
 	}
+#pragma optimize("", on)
 
 	void MDEC::DecodeThread(std::stop_token stop) {
 		while (!stop.stop_requested()) {

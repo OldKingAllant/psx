@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
 
-	sys.LoadExe(std::string("../programs/mdec/frame/frame-24bit-dma.exe"), std::nullopt);
+	sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
 	//sys.LoadExe(std::string("../programs/gpu/lines/lines.exe"), std::nullopt);
 
 	if (!config->cdrom_file.empty()) {
@@ -216,6 +216,7 @@ int main(int argc, char* argv[]) {
 			.sysbus->GetMDEC();
 		mdec.StartDecodeThread();
 		mdec.UseSimd();
+		//mdec.UseInaccurateIdct();
 	}
 
 	while (server.HandlePackets() && wm.HandleEvents())
