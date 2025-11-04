@@ -655,6 +655,7 @@ namespace psx {
 		
 	}
 	
+#pragma optimize("", off)
 	void MDEC::VecToOutFifo(std::array<u32, 256> const& src) {
 		size_t required_space = 0;
 		switch (m_stat.out_depth)
@@ -691,57 +692,151 @@ namespace psx {
 		switch (m_stat.out_depth)
 		{
 		case OutputDepth::BIT4: {
-			for (std::size_t idx = 0; idx < 64; idx += 8) {
-				u32 curr_value = src[idx] >> 4;
-				curr_value |= (src[idx + 1] >> 4) << 4;
-				curr_value |= (src[idx + 2] >> 4) << 8;
-				curr_value |= (src[idx + 3] >> 4) << 12;
-				curr_value |= (src[idx + 4] >> 4) << 16;
-				curr_value |= (src[idx + 5] >> 4) << 20;
-				curr_value |= (src[idx + 6] >> 4) << 24;
-				curr_value |= (src[idx + 7] >> 4) << 28;
-				m_out_fifo->insert(curr_value);
+			if (m_use_simd) {
+				for (std::size_t idx = 0; idx < 64; idx += 8) {
+					__m256i unpacked = std::bit_cast<__m256i>(_mm256_load_ps(std::bit_cast<float*>(
+						src.data() + idx)
+					));
+					unpacked = _mm256_srli_epi32(unpacked, 4);
+					unpacked = _mm256_sllv_epi32(unpacked, _mm256_set_epi32(28, 24, 20, 16, 12, 8, 4, 0));
+
+					//0 4 8 12
+					__m128i left = _mm256_extracti128_si256(unpacked, 0);
+					//16 20 24 28
+					__m128i right = _mm256_extracti128_si256(unpacked, 1);
+					// 0|16 4|20 8|24 12|28
+					__m128i ored = _mm_or_epi32(left, right);
+					// 8|24 12|28 x x
+					right = _mm_shuffle_epi32(ored, _MM_SHUFFLE(0, 0, 3, 2));
+					// 0|8|16|24 4|12|20|28
+					ored = _mm_or_epi32(ored, right);
+					// 4|12|20|28 x x ...
+					right = _mm_srli_epi64(ored, 32);
+					// 0|4|8|12|16|20|24|28
+					ored = _mm_or_epi32(ored, right);
+					m_out_fifo->insert(uint32_t(_mm_extract_epi32(ored, 0)));
+				}
+			}
+			else {
+				for (std::size_t idx = 0; idx < 64; idx += 8) {
+					u32 curr_value = src[idx] >> 4;
+					curr_value |= (src[idx + 1] >> 4) << 4;
+					curr_value |= (src[idx + 2] >> 4) << 8;
+					curr_value |= (src[idx + 3] >> 4) << 12;
+					curr_value |= (src[idx + 4] >> 4) << 16;
+					curr_value |= (src[idx + 5] >> 4) << 20;
+					curr_value |= (src[idx + 6] >> 4) << 24;
+					curr_value |= (src[idx + 7] >> 4) << 28;
+					m_out_fifo->insert(curr_value);
+				}
 			}
 		}
 			break;
 		case OutputDepth::BIT8: {
-			for (std::size_t idx = 0; idx < 64; idx += 4) {
-				u32 curr_value = src[idx];
-				curr_value |= (src[idx + 1] << 8);
-				curr_value |= (src[idx + 2] << 16);
-				curr_value |= (src[idx + 3] << 24);
-				m_out_fifo->insert(curr_value);
+			if (m_use_simd) {
+				for (size_t idx = 0; idx < 64; idx += 8) {
+					__m256i unpacked = std::bit_cast<__m256i>(_mm256_load_ps(std::bit_cast<float*>(src.data() + idx)));
+					//0 8 16 24 0 8 16 24
+					__m256i left = _mm256_sllv_epi32(unpacked, _mm256_set_epi32(24, 16, 8, 0, 24, 16, 8, 0));
+					//16 24 x x 16 24 x x
+					__m256i right = _mm256_shuffle_epi32(left, 0b00'00'11'10);
+
+					//0|16 8|24 x x 0|16 8|24 x x
+					left = _mm256_or_epi32(left, right);
+					//8|24 x x x 8|24 x x x
+					right = _mm256_srli_epi64(left, 32);
+					//0|8|16|24 x x x 0|8|16|24 x x x 
+					left = _mm256_or_epi32(left, right);
+
+					uint32_t dest[2] = {};
+					dest[0] = uint32_t(_mm256_extract_epi32(left, 0));
+					dest[1] = uint32_t(_mm256_extract_epi32(left, 4));
+					m_out_fifo->writeBuff(dest, 2);
+				}
+			}
+			else {
+				for (std::size_t idx = 0; idx < 64; idx += 4) {
+					u32 curr_value = src[idx];
+					curr_value |= (src[idx + 1] << 8);
+					curr_value |= (src[idx + 2] << 16);
+					curr_value |= (src[idx + 3] << 24);
+					m_out_fifo->insert(curr_value);
+				}
 			}
 		}
 			break;
 		case OutputDepth::BIT15: {
-			for (std::size_t idx = 0; idx < 256; idx += 2) {
-				u32 curr_value{};
-				u32 color1 = src[idx];
-				u32 color2 = src[idx + 1];
+			if (m_use_simd) {
+				for (std::size_t idx = 0; idx < 256; idx += 8) {
+					//load data for 4 values
+					__m256i unpacked = std::bit_cast<__m256i>(
+						_mm256_load_ps(std::bit_cast<float*>(src.data() + idx))
+					);
 
-				{
-					auto r = u16((color1 >> 3) & 0x1F);
-					auto g = u16((color1 >> 11) & 0x1F);
-					auto b = u16((color1 >> 19) & 0x1F);
-					color1 = r | (g << 5) | (b << 10);
+					//Extract all R components, drop fraction, mask to max value
+					__m256i r = _mm256_and_epi32(_mm256_srli_epi32(unpacked, 3), _mm256_set1_epi32(0x1F));
+					//Repeat for GB
+					__m256i g = _mm256_and_epi32(_mm256_srli_epi32(unpacked, 11), _mm256_set1_epi32(0x1F));
+					__m256i b = _mm256_and_epi32(_mm256_srli_epi32(unpacked, 19), _mm256_set1_epi32(0x1F));
+
+					//Shift GB components
+					g = _mm256_slli_epi32(g, 5);
+					b = _mm256_slli_epi32(b, 10);
+
+					//Pack RGB channels in 32 bit values
+					__m256i colors = _mm256_or_epi32(_mm256_or_epi32(r, g), b);
+
+					//Now we have each color in separate dwords
+					//but we need them to be in pairs of two
+					if (m_stat.data_out_bit15) {
+						colors = _mm256_or_epi32(colors, _mm256_set1_epi32(0x8000));
+					}
+
+					//Go from 1x 2x | 3x 4x | 5x 6x | 7x 8x
+					//to x2 xx | x4 xx | x6 xx | x8 xx
+					__m256i upper_colors = _mm256_srli_epi64(colors, 16);
+
+					//Or the two together to get 12 xx | 34 xx | 56 xx | 78 xx
+					//We cannot dump all values in one go, we have blank spaces
+					colors = _mm256_or_epi32(colors, upper_colors);
+
+					//Now we have 12 34 | xx xx | 56 78 | xx xx
+					colors = _mm256_shuffle_epi32(colors, 0b00'00'10'00);
+
+					//Extract 12 34 and 56 78
+					i64 buf[2] = { _mm256_extract_epi64(colors, 0), _mm256_extract_epi64(colors, 2) };
+					m_out_fifo->writeBuff(std::bit_cast<u32*>(&buf), 4);
 				}
+			}
+			else {
+				for (std::size_t idx = 0; idx < 256; idx += 2) {
+					u32 curr_value{};
+					u32 color1 = src[idx];
+					u32 color2 = src[idx + 1];
 
-				{
-					auto r = u16((color2 >> 3) & 0x1F);
-					auto g = u16((color2 >> 11) & 0x1F);
-					auto b = u16((color2 >> 19) & 0x1F);
-					color2 = r | (g << 5) | (b << 10);
+					{
+						auto r = u16((color1 >> 3) & 0x1F);
+						auto g = u16((color1 >> 11) & 0x1F);
+						auto b = u16((color1 >> 19) & 0x1F);
+						color1 = r | (g << 5) | (b << 10);
+					}
+
+					{
+						auto r = u16((color2 >> 3) & 0x1F);
+						auto g = u16((color2 >> 11) & 0x1F);
+						auto b = u16((color2 >> 19) & 0x1F);
+						color2 = r | (g << 5) | (b << 10);
+					}
+
+					if (m_stat.data_out_bit15) {
+						color1 |= (1 << 15);
+						color2 |= (1 << 15);
+					}
+
+					curr_value |= color1;
+					curr_value |= (color2 << 16);
+					m_out_fifo->insert(curr_value);
 				}
-
-				if (m_stat.data_out_bit15) {
-					color1 |= (1 << 15);
-					color2 |= (1 << 15);
-				}
-
-				curr_value |= color1;
-				curr_value |= (color2 << 16);
-				m_out_fifo->insert(curr_value);
 			}
 		}
 			break;
@@ -808,8 +903,8 @@ namespace psx {
 			break;
 		}
 	}
+#pragma optimize("", on)
 
-#pragma optimize("", off)
 	void MDEC::IdctCore(std::array<i16, 64>& blk) {
 		std::array<i64, 64> temp{};
 
@@ -898,7 +993,6 @@ namespace psx {
 			}
 		}
 	}
-#pragma optimize("", on)
 
 	void MDEC::DecodeThread(std::stop_token stop) {
 		while (!stop.stop_requested()) {
