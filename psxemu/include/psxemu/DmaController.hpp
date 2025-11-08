@@ -123,6 +123,22 @@ namespace psx {
 			return (bool)((m_control.raw >> (dma_id * 4 + 3)) & 1);
 		}
 
+		inline void EnableFastDma(bool enable) {
+			m_enable_fast_dma = enable;
+		}
+
+		inline void UseSimd(bool enable) {
+			m_use_simd = enable;
+		}
+
+		inline bool IsFastDmaEnabled() const {
+			return m_enable_fast_dma;
+		}
+
+		inline bool IsSimdEnabled() const {
+			return m_use_simd;
+		}
+
 		friend class DebugView;
 
 	private :
@@ -139,5 +155,8 @@ namespace psx {
 
 		Transfer m_active_dmas[8];
 		u8 m_num_active;
+
+		bool m_enable_fast_dma;
+		bool m_use_simd;
 	};
 }

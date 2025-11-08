@@ -19,7 +19,8 @@ namespace psx {
 		m_mdecin_dma{sys_status, this},
 		m_mdecout_dma{sys_status, this},
 		m_cdrom_dma{sys_status, this},
-		m_active_dmas{}, m_num_active{0} {
+		m_active_dmas{}, m_num_active{0},
+		m_enable_fast_dma{ false } {
 		m_control.raw = DPCR_INIT;
 	}
 

@@ -17,6 +17,9 @@ namespace psx {
 
 		void AdvanceTransfer() override;
 
+		void FastTransfer();
+		void SimdTransfer();
+
 		u32 GetPort() const override { return 0; }
 	};
 }

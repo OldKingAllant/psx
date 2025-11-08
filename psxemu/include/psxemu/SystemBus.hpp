@@ -975,6 +975,10 @@ namespace psx {
 			return m_spu;
 		}
 
+		u8* GetRamBase() const {
+			return m_guest_base + memory::KUSEG_START;
+		}
+
 		friend class DebugView;
 
 	private :

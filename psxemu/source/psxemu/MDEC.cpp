@@ -655,7 +655,6 @@ namespace psx {
 		
 	}
 	
-#pragma optimize("", off)
 	void MDEC::VecToOutFifo(std::array<u32, 256> const& src) {
 		size_t required_space = 0;
 		switch (m_stat.out_depth)
@@ -841,59 +840,97 @@ namespace psx {
 		}
 			break;
 		case OutputDepth::BIT24: {
-			//Colors are packed with no spaces in between:
+			if (m_use_simd) {
+				for (std::size_t idx = 0; idx < 256; idx += 8) {
+					//R1G1B10 R2G2B20 R3G3B30 R4G4B40 R5G5B50 R6G6B60 R7G7B70 R8G8B80 
+					__m256i unpacked = std::bit_cast<__m256i>(
+						_mm256_load_ps(std::bit_cast<float*>(src.data() + idx))
+					);
+
+					//obtain RGBR GBRG BRGB 0000 | RGBR GBRG BRGB 0000
+
+					//first shuffle as R2G2B20 R3G3B30 R3G3B30 R4G4B40 ...
+					// shift to 0R2G2B2 R3G3B30 0R3G3B3 R4G4B40
+					//shift 000R2 G2B2R3G3 B3R4G4B4 0000
+					//create another vec R1G1B10 0000 0000 0000
+					//or the two
+					//store separately 3+3
+
+					//possible high resource contention
+					//should be able to compute in parallel
+					//multiple parts of the result, which
+					//maybe is not possible due to 
+					//64 bit boundary crossing
+					__m256i temp = _mm256_shuffle_epi32(unpacked, _MM_SHUFFLE(3, 2, 2, 1));
+					temp = _mm256_sllv_epi32(temp, _mm256_set_epi32(0, 8, 0, 8, 0, 8, 0, 8));
+					temp = _mm256_sllv_epi64(temp, _mm256_set_epi64x(0, 16, 0, 16));
+					temp = _mm256_srlv_epi64(temp, _mm256_set_epi64x(24, 0, 24, 0));
+					__m256i first = _mm256_set_epi32(0, 0, 0, _mm256_extract_epi32(unpacked, 4), 0, 0, 0,
+						_mm256_extract_epi32(unpacked, 0));
+					__m256i result = _mm256_or_epi32(temp, first);
+
+					u32 dest[8] = {};
+					_mm256_store_ps(std::bit_cast<float*>(&dest),
+						std::bit_cast<__m256>(result));
+					m_out_fifo->writeBuff(dest, 3); //write first 4 pixels
+					m_out_fifo->writeBuff(dest + 4, 3); //write last 4
+				}
+			}
+			else {
+				//Colors are packed with no spaces in between:
 			//1. RGBR
 			//2. GBRG
 			//3. BRGB
 			//4. Repeat
-			auto state = 0;
-			u32 color = 0;
+				auto state = 0;
+				u32 color = 0;
 
-			for (std::size_t idx = 0; idx < 256; idx++) {
-				switch (state)
-				{
-				case 0: {
-					//color = RGB-
-					color = src[idx];
-					state = 1;
-				}
-					break;
-				case 1: {
-					//temp = RGB
-					u32 temp = src[idx];
-					//color = RGBR
-					color |= ((temp & 0xFF) << 24);
-					m_out_fifo->insert(color);
-					//color = GB--
-					color = (temp >> 8);
-					state = 2;
-				}
-					break;
-				case 2: {
-					u32 temp = src[idx];
-					//color = GBRG
-					color |= ((temp & 0xFFFF) << 16);
-					m_out_fifo->insert(color);
-					//color = B---
-					color = (temp >> 16);
-					state = 3;
-				}
-					break;
-				case 3: {
-					u32 temp = src[idx];
-					//color = BRGB
-					color |= ((temp & 0xFFFFFF) << 8);
-					m_out_fifo->insert(color);
+				for (std::size_t idx = 0; idx < 256; idx++) {
+					switch (state)
+					{
+					case 0: {
+						//color = RGB-
+						color = src[idx];
+						state = 1;
+					}
+						  break;
+					case 1: {
+						//temp = RGB
+						u32 temp = src[idx];
+						//color = RGBR
+						color |= ((temp & 0xFF) << 24);
+						m_out_fifo->insert(color);
+						//color = GB--
+						color = (temp >> 8);
+						state = 2;
+					}
+						  break;
+					case 2: {
+						u32 temp = src[idx];
+						//color = GBRG
+						color |= ((temp & 0xFFFF) << 16);
+						m_out_fifo->insert(color);
+						//color = B---
+						color = (temp >> 16);
+						state = 3;
+					}
+						  break;
+					case 3: {
+						u32 temp = src[idx];
+						//color = BRGB
+						color |= ((temp & 0xFFFFFF) << 8);
+						m_out_fifo->insert(color);
 
-					//No need to set color again, full color
-					//data from current index has been used
-					//and state is reset
-					state = 0;
-				}
-					break;
-				default:
-					error::Unreachable();
-					break;
+						//No need to set color again, full color
+						//data from current index has been used
+						//and state is reset
+						state = 0;
+					}
+						  break;
+					default:
+						error::Unreachable();
+						break;
+					}
 				}
 			}
 		}
@@ -903,7 +940,6 @@ namespace psx {
 			break;
 		}
 	}
-#pragma optimize("", on)
 
 	void MDEC::IdctCore(std::array<i16, 64>& blk) {
 		std::array<i64, 64> temp{};

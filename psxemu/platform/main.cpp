@@ -175,8 +175,8 @@ int main(int argc, char* argv[]) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
 
-	sys.LoadExe(std::string("../programs/mdec/movie/movie-15bit.exe"), std::nullopt);
-	//sys.LoadExe(std::string("../programs/mdec/frame/frame-15bit-dma.exe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/gpu/lines/lines.exe"), std::nullopt);
 
 	if (!config->cdrom_file.empty()) {
 		if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
@@ -217,6 +217,11 @@ int main(int argc, char* argv[]) {
 		mdec.StartDecodeThread();
 		mdec.UseSimd();
 		//mdec.UseInaccurateIdct();
+
+		auto& dma_control = sys.GetStatus()
+			.sysbus->GetDMAControl();
+		dma_control.EnableFastDma(true);
+		dma_control.UseSimd(true);
 	}
 
 	while (server.HandlePackets() && wm.HandleEvents())
