@@ -111,7 +111,7 @@ namespace psx {
 			__m256i block = _mm256_set1_epi32(m_shadow_base_address);
 			block = _mm256_sub_epi32(block, _mm256_set_epi32(4, 8, 12, 16, 20, 24, 28, 32));
 			block = _mm256_insert_epi32(block, block_count == 0 ? 0x00FFFFFF :
-				_mm256_extract_epi32(block, 0), 0);
+				_mm256_cvtsi256_si32(block), 0);
 			m_shadow_base_address -= 32;
 			u64 write_address = (m_shadow_base_address & (memory::region_sizes::PSX_MAIN_RAM_SIZE - 1)) >> 2;
 			_mm256_storeu_ps(std::bit_cast<float*>(ram_base + write_address + 1), 

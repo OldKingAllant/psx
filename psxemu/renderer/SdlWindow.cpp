@@ -33,13 +33,13 @@ namespace psx::video {
 		else
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
 
-			SDL_GL_LoadLibrary(nullptr);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
-				SDL_GL_CONTEXT_PROFILE_CORE);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-			SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		//SDL_GL_LoadLibrary(nullptr);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+		//	SDL_GL_CONTEXT_PROFILE_CORE);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+		//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	
 
 		auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
@@ -71,12 +71,7 @@ namespace psx::video {
 
 			int32_t mask = {};
 
-			//glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &mask);
-
 			fmt::println("[RENDERER] Using OpenGL {}.{}", major, minor);
-
-			//if (mask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT)
-				//fmt::println("[RENDERER] Compatibility profile!");
 		}
 
 		if (enable_debug) {

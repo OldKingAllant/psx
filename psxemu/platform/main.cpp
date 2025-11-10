@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
 
 	psx::video::SdlWindow vram_view("Vram",
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_view_blit", false, true, true);
+		"../shaders", "vram_view_blit", true, true, true);
 
 	DisplayWindow display("PSX-Display",
 		psx::video::Rect{ .w = 640, .h = 480 },
@@ -175,14 +175,14 @@ int main(int argc, char* argv[]) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
 
-	//sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
+	sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
 	//sys.LoadExe(std::string("../programs/gpu/lines/lines.exe"), std::nullopt);
 
-	if (!config->cdrom_file.empty()) {
-		if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
-			fmt::println("[CDROM] Could not load file");
-		}
-	}
+	//if (!config->cdrom_file.empty()) {
+	//	if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
+	//		fmt::println("[CDROM] Could not load file");
+	//	}
+	//}
 
 	std::unique_ptr<DebugView> debug_view{};
 

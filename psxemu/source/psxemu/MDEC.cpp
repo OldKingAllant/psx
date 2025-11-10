@@ -6,6 +6,7 @@
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <common/Errors.hpp>
+#include <common/SetThreadName.hpp>
 
 #include <immintrin.h>
 #include <xmmintrin.h>
@@ -1031,6 +1032,7 @@ namespace psx {
 	}
 
 	void MDEC::DecodeThread(std::stop_token stop) {
+		SetThreadName("MDEC::Decode");
 		while (!stop.stop_requested()) {
 			std::unique_lock<std::mutex> _lk{ m_decode_mux };
 			m_decode_cv.wait(_lk, [this, stop]() { return this->m_start_decode.load() ||

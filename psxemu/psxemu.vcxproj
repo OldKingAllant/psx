@@ -145,6 +145,7 @@
     <ClInclude Include="..\common\FixedSizeArenaAllocator.hpp" />
     <ClInclude Include="..\common\Macros.hpp" />
     <ClInclude Include="..\common\Queue.hpp" />
+    <ClInclude Include="..\common\SetThreadName.hpp" />
     <ClInclude Include="..\common\Stack.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
     <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
@@ -225,6 +226,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\Errors.cpp" />
+    <ClCompile Include="..\common\SetThreadName.cpp" />
     <ClCompile Include="input\KeyboardManager.cpp" />
     <ClCompile Include="renderer\Buffer.cpp" />
     <ClCompile Include="renderer\FrameBuffer.cpp" />

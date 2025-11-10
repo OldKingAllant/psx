@@ -363,6 +363,9 @@
     <ClInclude Include="..\common\CpuFeatures.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\SetThreadName.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -544,6 +547,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\SPU.cpp">
       <Filter>Resource Files\dev\spu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common\SetThreadName.cpp">
+      <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
