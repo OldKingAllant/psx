@@ -366,6 +366,9 @@
     <ClInclude Include="..\common\SetThreadName.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\SPUVoice.hpp">
+      <Filter>Header Files\dev\spu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -550,6 +553,9 @@
     </ClCompile>
     <ClCompile Include="..\common\SetThreadName.cpp">
       <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\SPUVoice.cpp">
+      <Filter>Resource Files\dev\spu</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

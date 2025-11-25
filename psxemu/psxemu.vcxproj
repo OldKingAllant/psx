@@ -52,6 +52,7 @@
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -202,6 +203,7 @@
     <ClInclude Include="include\psxemu\SPU.hpp" />
     <ClInclude Include="include\psxemu\SPURegisters.hpp" />
     <ClInclude Include="include\psxemu\SPUStructs.hpp" />
+    <ClInclude Include="include\psxemu\SPUVoice.hpp" />
     <ClInclude Include="include\psxemu\StandardController.hpp" />
     <ClInclude Include="include\psxemu\SyscallTables.hpp" />
     <ClInclude Include="include\psxemu\System.hpp" />
@@ -281,6 +283,7 @@
     <ClCompile Include="source\psxemu\SIOPadMemcardDriver.cpp" />
     <ClCompile Include="source\psxemu\SIOPort.cpp" />
     <ClCompile Include="source\psxemu\SPU.cpp" />
+    <ClCompile Include="source\psxemu\SPUVoice.cpp" />
     <ClCompile Include="source\psxemu\StandardController.cpp" />
     <ClCompile Include="source\psxemu\Syscalls.cpp" />
     <ClCompile Include="source\psxemu\System.cpp" />

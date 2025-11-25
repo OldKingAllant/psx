@@ -128,6 +128,8 @@ namespace psx {
 		virtual std::array<u8, FULL_SECTOR_SIZE> ReadSector(u64 amm, u64 ass, u64 asect) = 0;
 		virtual std::array<u8, FULL_SECTOR_SIZE> ReadFullSector(u64 amm, u64 ass, u64 asect) = 0;
 
+		virtual ~CDROM() {}
+
 	protected :
 		std::filesystem::path m_path;
 	};

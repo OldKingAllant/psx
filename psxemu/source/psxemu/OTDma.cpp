@@ -86,6 +86,8 @@ namespace psx {
 
 		auto block_control = std::bit_cast<BurstBlockControl*>(&m_shadow_block_control);
 		m_sys_status->sysbus->m_curr_cycles += block_control->word_count * 1ULL;
+		m_sys_status->sysbus->m_event_ignore_overflow_cycles = true;
+
 		while (block_control->word_count > 0) {
 			block_control->word_count--;
 			u32 address = (block_control->word_count == 0) ?
@@ -105,6 +107,7 @@ namespace psx {
 		auto block_count = block_control->word_count >> 3;
 
 		m_sys_status->sysbus->m_curr_cycles += (u64(block_count) << 3) * 1ULL;
+		m_sys_status->sysbus->m_event_ignore_overflow_cycles = true;
 
 		while (block_count) {
 			block_count--;

@@ -87,6 +87,10 @@ namespace psx::logger {
 		}
 	}
 
+	void Logger::flush() {
+		m_log->logger->flush_log();
+	}
+
 	Logger& Logger::get() {
 		static Logger logger_instance = Logger();
 

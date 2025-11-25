@@ -30,13 +30,11 @@ namespace psx {
 		return true;
 	}
 
+	CueBin::~CueBin()
+	{}
+
 #pragma optimize("", off)
 	std::array<u8, CDROM::FULL_SECTOR_SIZE> CueBin::ReadSector(u64 amm, u64 ass, u64 asect) {
-		if (ass < 2) {
-			LOG_ERROR("CDROM", "[CUE] Cannot read sectors 0 and 1");
-			return {};
-		}
-
 		auto sect = ReadFullSector(amm, ass, asect);
 
 		std::array<u8, CDROM::FULL_SECTOR_SIZE> final_sect{};
@@ -46,13 +44,19 @@ namespace psx {
 		return final_sect;
 	}
 
+	/*
+	((mm * SECONDS_PER_MINUTE)
+				* SECTORS_PER_SECOND + 
+				(ss * SECTORS_PER_SECOND) + 
+				sect) * 0x930;
+	*/
+
 	std::array<u8, CDROM::FULL_SECTOR_SIZE> CueBin::ReadFullSector(u64 amm, u64 ass, u64 asect) {
-		if (ass < 2) {
+		if (amm == 0 && ass < 2) {
 			LOG_ERROR("CDROM", "[CUE] Cannot read sectors 0 and 1");
+			error::DebugBreak();
 			return {};
 		}
-
-		ass -= 2;
 
 		if (m_cue_sheet.GetFiles()[0].tracks.size() != 1) {
 			LOG_ERROR("CDROM", "[CUE] UNIMPLEMENTED: Multiple tracks");
@@ -65,6 +69,8 @@ namespace psx {
 		loc.sect = asect;
 
 		auto absolute_pos = loc.to_mode2_absolute();
+
+		absolute_pos -= 2 * SECTORS_PER_SECOND * 0x930;
 
 		m_cd_file.seekg(absolute_pos, std::ios::beg);
 		std::array<u8, CDROM::FULL_SECTOR_SIZE> sect{};

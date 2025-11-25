@@ -551,10 +551,11 @@ namespace psx {
 		}
 
 		if (!m_mode.irq_toggle) {
-			if(!m_mode.irq) //Not sure IF the application should reset this value 
-							//or if I should do it myself
-				LOG_WARN("TIMER", "[COUNTER{}] IRQ Bit not reset!",
-					m_counter_id);
+			//if (!m_mode.irq) {//Not sure IF the application should reset this value 
+			//					//or if I should do it myself
+			//	LOG_WARN("TIMER", "[COUNTER{}] IRQ Bit not reset!",
+			//		m_counter_id);
+			//}
 
 			m_mode.irq = false;
 		}

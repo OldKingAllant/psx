@@ -156,6 +156,24 @@ int main(int argc, char* argv[]) {
 					"Fatal error", MB_OK | MB_ICONERROR);
 			});
 
+	//bool correct_event = false;
+	//kernel.InsertEnterHook(std::string("TestEvent"), [&sys, &correct_event](psx::u32 pc, psx::u32 id) {
+	//	if (sys.GetCPU().GetRegs().a0 == 0xF1000009) {
+	//		auto evs = sys.GetKernel().DumpEventControlBlocks();
+	//		if (evs[9].ev_class == psx::kernel::EventClass::SPU) {
+	//			correct_event = true;
+	//			fmt::println("Test event at {:#010x}", pc);
+	//		}
+	//	}
+	//});
+	//
+	//kernel.InsertExitHook(std::string("TestEvent"), [&sys, &correct_event](psx::u32 pc, psx::u32 id) {
+	//	if (correct_event) {
+	//		correct_event = false;
+	//		sys.GetCPU().GetRegs().array[2] = 1;
+	//	}
+	//});
+
 	if (renderdoc) {
 		sys.GetStatus()
 			.sysbus->GetGPU()
@@ -175,14 +193,14 @@ int main(int argc, char* argv[]) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
 
-	sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
-	//sys.LoadExe(std::string("../programs/gpu/lines/lines.exe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/gpu/quad/quad.exe"), std::nullopt);
+	//sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
 
-	//if (!config->cdrom_file.empty()) {
-	//	if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
-	//		fmt::println("[CDROM] Could not load file");
-	//	}
-	//}
+	if (!config->cdrom_file.empty()) {
+		if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
+			fmt::println("[CDROM] Could not load file");
+		}
+	}
 
 	std::unique_ptr<DebugView> debug_view{};
 

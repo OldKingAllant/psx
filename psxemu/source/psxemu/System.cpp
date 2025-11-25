@@ -208,7 +208,8 @@ namespace psx {
 		auto num_cycles = m_sysbus.m_curr_cycles;
 		m_sysbus.m_curr_cycles = 0;
 
-		m_status.scheduler.Advance(num_cycles);
+		m_status.scheduler.Advance(num_cycles, m_sysbus.m_event_ignore_overflow_cycles);
+		m_sysbus.m_event_ignore_overflow_cycles = false;
 
 		while (!m_status.sync_callback_buffer.isEmpty()) {
 			system_status::SyncCallback callback{};

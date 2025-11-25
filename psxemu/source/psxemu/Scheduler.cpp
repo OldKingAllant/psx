@@ -57,8 +57,8 @@ namespace psx {
 		return true;
 	}
 
-	void Scheduler::Advance(u64 num_cycles) {
-		m_curr_timestamp += num_cycles;
+	void Scheduler::Advance(u64 num_cycles, bool ignore_overflow) {
+		u64 final_time = m_curr_timestamp + num_cycles;
 
 		bool _cont = true;
 
@@ -70,12 +70,15 @@ namespace psx {
 
 			psx_event const& ev = m_events[0];
 
-			if (ev.trigger_timestamp > m_curr_timestamp) {
+			if (ev.trigger_timestamp > final_time) {
 				_cont = false;
 			}
 			else {
+				u64 late_cycles = ignore_overflow ?
+					0 : final_time - ev.trigger_timestamp;
+				m_curr_timestamp = ev.trigger_timestamp + late_cycles;
 				if (ev.callback)
-					ev.callback(ev.userdata, m_curr_timestamp - ev.trigger_timestamp);
+					ev.callback(ev.userdata, late_cycles);
 
 				std::pop_heap(m_events, m_events + m_num_events,
 					[](psx_event const& l, psx_event const& r) {
@@ -86,5 +89,7 @@ namespace psx {
 				m_num_events--;
 			}
 		} while (_cont);
+
+		m_curr_timestamp = final_time;
 	}
 }

@@ -2142,6 +2142,10 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
 
 void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
 {
+    if (!(idx >= 0 && idx < _Count)) {
+        IM_DEBUG_BREAK();
+    }
+
     IM_ASSERT(idx >= 0 && idx < _Count);
     if (_Current == idx)
         return;

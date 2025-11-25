@@ -350,6 +350,85 @@ namespace psx {
 		m_renderer->DrawTexturedTriangle(triangle);
 	}
 
+	void Gpu::DrawSemitransparentQuad() {
+		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
+
+		u32 vertex_1 = m_cmd_fifo.deque();
+		u32 vertex_2 = m_cmd_fifo.deque();
+		u32 vertex_3 = m_cmd_fifo.deque();
+		u32 vertex_4 = m_cmd_fifo.deque();
+
+		video::UntexturedOpaqueFlatVertex v1 = {};
+		video::UntexturedOpaqueFlatVertex v2 = {};
+		video::UntexturedOpaqueFlatVertex v3 = {};
+		video::UntexturedOpaqueFlatVertex v4 = {};
+
+		v1.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
+
+		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
+
+		v3.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
+
+		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF);
+		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF);
+
+		u32 r = color & 0xFF;
+		u32 g = (color >> 8) & 0xFF;
+		u32 b = (color >> 16) & 0xFF;
+
+		v1.r = r;
+		v1.g = g;
+		v1.b = b;
+
+		v2.r = r;
+		v2.g = g;
+		v2.b = b;
+
+		v3.r = r;
+		v3.g = g;
+		v3.b = b;
+
+		v4.r = r;
+		v4.g = g;
+		v4.b = b;
+
+		video::UntexturedOpaqueFlatTriangle triangle1 = {};
+		video::UntexturedOpaqueFlatTriangle triangle2 = {};
+
+		triangle1.v0 = v1;
+		triangle1.v1 = v2;
+		triangle1.v2 = v3;
+
+		triangle2.v0 = v2;
+		triangle2.v1 = v3;
+		triangle2.v2 = v4;
+
+		LOG_INFO("DRAW", "[GPU] DRAW QUAD");
+		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
+			r, g, b);
+		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
+			v1.x, v1.y);
+		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
+			v2.x, v2.y);
+		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
+			v3.x, v3.y);
+		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
+			v4.x, v4.y);
+
+		auto transparency_type = u8(m_stat.semi_transparency);
+
+		m_renderer->DrawTransparentUntexturedTriangle(
+			triangle1, transparency_type
+		);
+
+		m_renderer->DrawTransparentUntexturedTriangle(
+			triangle2, transparency_type
+		);
+	}
+
 	void Gpu::DrawQuad() {
 		u32 cmd = m_cmd_fifo.peek();
 
@@ -372,7 +451,7 @@ namespace psx {
 			DrawTexturedQuad();
 		}
 		else {
-			error::DebugBreak();
+			DrawSemitransparentQuad();
 		}
 
 		//CheckIfDrawNeeded();

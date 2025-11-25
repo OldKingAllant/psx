@@ -124,5 +124,7 @@ namespace psx::cpu {
 
 		std::function<bool(u32, bool)> m_hle_bios_handler;
 		Stack<SyscallCallstackEntry, MAX_SYSCALL_FRAMES> m_syscall_frames;
+
+		bool m_rerun_gte_for_interrupt;
 	};
 }

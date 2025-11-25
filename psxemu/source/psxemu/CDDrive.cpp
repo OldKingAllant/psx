@@ -629,20 +629,14 @@ namespace psx {
 			}
 		}
 
-		if (m_response_fifo.full() || m_has_pending_read || contains_data_response) {
-			m_has_pending_read = true;
-			m_pending_sector = sector;
-			m_pending_sector_size = m_mode.read_whole_sector ?
-				0x924 : CDROM::SECTOR_SIZE;
-			error::DebugBreak();
-		}
-		else {
+		if (!(m_response_fifo.full() || m_has_pending_read || contains_data_response)) {
 			PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
-				0);
+				100);
 			m_has_data_to_load = true;
 			m_curr_sector_size = m_mode.read_whole_sector ?
 				0x924 : CDROM::SECTOR_SIZE;
 			m_curr_sector = sector;
+			m_seek_loc++;
 		}
 
 		u64 read_time = m_mode.double_speed ? ResponseTimings::READ_DOUBLE_SPEED :
@@ -650,8 +644,6 @@ namespace psx {
 
 		m_read_event = m_sys_status->scheduler.Schedule( read_time,
 			read_callback, std::bit_cast<void*>(this));
-
-		m_seek_loc++;
 	}
 #pragma optimize("", on)
 

@@ -60,7 +60,8 @@ namespace psx {
 		/// and m_curr_timestamp + num_cycles
 		/// </summary>
 		/// <param name="num_cycles"></param>
-		void Advance(u64 num_cycles);
+		/// <param name="ignore_overflow">Ignore late cycles</param>
+		void Advance(u64 num_cycles, bool ignore_overflow = false);
 
 	private :
 		u64 m_curr_timestamp;

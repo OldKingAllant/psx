@@ -15,6 +15,8 @@ namespace psx {
 
 		bool Init() override;
 
+		~CueBin() override;
+
 	private :
 		CueSheet m_cue_sheet;
 		std::ifstream m_cd_file;

@@ -14,7 +14,8 @@ namespace psx::cpu {
 		m_hi{}, m_lo{},
 		m_coprocessor0{}, 
 		m_gte{sys_status},
-		m_sys_status{sys_status} {
+		m_sys_status{sys_status},
+		m_rerun_gte_for_interrupt{false} {
 		m_sys_status->curr_delay.dest = InvalidReg;
 		m_sys_status->next_delay.dest = InvalidReg;
 		m_sys_status->reg_writeback.dest = InvalidReg;
@@ -96,15 +97,16 @@ namespace psx::cpu {
 		}
 
 		if (CheckInterrupts()) {
-			if (!CheckInstructionGTE()) {
+			if (!CheckInstructionGTE() || m_rerun_gte_for_interrupt) {
 				m_sys_status->interrupt_line = false;
 				FlushLoadDelay();
 				m_sys_status->Exception(Excode::INT, false);
 				m_sys_status->branch_delay = false;
 				m_sys_status->branch_taken = false;
+				m_rerun_gte_for_interrupt = false;
 			}
 			else {
-				error::DebugBreak();
+				m_rerun_gte_for_interrupt = true;
 			}
 		}
 

@@ -21,7 +21,7 @@ namespace psx::logger {
 		void start();
 		void stop();
 
-		bool is_log_enabled() {
+		bool is_log_enabled() const {
 			return m_conf.enable;
 		}
 
@@ -42,6 +42,8 @@ namespace psx::logger {
 
 			log_impl(level, formatted_string);
 		}
+
+		void flush();
 
 		~Logger();
 

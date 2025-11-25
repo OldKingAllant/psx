@@ -931,6 +931,16 @@ namespace psx {
 		/// </summary>
 		u64 m_curr_cycles;
 
+		/// <summary>
+		/// Tells the scheduler to not pass the number
+		/// of overflow cycles to an event's callback, but
+		/// to always pass zero. This is necessary when fast
+		/// forwarding (for example due to an instant DMA) to 
+		/// avoid that 'recursive' events push other events 
+		/// with a negative schedule time
+		/// </summary>
+		bool m_event_ignore_overflow_cycles;
+
 		FORCE_INLINE bool CacheEnabled() const {
 			return m_cache_control.cache_en;
 		}
