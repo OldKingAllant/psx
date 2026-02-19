@@ -12,11 +12,6 @@
 #include <psxemu/renderer/GLRenderer.hpp>
 
 namespace psx {
-	static constexpr u64 GPU_CLOCKS_FRAME = (u64)(VIDEO_CLOCK / (double)59.94);
-	static constexpr u64 VISIBLE_LINE_START = 16;
-	static constexpr u64 VISIBLE_LINE_END = 256;
-	static constexpr u64 ACTIVE_CLOCKS = 1812;
-	static constexpr u64 BLANKING_CLOCKS = 339;
 	
 	Gpu::Gpu(system_status* sys_state) :
 		m_cmd_fifo{}, m_stat{},
@@ -30,7 +25,8 @@ namespace psx {
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
 		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{},
-		m_renderer{ nullptr }, m_disp_conf{} {
+		m_renderer{ nullptr }, m_disp_conf{}, m_last_even_timestamp{},
+		m_curr_vblank_count{} {
 		m_renderer = new video::Renderer();
 		m_cpu_vram = m_renderer->GetVramPtr();
 	}
@@ -294,31 +290,30 @@ namespace psx {
 	}
 
 	void Gpu::InitEvents() {
-		(void)m_sys_status->scheduler.Schedule(ACTIVE_CLOCKS, hblank_callback, this);
-		(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE, hblank_end_callback, this);
+		m_last_even_timestamp = ACTIVE_CLOCKS;
+		(void)m_sys_status->scheduler.ScheduleAbsolute(ACTIVE_CLOCKS, hblank_callback, this);
+		//(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE, hblank_end_callback, this);
 	}
 
 	void Gpu::HBlank(u64 cycles_late) {
+		(void)cycles_late;
 		m_sys_status->sysbus->GetCounter0().HBlank();
-		(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE - cycles_late, hblank_callback, this);
+		m_sys_status->sysbus->GetCounter1().UpdateFromTimestamp();
+		m_last_even_timestamp += (CLOCKS_SCANLINE - ACTIVE_CLOCKS) - cycles_late;
+		(void)m_sys_status->scheduler.ScheduleAbsolute(
+			m_last_even_timestamp, 
+			hblank_end_callback, 
+			this);
 	}
 
 	void Gpu::HBlankEnd(u64 cycles_late) {
 		m_sys_status->sysbus->GetCounter0().HBlankEnd();
 
-		if (m_stat.vertical_interlace && !m_stat.vertical_res && !m_vblank)
-			m_stat.drawing_odd = !m_stat.drawing_odd;
-
-		u32 prev_scanline = m_scanline;
-
 		m_scanline++;
 
-		if (m_scanline >= SCANLINES_FRAME)
+		if (m_scanline >= SCANLINES_FRAME) {
+			m_curr_vblank_count += 1;
 			m_scanline = 0;
-
-		if (!(m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END)
-			&& (prev_scanline >= VISIBLE_LINE_START && prev_scanline <= VISIBLE_LINE_END)) {
-			//VBLANK 
 			m_sys_status->sysbus->GetCounter1().VBlank();
 			m_stat.drawing_odd = false;
 			m_vblank = true;
@@ -326,19 +321,25 @@ namespace psx {
 			m_sys_status->vblank = true;
 			m_renderer->VBlank();
 		}
-		else if((m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END)
-			&& !(prev_scanline >= VISIBLE_LINE_START && prev_scanline <= VISIBLE_LINE_END)
-			&& m_vblank) {
-			//Exiting VBlank
+		else if (m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END) {
+			//With v-res 240, changes per scanline
+			if (m_stat.vertical_interlace && !m_stat.vertical_res) {
+				m_stat.drawing_odd = (m_scanline & 1) != 0;
+			}
+		}
+		else if (m_scanline == VISIBLE_LINE_START - 1) {
 			m_sys_status->sysbus->GetCounter1().VBlankEnd();
 			m_vblank = false;
-		}
-		else {
-			if (m_stat.vertical_interlace && m_stat.vertical_res && !m_vblank)
+
+			//Changes per frame when v-res is 480
+			if (m_stat.vertical_interlace && m_stat.vertical_res) {
 				m_stat.drawing_odd = !m_stat.drawing_odd;
+			}
 		}
 
-		(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE - cycles_late, hblank_end_callback, this);
+		m_last_even_timestamp += ACTIVE_CLOCKS - cycles_late;
+		(void)m_sys_status->scheduler.ScheduleAbsolute(m_last_even_timestamp, 
+			hblank_end_callback, this);
 	}
 
 	Gpu::~Gpu() {
@@ -497,5 +498,21 @@ namespace psx {
 		range.y = m_vert_disp_start;
 		range.ysize = size;
 		return range;
+	}
+
+	u64 Gpu::GetNextVBlankTime() const {
+		u64 rem_scanlines = (SCANLINES_FRAME - m_scanline) - 1;
+		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
+
+		if (curr_time > m_last_even_timestamp) {
+			LOG_ERROR("GPU", "[GPU] SCHEDULER TIME < LAST EVENT TIME");
+			LOG_FLUSH();
+			error::DebugBreak();
+		}
+
+		u64 total_time = (m_last_even_timestamp - curr_time) +
+			rem_scanlines * CLOCKS_SCANLINE;
+
+		return total_time;
 	}
 }

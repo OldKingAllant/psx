@@ -80,6 +80,13 @@ namespace psx {
 		std::string cdrom_file = "";
 		std::string console_region = "AMERICA";
 
+		std::string exe_file = "";
+		std::string exe_args = "";
+		bool patch_load = false;
+		bool force_run = false;
+
+		bool enable_exe_patching = false;
+
 		////////////////////////////////
 		//DEBUGGING
 
@@ -97,6 +104,11 @@ namespace psx {
 		SystemConfAdvanced advanced_conf = {};
 
 		NLOHMANN_DEFINE_TYPE_INTRUSIVE(SystemConf, 
+			enable_exe_patching,
+			force_run,
+			exe_args,
+			exe_file,
+			patch_load,
 			advanced_conf,
 			show_tty,
 			tty_program,

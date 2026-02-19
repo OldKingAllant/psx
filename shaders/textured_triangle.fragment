@@ -84,6 +84,13 @@ const mat4 dither_table = mat4(
 	vec4(1, -1, 0, -2)
 );
 
+const mat4 transparency_coeffs = mat4(
+	vec4(0.5, 0.5, 0.5, 0.5),
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(1.0, 1.0, 1.0, 1.0),
+	vec4(1.0, 1.0, 1.0, 0.25)
+);
+
 void dither(in vec2 coordinates, in vec4 color, out vec4 dithered_color) {
 	uint x = uint(coordinates.x);
 	uint y = uint(coordinates.y);
@@ -104,7 +111,8 @@ void compute_uv(in vec2 uv, out vec2 effective_uv) {
 	effective_uv = vec2(float(u), float(v));
 }
 
-out vec4 color;
+layout(location = 0, index = 0) out vec4 color;
+layout(location = 0, index = 1) out vec4 blend_color;
 
 void main() {
 	uint x = uint(coords.x); 
@@ -187,6 +195,11 @@ void main() {
 	   }
 
 		color = vec4(color.rgb / 255.0, a_channel);
+	}
+
+	blend_color = vec4(0.0, 0.0, 0.0, 1.0);
+	if((flags & SEMI_TRANSPARENT) != 0 && color.a != 0) {
+		blend_color = transparency_coeffs[blend_func];
 	}
 
 	if(set_mask) {

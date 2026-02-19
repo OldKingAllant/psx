@@ -281,7 +281,6 @@ namespace psx {
 		return 0;
 	}
 
-#pragma optimize("", off)
 	u8 CDDrive::ReadReg2() {
 		switch (m_index_reg.index)
 		{
@@ -318,7 +317,6 @@ namespace psx {
 		}
 		return 0;
 	}
-#pragma optimize("", on)
 
 	u8 CDDrive::ReadReg3() {
 		switch (m_index_reg.index)
@@ -477,8 +475,12 @@ namespace psx {
 	}
 
 	void CDDrive::InterruptAckd() {
-		if (m_response_fifo.empty())
+		if (m_response_fifo.empty()) {
+			LOG_WARN("CDROM", "[CDROM] ACK WHEN FIFO IS EMPTY");
+			LOG_FLUSH();
+			error::DebugBreak();
 			return;
+		}
 
 		{
 			auto& response = m_response_fifo.peek();
@@ -572,7 +574,7 @@ namespace psx {
 		m_cdrom.reset(new CueBin(path));
 
 		if (!m_cdrom->Init()) {
-			m_cdrom.reset(nullptr);
+			m_cdrom.reset();
 			return false;
 		}
 
@@ -605,7 +607,6 @@ namespace psx {
 			event_callback, this);
 	}
 
-#pragma optimize("", off)
 	void CDDrive::ReadCallback(u64 cycles_late) {
 		m_stat.seeking = false;
 		m_stat.reading = true;
@@ -645,7 +646,6 @@ namespace psx {
 		m_read_event = m_sys_status->scheduler.Schedule( read_time,
 			read_callback, std::bit_cast<void*>(this));
 	}
-#pragma optimize("", on)
 
 	std::string const& CDDrive::GetConsoleRegion() const {
 		return m_sys_status->sys_conf->console_region;

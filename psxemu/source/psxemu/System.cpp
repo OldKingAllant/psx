@@ -9,6 +9,8 @@
 #include <psxemu/include/psxemu/NullMemcard.hpp>
 #include <psxemu/include/psxemu/OfficialMemcard.hpp>
 
+#include <psxemu/include/psxemu/formats/SystemCnf.hpp>
+
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
@@ -72,23 +74,6 @@ namespace psx {
 	}
 
 	void System::LoadExe(std::string const& path, ExecArgs args) {
-		namespace fs = std::filesystem;
-
-		if (!fs::exists(path) || !fs::is_regular_file(path))
-			throw std::exception("Invalid path!");
-
-		std::ifstream file(path, std::ios::binary | std::ios::in);
-
-		if(!file.is_open())
-			throw std::exception("Read failed!");
-
-		file.seekg(0, std::ios::end);
-		auto size = file.tellg();
-		file.seekg(0, std::ios::beg);
-
-		if(size <= 0x800)
-			throw std::exception("Invalid executable!");
-
 		LOG_INFO("SYSTEM", "[SYSTEM] Loading {}", path);
 		LOG_INFO("SYSTEM", "         Hooking EnqueueTimerAndVblankIrqs()");
 
@@ -110,65 +95,11 @@ namespace psx {
 		m_kernel.RemoveExitHook(hook);
 		m_kernel.SetHooksEnable(old_enable);
 
-		u8* buf = new u8[size];
-
-		file.read(std::bit_cast<char*>(buf), size);
-
-		psxexe exe{ buf };
-
-		auto header = exe.header();
-
-		auto dest = header->dest_address;
-
-		auto exe_size = header->filesize;
-
-		if((std::streampos)((u64)exe_size + 0x800) > size)
-			throw std::exception("Header size does not match!");
-
-		auto pc = header->start_pc;
-		auto gp = header->start_gp;
-		auto sp = exe.initial_sp();
-
-		if (sp == 0x0) {
-			sp = psxexe::DEFAULT_SP;
-		}
-
-		auto memfill_start = header->memfill_start;
-		auto memfill_sz = header->memfill_size;
-
-		constexpr u32 HEADER_END = 0x800;
-
-		auto guest_space = m_sysbus.GetGuestBase();
-
-		if (memfill_sz != 0) {
-			std::memset(guest_space + memfill_start, 0x0, memfill_sz);
-		}
-
-		m_cpu.GetPc() = pc;
-		
-		auto& regs = m_cpu.GetRegs();
-
-		regs.gp = gp;
-		regs.sp = sp;
-		regs.fp = sp;
-
-		m_sysbus.CopyRaw(buf + 0x800, dest, exe_size);
-
-		constexpr u32 ARGS_DEST = 0x180;
-
+		std::optional<std::span<char>> new_args = std::nullopt;
 		if (args.has_value()) {
-			auto const& data = args.value();
-
-			m_sysbus.CopyRaw(data.data(), ARGS_DEST, (u32)data.size());
+			new_args = std::span{ (char*)args.value().data(), args.value().size() };
 		}
-
-		LOG_INFO("SYSTEM", "[SYSTEM] Successfully loaded executable\n");
-		LOG_INFO("SYSTEM", "         Destination in memory : 0x{:x}\n", dest);
-		LOG_INFO("SYSTEM", "         Program counter : 0x{:x}\n", pc);
-		LOG_INFO("SYSTEM", "         Global pointer : 0x{:x}\n", gp);
-		LOG_INFO("SYSTEM", "         Stack pointer : 0x{:x}\n", sp);
-		LOG_INFO("SYSTEM", "         Memfill start : 0x{:x}, Size : 0x{:x}\n", memfill_start, memfill_sz);
-		LOG_INFO("SYSTEM", "         Size : 0x{:x}\n", exe_size);
+		m_kernel.LoadExe(path, new_args, 0x0, 0x0, true);
 	}
 
 	void System::LoadBios(std::string const& path) {
@@ -186,6 +117,13 @@ namespace psx {
 		auto size = file.tellg();
 		file.seekg(0, std::ios::beg);
 
+		if (size != memory::region_sizes::PSX_BIOS_SIZE) {
+			LOG_ERROR("SYSTEM", "[SYSTEM] Invalid BIOS size, expected {:#010x}, got {:#010x}",
+				memory::region_sizes::PSX_BIOS_SIZE, u64(size));
+			LOG_FLUSH();
+			throw std::exception("Invalid bios!");
+		}
+
 		u8* buf = new u8[size];
 
 		file.read(std::bit_cast<char*>(buf), size);
@@ -197,16 +135,40 @@ namespace psx {
 		LOG_DEBUG("SYSTEM", "[SYSTEM] Kernel BCD date : {}", m_kernel.DumpKernelBcdDate());
 		LOG_DEBUG("SYSTEM", "[SYSTEM] Kernel Maker    : {}", m_kernel.DumpKernelMaker());
 		LOG_DEBUG("SYSTEM", "[SYSTEM] Kernel version  : {}", m_kernel.DumpKernelVersion());
+
+		m_kernel.ComputeHash();
+
+		if (m_sys_conf->patch_load || m_sys_conf->enable_exe_patching) {
+			m_kernel.PatchLoad();
+		}
 	}
 
 	void System::InterpreterSingleStep() {
+		//m_cpu.StepInstruction();
+		//
+		//auto num_cycles = m_sysbus.m_curr_cycles;
+		//m_sysbus.m_curr_cycles = 0;
+		//
+		//if (m_status.sysbus->GetDMAControl().HasActiveTransfer()) {
+		//	auto& dma_controller = m_status.sysbus->GetDMAControl();
+		//	auto cycles_dma = num_cycles;
+		//	while (dma_controller.HasActiveTransfer() && cycles_dma--) {
+		//		m_status.sysbus->GetDMAControl().AdvanceTransfer();
+		//	}
+		//}
+
 		if (m_status.sysbus->GetDMAControl().HasActiveTransfer()) {
 			m_status.sysbus->GetDMAControl().AdvanceTransfer();
-		} else
+			m_sysbus.m_curr_cycles = 1;
+		}
+		else {
 			m_cpu.StepInstruction();
+			m_sysbus.m_curr_cycles = 2;
+		}
 
 		auto num_cycles = m_sysbus.m_curr_cycles;
 		m_sysbus.m_curr_cycles = 0;
+			
 
 		m_status.scheduler.Advance(num_cycles, m_sysbus.m_event_ignore_overflow_cycles);
 		m_sysbus.m_event_ignore_overflow_cycles = false;
@@ -332,12 +294,12 @@ namespace psx {
 			}
 		}
 
-		std::unique_ptr<AbstractMemcard> memcard{std::make_unique<NullMemcard>()};
+		std::shared_ptr<AbstractMemcard> memcard{std::make_shared<NullMemcard>()};
 
 		switch (type)
 		{
 		case MemcardType::OFFICIAL: {
-			decltype(memcard) new_card = std::make_unique<OfficialMemcard>();
+			decltype(memcard) new_card = std::make_shared<OfficialMemcard>();
 			memcard.swap(new_card);
 		}
 			break;
@@ -353,11 +315,16 @@ namespace psx {
 
 		if (slot == 0) {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
-				.GetDevice1())->ConnectCard(std::move(memcard));
+				.GetDevice1())->ConnectCard(memcard);
+			m_kernel.GetMC0Fs().SetMemoryCard(memcard, 0);
+			//auto entry = m_kernel.GetFilesystemEntry("bu00:BESLES-01734G02s3@QA").value();
+			//auto data = m_kernel.ReadFileFromEntry(entry);
+			//auto fname = m_kernel.DecodeShiftJIS(std::span{ entry->mc_data.title_frame.title_shift_jis });
 		}
 		else {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
-				.GetDevice2())->ConnectCard(std::move(memcard));
+				.GetDevice2())->ConnectCard(memcard);
+			m_kernel.GetMC1Fs().SetMemoryCard(memcard, 1);
 		}
 
 		LOG_INFO("SYSTEM", "[SYSTEM] Successfully inserted MC in slot {}", slot);
@@ -381,17 +348,17 @@ namespace psx {
 
 		auto controller_type = type_map[type];
 
-		std::unique_ptr<AbstractController> controller{ std::make_unique<NullController>() };
+		std::shared_ptr<AbstractController> controller{ std::make_shared<NullController>() };
 
 		switch (controller_type)
 		{
 		case ControllerType::NONE: {
-			decltype(controller) new_controller = std::make_unique<NullController>();
+			decltype(controller) new_controller = std::make_shared<NullController>();
 			controller.swap(new_controller);
 		}
 			break;
 		case ControllerType::STANDARD: {
-			decltype(controller) new_controller = std::make_unique<StandardController>();
+			decltype(controller) new_controller = std::make_shared<StandardController>();
 			controller.swap(new_controller);
 		}
 			break;
@@ -401,33 +368,33 @@ namespace psx {
 
 		if (slot == 0) {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
-				.GetDevice1())->ConnectController(std::move(controller));
+				.GetDevice1())->ConnectController(controller);
 		}
 		else {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
-				.GetDevice2())->ConnectController(std::move(controller));
+				.GetDevice2())->ConnectController(controller);
 		}
 	}
 
 	void System::FollowConfig() {
 
-		auto make_driver = [](std::unique_ptr<AbstractController> controller,
-			std::unique_ptr<AbstractMemcard> card) {
+		auto make_driver = [](std::shared_ptr<AbstractController> controller,
+			std::shared_ptr<AbstractMemcard> card) {
 				std::unique_ptr<SIOAbstractDevice> driver{ std::make_unique<SIOPadCardDriver>() };
-				dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectController(std::move(controller));
-				dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectCard(std::move(card));
+				dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectController(controller);
+				dynamic_cast<SIOPadCardDriver*>(driver.get())->ConnectCard(card);
 				return driver;
 			};
 
 		m_sysbus.GetSIO0()
 			.Port1Connect(make_driver(
-				std::make_unique<NullController>(),
-				std::make_unique<NullMemcard>()
+				std::make_shared<NullController>(),
+				std::make_shared<NullMemcard>()
 			));
 		m_sysbus.GetSIO0()
 			.Port2Connect(make_driver(
-				std::make_unique<NullController>(),
-				std::make_unique<NullMemcard>()
+				std::make_shared<NullController>(),
+				std::make_shared<NullMemcard>()
 			));
 
 		LoadBios(m_sys_conf->bios_path);
@@ -447,8 +414,26 @@ namespace psx {
 	}
 
 	bool System::InsertDisc(std::filesystem::path const& path) {
-		return m_status.sysbus->GetCdDrive()
+		auto result = m_status.sysbus->GetCdDrive()
 			.InsertDisc(path);
+		if (!result) {
+			return false;
+		}
+		m_kernel.GetCdFs().SetCdrom(m_status.sysbus->GetCdDrive().GetCD());
+		LOG_INFO("SYSTEM", "[SYSTEM] CDROM License string: {}", m_kernel.GetCdFs().ReadLicenseString());
+		if (auto maybe_entry = m_kernel.GetFilesystemEntry("cdrom:\\SYSTEM.CNF;1")) {
+			auto entry = maybe_entry.value();
+			auto file_data = m_kernel.ReadFileFromEntry(entry, 0, entry->cd_record.main_record.le_data_size_bytes()).value();
+			auto systemcnf = kernel::SystemCnf(std::span{ file_data });
+
+			LOG_DEBUG("SYSTEM", "[SYSTEM] Found SYSTEM.CNF: ");
+			LOG_DEBUG("SYSTEM", "         Boot file: {}", systemcnf.GetBootFile().value());
+			LOG_DEBUG("SYSTEM", "         TCB      : {:#x}", systemcnf.GetTCB().value());
+			LOG_DEBUG("SYSTEM", "         Event    : {:#x}", systemcnf.GetEvent().value());
+			LOG_DEBUG("SYSTEM", "         Stack    : {:#x}", systemcnf.GetStack().value());
+		}
+
+		return true;
 	}
 
 	System::~System() {

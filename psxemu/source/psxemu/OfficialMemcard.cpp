@@ -17,7 +17,7 @@ namespace psx {
 		m_wr_status{WriteStatus::ID},
 		m_cmd_step{0}, m_cmd_max_steps{0},
 		m_selected_sector{0}, m_is_sector_valid{false}, m_is_checksum_valid{false},
-		m_mc_buffer{}, m_temp_sector{}
+		m_mc_buffer{}, m_temp_sector{}, m_update_seq_number{}
 	{
 		auto temp_buf = std::make_unique<char[]>(SECTOR_SIZE);
 		m_temp_sector.swap(temp_buf);
@@ -77,6 +77,20 @@ namespace psx {
 		file.read(m_mc_buffer.get(), MEMCARD_SIZE);
 
 		return true; 
+	}
+
+	std::optional<std::vector<u8>> OfficialMemcard::ReadFrame(u32 frame_num) const {
+		if (frame_num > MAX_SECTOR) {
+			return std::nullopt;
+		}
+
+		std::vector<u8> data{};
+		data.resize(SECTOR_SIZE);
+
+		std::copy_n(m_mc_buffer.get() + (frame_num * SECTOR_SIZE), SECTOR_SIZE,
+			data.data());
+
+		return data;
 	}
 
 	OfficialMemcard::~OfficialMemcard() {}
@@ -237,6 +251,7 @@ namespace psx {
 				response = END_BYTE;
 				u32 offset = m_selected_sector * SECTOR_SIZE;
 				std::copy_n(m_temp_sector.get(), SECTOR_SIZE, m_mc_buffer.get() + offset);
+				m_update_seq_number += 1;
 			}
 			break;
 		default:

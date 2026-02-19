@@ -29,7 +29,7 @@ namespace psx {
 
 		void SelectDevice(u8 address);
 
-		FORCE_INLINE void ConnectController(std::unique_ptr<AbstractController> controller) {
+		FORCE_INLINE void ConnectController(std::shared_ptr<AbstractController> controller) {
 			m_controller.swap(controller);
 		}
 
@@ -37,7 +37,7 @@ namespace psx {
 			return m_controller.get();
 		}
 
-		FORCE_INLINE void ConnectCard(std::unique_ptr<AbstractMemcard> card) {
+		FORCE_INLINE void ConnectCard(std::shared_ptr<AbstractMemcard> card) {
 			m_card.swap(card);
 		}
 
@@ -47,7 +47,7 @@ namespace psx {
 
 	private :
 		SelectedDevice m_selected;
-		std::unique_ptr<AbstractController> m_controller;
-		std::unique_ptr<AbstractMemcard> m_card;
+		std::shared_ptr<AbstractController> m_controller;
+		std::shared_ptr<AbstractMemcard> m_card;
 	};
 }

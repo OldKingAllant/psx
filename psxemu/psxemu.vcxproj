@@ -29,30 +29,31 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <EnableASAN>false</EnableASAN>
+    <UseDynamicDebugging>true</UseDynamicDebugging>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -110,7 +111,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;_DISABLE_STL_ANNOTATION;</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
@@ -131,6 +132,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,10 +152,13 @@
     <ClInclude Include="..\common\Stack.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
     <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
+    <ClInclude Include="include\psxemu\BiosHash.hpp" />
     <ClInclude Include="include\psxemu\CDDrive.hpp" />
     <ClInclude Include="include\psxemu\CDDriveStructs.hpp" />
+    <ClInclude Include="include\psxemu\CDFilesystem.hpp" />
     <ClInclude Include="include\psxemu\CDROM.hpp" />
     <ClInclude Include="include\psxemu\CDROMDma.hpp" />
+    <ClInclude Include="include\psxemu\CdDescriptors.hpp" />
     <ClInclude Include="include\psxemu\CodeCache.hpp" />
     <ClInclude Include="include\psxemu\cop0.hpp" />
     <ClInclude Include="include\psxemu\cpu_instruction.hpp" />
@@ -162,11 +167,13 @@
     <ClInclude Include="include\psxemu\DmaBase.hpp" />
     <ClInclude Include="include\psxemu\DmaCommon.hpp" />
     <ClInclude Include="include\psxemu\DmaController.hpp" />
+    <ClInclude Include="include\psxemu\formats\SystemCnf.hpp" />
     <ClInclude Include="include\psxemu\GPU.hpp" />
     <ClInclude Include="include\psxemu\GPUCommands.hpp" />
     <ClInclude Include="include\psxemu\GpuDma.hpp" />
     <ClInclude Include="include\psxemu\GTE.hpp" />
     <ClInclude Include="include\psxemu\GTEStructs.hpp" />
+    <ClInclude Include="include\psxemu\HLEFilesystem.hpp" />
     <ClInclude Include="include\psxemu\InstructionHandlers.hpp" />
     <ClInclude Include="include\psxemu\Interpreter.hpp" />
     <ClInclude Include="include\psxemu\Interrupts.hpp" />
@@ -177,11 +184,14 @@
     <ClInclude Include="include\psxemu\KernelEvents.hpp" />
     <ClInclude Include="include\psxemu\KernelExceptions.hpp" />
     <ClInclude Include="include\psxemu\KernelFiles.hpp" />
+    <ClInclude Include="include\psxemu\KernelPatchInstructions.hpp" />
     <ClInclude Include="include\psxemu\KernelStructures.hpp" />
     <ClInclude Include="include\psxemu\KernelThreads.hpp" />
     <ClInclude Include="include\psxemu\Logger.hpp" />
     <ClInclude Include="include\psxemu\LoggerConfig.hpp" />
     <ClInclude Include="include\psxemu\LoggerMacros.hpp" />
+    <ClInclude Include="include\psxemu\MCDescriptors.hpp" />
+    <ClInclude Include="include\psxemu\MCFilesystem.hpp" />
     <ClInclude Include="include\psxemu\MDEC.hpp" />
     <ClInclude Include="include\psxemu\MDECInDma.hpp" />
     <ClInclude Include="include\psxemu\MDECOutDma.hpp" />
@@ -210,6 +220,7 @@
     <ClInclude Include="include\psxemu\SystemBus.hpp" />
     <ClInclude Include="include\psxemu\SystemConf.hpp" />
     <ClInclude Include="include\psxemu\SystemStatus.hpp" />
+    <ClInclude Include="include\psxemu\VirtualAddress.hpp" />
     <ClInclude Include="input\IInputManager.hpp" />
     <ClInclude Include="input\KeyboardManager.hpp" />
     <ClInclude Include="renderer\Buffer.hpp" />
@@ -230,6 +241,7 @@
     <ClCompile Include="..\common\Errors.cpp" />
     <ClCompile Include="..\common\SetThreadName.cpp" />
     <ClCompile Include="input\KeyboardManager.cpp" />
+    <ClCompile Include="KernelExe.cpp" />
     <ClCompile Include="renderer\Buffer.cpp" />
     <ClCompile Include="renderer\FrameBuffer.cpp" />
     <ClCompile Include="renderer\GlLoad.cpp" />
@@ -244,7 +256,9 @@
     <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="renderer\WindowManager.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
+    <ClCompile Include="source\psxemu\BiosHash.cpp" />
     <ClCompile Include="source\psxemu\CDDrive.cpp" />
+    <ClCompile Include="source\psxemu\CDFilesystem.cpp" />
     <ClCompile Include="source\psxemu\CDROMDma.cpp" />
     <ClCompile Include="source\psxemu\CodeCache.cpp" />
     <ClCompile Include="source\psxemu\cop0.cpp" />
@@ -254,18 +268,23 @@
     <ClCompile Include="source\psxemu\DmaController.cpp" />
     <ClCompile Include="source\psxemu\DrawCalls.cpp" />
     <ClCompile Include="source\psxemu\DriveCommands.cpp" />
+    <ClCompile Include="source\psxemu\formats\SystemCnf.cpp" />
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />
     <ClCompile Include="source\psxemu\GPU.cpp" />
     <ClCompile Include="source\psxemu\GpuDma.cpp" />
     <ClCompile Include="source\psxemu\GTE.cpp" />
     <ClCompile Include="source\psxemu\GTEOpcodes.cpp" />
+    <ClCompile Include="source\psxemu\HLEFilesystem.cpp" />
+    <ClCompile Include="source\psxemu\KernelFs.cpp" />
     <ClCompile Include="source\psxemu\KernelHle.cpp" />
     <ClCompile Include="source\psxemu\Interpreter.cpp" />
     <ClCompile Include="source\psxemu\Kernel.cpp" />
+    <ClCompile Include="source\psxemu\KernelPatches.cpp" />
     <ClCompile Include="source\psxemu\KernelStrings.cpp" />
     <ClCompile Include="source\psxemu\KernelStructures.cpp" />
     <ClCompile Include="source\psxemu\Logger.cpp" />
+    <ClCompile Include="source\psxemu\MCFilesystem.cpp" />
     <ClCompile Include="source\psxemu\MDEC.cpp" />
     <ClCompile Include="source\psxemu\MDECInDma.cpp" />
     <ClCompile Include="source\psxemu\MDECOutDma.cpp" />

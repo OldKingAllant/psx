@@ -32,8 +32,8 @@ namespace psx::cpu {
 	}
 
 	bool MIPS1::CheckInterrupts() {
-		if (!m_sys_status->interrupt_line)
-			return false;
+		//if (!m_sys_status->interrupt_line)
+		//	return false;
 
 		bool bit10 = !!((m_coprocessor0.registers.sr.int_mask >> 2) & 1);
 
@@ -381,6 +381,7 @@ namespace psx::cpu {
 			if (should_enter) {
 				if (m_syscall_frames.stacktop() == MAX_SYSCALL_FRAMES) [[unlikely]] {
 					LOG_ERROR("CPU", "[CPU] FATAL! Max recursion reached for syscall frames!");
+					LOG_FLUSH();
 					error::DebugBreak();
 				}
 				u32 r9 = m_regs.array[9];

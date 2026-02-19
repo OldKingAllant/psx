@@ -17,6 +17,15 @@ namespace psx {
 		u64 ss;
 		u64 sect;
 
+		constexpr CdLocation(u64 mm, u64 ss, u64 sect) {
+			this->mm = mm;
+			this->ss = ss;
+			this->sect = sect;
+		}
+
+		constexpr CdLocation() : 
+			mm{}, ss{}, sect{} { }
+
 		CdLocation& operator++() {
 			sect += 1;
 
@@ -62,6 +71,18 @@ namespace psx {
 				* SECTORS_PER_SECOND + 
 				(ss * SECTORS_PER_SECOND) + 
 				sect) * 0x930;
+		}
+
+		static constexpr CdLocation lba_to_sect(u64 lba) {
+			CdLocation cdloc{};
+			//ignore offset inside sector
+			u64 abs_sect = lba / 0x930;
+			cdloc.sect = abs_sect % SECTORS_PER_SECOND;
+			u64 abs_second = abs_sect / SECTORS_PER_SECOND;
+			cdloc.ss = abs_second % SECONDS_PER_MINUTE;
+			u64 abs_minute = abs_second / SECONDS_PER_MINUTE;
+			cdloc.mm = abs_minute;
+			return cdloc;
 		}
 	};
 
@@ -127,6 +148,10 @@ namespace psx {
 
 		virtual std::array<u8, FULL_SECTOR_SIZE> ReadSector(u64 amm, u64 ass, u64 asect) = 0;
 		virtual std::array<u8, FULL_SECTOR_SIZE> ReadFullSector(u64 amm, u64 ass, u64 asect) = 0;
+
+		virtual u64 GetFileSize(u64 session) const = 0;
+		virtual CdLocation LogicalToPhysical(u64 session, u64 track, 
+			u64 lba, u64 block_size) const = 0;
 
 		virtual ~CDROM() {}
 

@@ -59,6 +59,10 @@ namespace psx {
 		void CloseLid();
 		bool InsertDisc(std::filesystem::path const& path);
 
+		FORCE_INLINE std::shared_ptr<CDROM> GetCD() {
+			return m_cdrom;
+		}
+
 	private :
 		void HandlePendingCommand();
 		void CommandExecute();
@@ -132,7 +136,7 @@ namespace psx {
 		bool m_keep_history;
 		std::list<DriveCommand> m_history;
 
-		std::unique_ptr<CDROM> m_cdrom;
+		std::shared_ptr<CDROM> m_cdrom;
 		bool m_lid_open;
 
 		CdLocation m_seek_loc;

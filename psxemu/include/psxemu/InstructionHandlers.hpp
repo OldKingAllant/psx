@@ -3,6 +3,7 @@
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/Interpreter.hpp>
 #include <psxemu/include/psxemu/cpu_instruction.hpp>
+#include <psxemu/include/psxemu/Kernel.hpp>
 #include <common/Errors.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
@@ -43,6 +44,10 @@ namespace psx::cpu {
 		auto const& type = INSTRUCTION_TYPE_LUT[hash];
 
 		if (std::get<1>(type) == Opcode::NA) {
+
+			if (status->kernel_instance->UndefinedInstruction(instruction)) {
+				return;
+			}
 
 			LOG_ERROR("CPU", "[EXCEPTION] Reserved instruction 0x{:x} at 0x{:x}", instruction,
 				status->cpu->GetPc());
@@ -517,8 +522,16 @@ namespace psx::cpu {
 
 			switch (type)
 			{
+			case 0x2://BLTZL
+			case 0x10:
+			case 0x11:
+			case 0x12:
+				LOG_ERROR("CPU", "[OPCODE] UNSUPPORTED OPCODE!");
+				LOG_FLUSH();
+				error::DebugBreak();
+				break;
+
 			case 0x0: //BLTZ
-			case 0x2: //BLTZL
 				if ((i32)rs_val < 0)
 					status->Jump(dest);
 				break;
@@ -526,19 +539,19 @@ namespace psx::cpu {
 				if ((i32)rs_val >= 0)
 					status->Jump(dest);
 				break;
-			case 0x10: //BLTZAL
-			case 0x12: //BLTZALL
-				if ((i32)rs_val < 0) {
-					status->Jump(dest);
-				}
-				status->AddWriteback(pc_val + 4, 31);
-				break;
-			case 0x11: //BGEZAL
-				if ((i32)rs_val >= 0) {
-					status->Jump(dest);
-				}
-				status->AddWriteback(pc_val + 4, 31);
-				break;
+			//case 0x10: //BLTZAL
+			//case 0x12: //BLTZALL
+			//	if ((i32)rs_val < 0) {
+			//		status->Jump(dest);
+			//	}
+			//	status->AddWriteback(pc_val + 4, 31);
+			//	break;
+			//case 0x11: //BGEZAL
+			//	if ((i32)rs_val >= 0) {
+			//		status->Jump(dest);
+			//	}
+			//	status->AddWriteback(pc_val + 4, 31);
+			//	break;
 			default:
 				LOG_INFO("CPU", "[OPCODE] Invalid BCONDZ 0x{:x}, ignore", type);
 				break;

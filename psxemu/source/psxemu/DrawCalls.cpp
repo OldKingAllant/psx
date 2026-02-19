@@ -554,7 +554,7 @@ namespace psx {
 		u8 u1 = u8(clutuv & 0xFF);
 		u8 v1 = u8((clutuv >> 8) & 0xFF);
 
-		u32 tex_and_clut = (clut << 16) | texpage;
+		u32 tex_and_clut = (u32(clut) << 16) | texpage;
 
 		u8 size = (cmd >> 27) & 3;
 		u32 sizes[] = { 0, 1, 8, 16 };
@@ -984,7 +984,6 @@ namespace psx {
 		}
 	}
 
-#pragma optimize("", off)
 	void Gpu::DrawNormalTriangle() {
 		u32 cmd = m_cmd_fifo.deque();
 
@@ -1044,5 +1043,4 @@ namespace psx {
 			m_renderer->DrawFlatUntexturedOpaque(triangle);
 		}
 	}
-#pragma optimize("", on)
 }

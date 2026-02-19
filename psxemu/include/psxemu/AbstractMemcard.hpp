@@ -4,6 +4,8 @@
 #include <common/Macros.hpp>
 
 #include <string>
+#include <vector>
+#include <optional>
 
 namespace psx {
 	enum class MemcardType {
@@ -19,6 +21,10 @@ namespace psx {
 		virtual bool Ack() = 0;
 		virtual void Reset() = 0;
 		virtual bool LoadFile(std::string const& path) = 0;
+
+		virtual u32 GetUpdateSequenceNumber() const = 0;
+
+		virtual std::optional<std::vector<u8>> ReadFrame(u32 frame_num) const = 0;
 
 		virtual ~AbstractMemcard() {}
 	};

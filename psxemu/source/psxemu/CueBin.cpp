@@ -4,6 +4,7 @@
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
 #include <common/Errors.hpp>
+#include <stdexcept>
 
 namespace psx {
 	CueBin::CueBin(std::filesystem::path const& path) :
@@ -33,7 +34,6 @@ namespace psx {
 	CueBin::~CueBin()
 	{}
 
-#pragma optimize("", off)
 	std::array<u8, CDROM::FULL_SECTOR_SIZE> CueBin::ReadSector(u64 amm, u64 ass, u64 asect) {
 		auto sect = ReadFullSector(amm, ass, asect);
 
@@ -72,6 +72,12 @@ namespace psx {
 
 		absolute_pos -= 2 * SECTORS_PER_SECOND * 0x930;
 
+		if (absolute_pos >= GetFileSize(0)) {
+			LOG_ERROR("CDROM", "[CUE] Reading past the end of file at mm={}, ss={}, sect={}",
+				amm, ass, asect);
+			throw std::out_of_range("Out of bounds file read");
+		}
+
 		m_cd_file.seekg(absolute_pos, std::ios::beg);
 		std::array<u8, CDROM::FULL_SECTOR_SIZE> sect{};
 
@@ -80,5 +86,31 @@ namespace psx {
 
 		return sect;
 	}
-#pragma optimize("", on)
+
+	u64 CueBin::GetFileSize(u64 session) const {
+		auto const& files = m_cue_sheet.GetFiles();
+		if (session >= files.size()) {
+			return (u64)-1;
+		}
+
+		return (u64)std::filesystem::file_size(files[session].relative_path);
+	}
+
+	CdLocation CueBin::LogicalToPhysical(u64 session, u64 track, 
+		u64 lba, u64 block_size) const {
+		auto const& files = m_cue_sheet.GetFiles();
+		switch (files[session].tracks[track].track_type) {
+		case CueSheet::TrackType::MODE2_2352: {
+			u64 sectors = lba / block_size;
+			u64 phisical_lba = sectors * 0x930;
+			auto loc = CdLocation::lba_to_sect(phisical_lba);
+			loc.ss += 2;
+			return loc;
+		}
+		default:
+			error::DebugBreak();
+			break;
+		}
+		return CdLocation();
+	}
 }

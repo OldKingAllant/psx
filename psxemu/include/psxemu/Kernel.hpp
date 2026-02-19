@@ -2,6 +2,9 @@
 
 #include <common/Macros.hpp>
 #include <psxemu/include/psxemu/KernelStructures.hpp>
+#include <psxemu/include/psxemu/CDFilesystem.hpp>
+#include <psxemu/include/psxemu/MCFilesystem.hpp>
+#include <psxemu/include/psxemu/VirtualAddress.hpp>
 
 #include <string>
 #include <string_view>
@@ -10,6 +13,7 @@
 #include <unordered_map>
 #include <functional>
 #include <optional>
+#include <span>
 
 namespace psx {
 	struct system_status;
@@ -45,6 +49,10 @@ namespace psx::kernel {
 
 		void SetRomPointer(u8* ptr) { m_rom_pointer = ptr; }
 		void SetRamPointer(u8* ptr) { m_ram_pointer = ptr; }
+
+		void ComputeHash();
+
+		std::optional<std::string> ComputeMemoryHash(u32 start, u32 len);
 
 		/// <summary>
 		/// [BIOS + 0x108] -> Kernel maker 
@@ -181,6 +189,53 @@ namespace psx::kernel {
 		/// <param name="id">ID of the syscall</param>
 		void ExitSyscall(u32 id);
 
+		enum class PatchError {
+			UNKOWN_BIOS,
+			UNKOWN_ADDRESS,
+			MMAP_FAILED,
+			INVALID_FORMAT
+		};
+
+		std::optional<PatchError> PatchInstruction(std::unordered_map<u64, u32> const& bios_version_map, u32 instruction);
+		std::optional<PatchError> PatchInstruction(u32 address, u32 instruction);
+		std::optional<PatchError> ApplyPatch(std::vector<std::string> pattern, std::vector<u8> const& values);
+
+		/////////////////////////////
+		void PatchLoad();
+		////////////////////////////
+
+		bool UndefinedInstruction(u32 instruction);
+
+		////////////////////////////
+		bool FakeExeLoad();
+		bool AfterExeLoad();
+		bool NextEventInstruction();
+		bool GetVblankCountInstruction(u32 orig_instruction);
+		////////////////////////////
+
+		bool LoadExe(std::string const& path, std::optional<std::span<char>> args, u32 path_ptr, u32 headerbuf, bool force_run);
+		void LoadTest(VirtualAddress path_ptr, VirtualAddress headerbuf);
+		void Load(VirtualAddress path_ptr, VirtualAddress headerbuf);
+		void FlushCache();
+
+		FORCE_INLINE CdromFs& GetCdFs() {
+			return m_cd_fs;
+		}
+
+		FORCE_INLINE MCFs& GetMC0Fs() {
+			return m_mc0_fs;
+		}
+
+		FORCE_INLINE MCFs& GetMC1Fs() {
+			return m_mc1_fs;
+		}
+
+		std::optional<std::shared_ptr<HLEFsEntry>> GetFilesystemEntry(std::string path);
+		std::optional<std::vector<u8>> ReadFileFromPath(std::string path);
+		std::optional<std::vector<u8>> ReadFileFromEntry(std::shared_ptr<HLEFsEntry> entry);
+		std::optional<std::vector<u8>> ReadFileFromEntry(std::shared_ptr<HLEFsEntry> entry, u32 off, u32 len);
+
+		static std::optional<std::string> DecodeShiftJIS(std::span<char> data);
 
 	private :
 		void InitHle();
@@ -201,6 +256,15 @@ namespace psx::kernel {
 
 		std::list<u64> m_entry_hooks_scheduled_for_removal;
 		std::list<u64> m_exit_hooks_scheduled_for_removal;
+
+		std::string m_bios_hash;
+		std::optional<u64> m_bios_version;
+
+		std::unordered_map<u32, u32> m_patched_values;
+
+		CdromFs m_cd_fs;
+		MCFs m_mc0_fs;
+		MCFs m_mc1_fs;
 	};
 
 	std::string FormatExceptionChain(ExceptionChain const& chain);

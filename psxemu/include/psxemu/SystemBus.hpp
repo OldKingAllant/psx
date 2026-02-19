@@ -13,6 +13,7 @@
 #include <psxemu/include/psxemu/SIOPort.hpp>
 #include <psxemu/include/psxemu/MDEC.hpp>
 #include <psxemu/include/psxemu/SPU.hpp>
+#include <psxemu/include/psxemu/VirtualAddress.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
@@ -237,7 +238,7 @@ namespace psx {
 
 			if (lower < m_ram_end) {
 				if constexpr (AddCycles)
-					m_curr_cycles += RAM_DELAY;
+					m_curr_cycles += 1;//RAM_DELAY;
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
@@ -405,7 +406,7 @@ namespace psx {
 
 			if (lower < m_ram_end) {
 				if constexpr (AddCycles)
-					m_curr_cycles += RAM_DELAY;
+					m_curr_cycles += 1;//RAM_DELAY;
 				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
 				return;
 			}
@@ -987,6 +988,33 @@ namespace psx {
 
 		u8* GetRamBase() const {
 			return m_guest_base + memory::KUSEG_START;
+		}
+
+		inline bool MapBiosAsWriteable() {
+			if (!ResetBiosMap()) {
+				return false;
+			}
+			return SetBiosMap(memory::region_sizes::PSX_BIOS_SIZE, false);
+		}
+
+		inline bool MapBiosAsReadonly() {
+			if (!ResetBiosMap()) {
+				return false;
+			}
+			return SetBiosMap(memory::region_sizes::PSX_BIOS_SIZE, true);
+		}
+
+		std::string ReadString(VirtualAddress address, u32 max_len) {
+			std::string ret{};
+			while (max_len--) {
+				char curr_char = (char)Read<u8, false, false>(address.addr);
+				if (curr_char == '\0') {
+					break;
+				}
+				ret.push_back(curr_char);
+				address += VirtualAddress(0x1);
+			}
+			return ret;
 		}
 
 		friend class DebugView;

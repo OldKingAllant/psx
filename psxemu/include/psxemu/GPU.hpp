@@ -2,6 +2,7 @@
 
 #include <common/Defs.hpp>
 #include <common/Queue.hpp>
+#include <common/Macros.hpp>
 
 class DebugView;
 
@@ -10,6 +11,12 @@ namespace psx {
 	static constexpr u64 GP1_ADD = 0x814;
 
 	static constexpr u64 VRAM_SIZE = (u64)1024 * 1024;
+
+	static constexpr u64 GPU_CLOCKS_FRAME = (u64)(VIDEO_CLOCK / (double)59.94);
+	static constexpr u64 VISIBLE_LINE_START = 16;
+	static constexpr u64 VISIBLE_LINE_END = 256;
+	static constexpr u64 ACTIVE_CLOCKS = 1812;
+	static constexpr u64 BLANKING_CLOCKS = 339;
 
 	namespace video {
 		class Renderer;
@@ -185,6 +192,16 @@ namespace psx {
 
 		DisplayRange ComputeDisplayRange() const;
 
+		u64 GetNextVBlankTime() const;
+
+		FORCE_INLINE u64 GetVblankCount() const {
+			return m_curr_vblank_count;
+		}
+
+		FORCE_INLINE void ResetVblankCount() {
+			m_curr_vblank_count = 0;
+		}
+
 		friend class DebugView;
 
 	private :
@@ -285,5 +302,8 @@ namespace psx {
 		video::Renderer* m_renderer;
 
 		DisplayConfig m_disp_conf;
+
+		u64 m_last_even_timestamp;
+		u64 m_curr_vblank_count;
 	};
 }

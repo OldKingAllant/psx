@@ -47,8 +47,8 @@ namespace psx {
 			break;
 		default:
 			LOG_ERROR("SPU", "[SPU] Read invalid/unimplemented register: {:#x}", address);
-			LOG_FLUSH();
-			error::DebugBreak();
+			//LOG_FLUSH();
+			//error::DebugBreak();
 			break;
 		}
 		
@@ -78,7 +78,7 @@ namespace psx {
 			LOG_FLUSH();
 			error::DebugBreak();
 		}
-
+		
 		switch (address)
 		{
 		case SPU_REGS::MAINVOL_LEFT:
@@ -96,7 +96,7 @@ namespace psx {
 		case SPU_REGS::SPU_CNT:
 			m_regs.m_cnt.reg = value;
 			m_regs.m_stat.current_spu_mode = u8(m_regs.m_cnt.reg & 0x1F);
-
+		
 			/*
 			15    SPU Enable              (0=Off, 1=On)       (Don't care for CD Audio)
 			14    Mute SPU                (0=Mute, 1=Unmute)  (Don't care for CD Audio)
@@ -110,8 +110,8 @@ namespace psx {
 			1     External Audio Enable   (0=Off, 1=On)
 			0     CD Audio Enable         (0=Off, 1=On) (for CD-DA and XA-ADPCM)
 			*/
-
-
+		
+		
 			LOG_DEBUG("SPU", "[SPU] Write control ({:#06x}):", value);
 			LOG_DEBUG("SPU", "      SPU enable        : {}", bool(m_regs.m_cnt.enable));
 			LOG_DEBUG("SPU", "      Noise freq. shift : {:x}", u8(m_regs.m_cnt.noise_freq_shift));
@@ -123,11 +123,11 @@ namespace psx {
 			LOG_DEBUG("SPU", "      CD Audio reverb   : {}", bool(m_regs.m_cnt.cd_audio_reverb));
 			LOG_DEBUG("SPU", "      Ext. audio enable : {}", bool(m_regs.m_cnt.ext_audio_en));
 			LOG_DEBUG("SPU", "      CD Audio enable   : {}", bool(m_regs.m_cnt.cd_audio_en));
-
+		
 			if (!m_regs.m_cnt.enable) {
 				return;
 			}
-
+		
 			switch (m_regs.m_cnt.transer_mode)
 			{
 			case SoundRamTransferMode::STOP:
@@ -199,12 +199,12 @@ namespace psx {
 			LOG_DEBUG("SPU", "[SPU] TRANSFER ADDRESS: {:#06x}", m_regs.m_ram_transfer_address);
 			break;
 		case SPU_REGS::SOUND_RAM_TRANSFER_FIFO:
-			if (m_regs.m_cnt.transer_mode != SoundRamTransferMode::STOP) {
-				LOG_WARN("SPU", "[SPU] FIFO WRITE NOT IN STOP MODE!");
-				LOG_FLUSH();
-				error::DebugBreak();
-				return;
-			}
+			//if (m_regs.m_cnt.transer_mode != SoundRamTransferMode::STOP) {
+			//	LOG_WARN("SPU", "[SPU] FIFO WRITE NOT IN STOP MODE!");
+			//	LOG_FLUSH();
+			//	error::DebugBreak();
+			//	return;
+			//}
 			if (m_fifo.full()) [[unlikely]] {
 				LOG_WARN("SPU", "[SPU] FIFO FULL");
 				return;
@@ -216,7 +216,7 @@ namespace psx {
 				u16 address_temp = address - SPU_REGS::VOICE_REGS_START;
 				u16 voice_id = address_temp >> 4;
 				u16 reg_id = address_temp & 0xF;
-
+		
 				switch (reg_id)
 				{
 				case SPU_REGS::VOICE_REG_VOL_LEFT: {
@@ -230,8 +230,8 @@ namespace psx {
 				}
 			}
 			LOG_ERROR("SPU", "[SPU] Write invalid/unimplemented register: {:#x}", address);
-			LOG_FLUSH();
-			error::DebugBreak();
+			//LOG_FLUSH();
+			//error::DebugBreak();
 			break;
 		}
 	}

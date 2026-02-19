@@ -300,11 +300,18 @@ namespace psx::video {
 
 				glBlendColor(0.25f, 0.25f, 0.25f, 0.5f);
 
+				//glBlendFuncSeparate order: src dst src dst
 				switch (cmd.semi_transparency_type)
 				{
-				case 0:
-					glBlendFuncSeparate(GL_CONSTANT_ALPHA, GL_CONSTANT_ALPHA, GL_ONE, GL_ZERO);
-					break;
+				case 0: {
+					GLenum coeff_src = GL_CONSTANT_ALPHA;
+					GLenum coeff_dst = GL_CONSTANT_ALPHA;
+					if (cmd.type == PipelineType::TEXTURED_TRIANGLE) {
+						coeff_src = GL_SRC1_ALPHA;
+						coeff_dst = GL_SRC1_COLOR;
+					}
+					glBlendFuncSeparate(coeff_src, coeff_dst, GL_ONE, GL_ZERO);
+				} break;
 				case 1:
 					glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
 					break;

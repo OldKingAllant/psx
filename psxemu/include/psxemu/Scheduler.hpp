@@ -46,6 +46,8 @@ namespace psx {
 		/// <param name="data">Data passed to the callback</param>
 		/// <returns>Event ID</returns>
 		[[nodiscard]] u64 Schedule(u64 cycles, EventCallback callback, void* data);
+
+		[[nodiscard]] u64 ScheduleAbsolute(u64 timestamp, EventCallback callback, void* data);
 		
 		/// <summary>
 		/// Remove an event
@@ -62,6 +64,12 @@ namespace psx {
 		/// <param name="num_cycles"></param>
 		/// <param name="ignore_overflow">Ignore late cycles</param>
 		void Advance(u64 num_cycles, bool ignore_overflow = false);
+
+		/// <summary>
+		/// Fast forward to next event
+		/// </summary>
+		/// <returns>Skipped cycles</returns>
+		u64 NextEvent();
 
 	private :
 		u64 m_curr_timestamp;

@@ -11,6 +11,11 @@ namespace psx {
 		m_num_events{}, m_events{} {}
 
 	u64 Scheduler::Schedule(u64 cycles, EventCallback callback, void* data) {
+		return ScheduleAbsolute(m_curr_timestamp + cycles, callback, data);
+	}
+
+	u64 Scheduler::ScheduleAbsolute(u64 timestamp, EventCallback callback, void* data)
+	{
 		if (m_num_events == MAX_EVENTS) [[unlikely]] {
 			fmt::println("[SCHEDULER] Max events reached!");
 			return INVALID_EVENT;
@@ -19,7 +24,7 @@ namespace psx {
 		m_events[m_num_events++] = psx_event{
 			.event_id = m_last_id++,
 			.registered_timestamp = m_curr_timestamp,
-			.trigger_timestamp = m_curr_timestamp + cycles,
+			.trigger_timestamp = timestamp,
 			.callback = callback,
 			.userdata = data
 		};
@@ -91,5 +96,23 @@ namespace psx {
 		} while (_cont);
 
 		m_curr_timestamp = final_time;
+	}
+
+	u64 Scheduler::NextEvent() {
+		psx_event const& ev = m_events[0];
+		u64 elapsed = ev.trigger_timestamp - m_curr_timestamp;
+		m_curr_timestamp = ev.trigger_timestamp;
+
+		if(ev.callback)
+			ev.callback(ev.userdata, 0);
+
+		std::pop_heap(m_events, m_events + m_num_events,
+			[](psx_event const& l, psx_event const& r) {
+				return l.trigger_timestamp > r.trigger_timestamp;
+			}
+		);
+		m_num_events--;
+
+		return elapsed;
 	}
 }

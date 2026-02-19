@@ -1,0 +1,9 @@
+﻿  crc32.cpp
+  digest.cpp
+  keccak.cpp
+  md5.cpp
+  sha1.cpp
+  sha256.cpp
+  sha3.cpp
+  Generating Code...
+  hash.vcxproj -> C:\Users\CLAUDIO\source\repos\psxemu\x64\Debug\hash.lib

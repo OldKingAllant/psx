@@ -152,7 +152,8 @@ namespace psx {
 			{ 0xB0E, "uint OpenThread(pc=UINT,SP=UINT,GP=UINT,)" },
 			{ 0xB0F, "uint CloseThread(handle=UINT,)" },
 			{ 0xB10, "uint ChangeThread(handle=UINT,)" },
-			{ 0xB0A, "uint WaitEvent(event=UINT,)" }
+			{ 0xB0A, "uint WaitEvent(event=UINT,)" },
+			{ 0xB3F, "void puts(str=CHAR_PTR,)" }
 		};
 
 		for (auto const& [id, syscall] : syscalls) {
@@ -245,17 +246,22 @@ namespace psx {
 
 			u32 depth = 256;
 
-			out << "\"";
-
-			while ((the_char = (char)bus->Read<u8, false, false>(address)) && depth--) {
-				if (MustEscapeChar(the_char))
-					out << EscapeChar( the_char );
-				else
-					out << the_char;
-				address++;
+			if (address == 0x0) {
+				out << "NULL";
 			}
+			else {
+				out << "\"";
 
-			out << "\"";
+				while ((the_char = (char)bus->Read<u8, false, false>(address)) && depth--) {
+					if (MustEscapeChar(the_char))
+						out << EscapeChar(the_char);
+					else
+						out << the_char;
+					address++;
+				}
+
+				out << "\"";
+			}
 		}
 		break;
 		case SyscallParamType::ACCESS_MODE: {

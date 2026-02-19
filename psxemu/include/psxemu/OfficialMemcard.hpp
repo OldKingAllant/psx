@@ -3,6 +3,8 @@
 #include "AbstractMemcard.hpp"
 
 #include <memory>
+#include <vector>
+#include <optional>
 
 namespace psx {
 	class OfficialMemcard : public AbstractMemcard {
@@ -13,6 +15,12 @@ namespace psx {
 		bool Ack() override;
 		void Reset() override;
 		bool LoadFile(std::string const& path) override;
+
+		u32 GetUpdateSequenceNumber() const override {
+			return m_update_seq_number;
+		}
+
+		std::optional<std::vector<u8>> ReadFrame(u32 frame_num) const override;
 
 		~OfficialMemcard() override;
 
@@ -94,5 +102,7 @@ namespace psx {
 
 		std::unique_ptr<char[]> m_mc_buffer;
 		std::unique_ptr<char[]> m_temp_sector;
+
+		u32 m_update_seq_number;
 	};
 }

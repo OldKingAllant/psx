@@ -112,6 +112,18 @@
     <Filter Include="Resource Files\dev\spu">
       <UniqueIdentifier>{e88c803e-80f9-4f29-9932-d3fa5b248a07}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\bios\hlefs">
+      <UniqueIdentifier>{9733f9b9-843f-4655-9c4f-f0238ecc0e32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\bios\hlefs\formats">
+      <UniqueIdentifier>{8ed42bcf-7cbd-4562-9ef0-ab5514aac7c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\bios\hlefs">
+      <UniqueIdentifier>{ca0d953a-8b2e-4186-9d02-1d5c2b03b2f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\bios\hlefs\formats">
+      <UniqueIdentifier>{e27206d7-ce6a-40df-8048-69cd60f8910a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -369,6 +381,33 @@
     <ClInclude Include="include\psxemu\SPUVoice.hpp">
       <Filter>Header Files\dev\spu</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\BiosHash.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\KernelPatchInstructions.hpp">
+      <Filter>Header Files\bios</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\CDFilesystem.hpp">
+      <Filter>Header Files\bios\hlefs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\CdDescriptors.hpp">
+      <Filter>Header Files\bios\hlefs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\HLEFilesystem.hpp">
+      <Filter>Header Files\bios\hlefs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\formats\SystemCnf.hpp">
+      <Filter>Header Files\bios\hlefs\formats</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\VirtualAddress.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\MCFilesystem.hpp">
+      <Filter>Header Files\bios\hlefs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\MCDescriptors.hpp">
+      <Filter>Header Files\bios\hlefs</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -556,6 +595,30 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\SPUVoice.cpp">
       <Filter>Resource Files\dev\spu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\BiosHash.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\KernelPatches.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\CDFilesystem.cpp">
+      <Filter>Resource Files\bios\hlefs</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\HLEFilesystem.cpp">
+      <Filter>Resource Files\bios\hlefs</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\formats\SystemCnf.cpp">
+      <Filter>Resource Files\bios\hlefs\formats</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\KernelFs.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="KernelExe.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\MCFilesystem.cpp">
+      <Filter>Resource Files\bios\hlefs</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

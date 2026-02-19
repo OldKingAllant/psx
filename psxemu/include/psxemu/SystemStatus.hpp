@@ -11,6 +11,11 @@
 
 namespace psx {
 	class SystemBus;
+
+	namespace kernel {
+		class Kernel;
+	}
+
 	/// <summary>
 	/// Describes the cause of a JIT block
 	/// exit
@@ -83,6 +88,8 @@ namespace psx {
 
 		std::mutex sync_producer_mux;
 		jnk0le::Ringbuffer<SyncCallback, 32> sync_callback_buffer;
+
+		kernel::Kernel* kernel_instance;
 
 		void CoprocessorUnusableException(u8 cop_number) {
 			cpu->GetCOP0().registers.cause.cop_number = cop_number;
