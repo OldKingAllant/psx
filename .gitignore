@@ -11,3 +11,4 @@ memcards/*
 imgui.ini
 config/*
 psxemu_log.txt
+hash/x64/*
