@@ -163,7 +163,7 @@ namespace psx {
 		}
 		else {
 			m_cpu.StepInstruction();
-			m_sysbus.m_curr_cycles = 2;
+			//m_sysbus.m_curr_cycles = 2;
 		}
 
 		auto num_cycles = m_sysbus.m_curr_cycles;
@@ -317,9 +317,6 @@ namespace psx {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
 				.GetDevice1())->ConnectCard(memcard);
 			m_kernel.GetMC0Fs().SetMemoryCard(memcard, 0);
-			//auto entry = m_kernel.GetFilesystemEntry("bu00:BESLES-01734G02s3@QA").value();
-			//auto data = m_kernel.ReadFileFromEntry(entry);
-			//auto fname = m_kernel.DecodeShiftJIS(std::span{ entry->mc_data.title_frame.title_shift_jis });
 		}
 		else {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()

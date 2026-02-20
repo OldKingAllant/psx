@@ -114,14 +114,13 @@ namespace psx::cpu {
 		bool branch_taken = m_sys_status->branch_taken;
 		u32 instruction = 0;
 
-		u32 segment = m_pc & 0xF0000000;
+		auto pc_address = VirtualAddress(m_pc);
 
-		if ((segment == 0xA0000000 || segment == 0xB0000000) ||
-			!bus->CacheEnabled()) {
-			instruction = bus->Read<u32, true, true>(m_pc);
+		if (!pc_address.has_icache() || !bus->CacheEnabled()) {
+			instruction = bus->Read<u32, true, true>(pc_address);
 		}
 		else {
-			instruction = bus->Read<u32, true, false>(m_pc);
+			instruction = bus->Read<u32, true, false>(pc_address);
 		}
 
 		if(!m_sys_status->exception)

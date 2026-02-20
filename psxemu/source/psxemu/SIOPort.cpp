@@ -253,7 +253,8 @@ namespace psx {
 	}
 
 	void SIOPort::HandlePendingTransfer() {
-		static constexpr u64 ACK_INT_DELAY = 350;
+		//static constexpr u64 ACK_INT_DELAY = 350; //For 2 CPI
+		static constexpr u64 ACK_INT_DELAY = 700;
 
 		if (m_pending_transfer && (m_control.tx_enable || m_tx_enable_latch) && 
 			m_stat.tx_idle && m_control.dtr_output_level) {

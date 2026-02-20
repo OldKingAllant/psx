@@ -3,6 +3,8 @@
 #include <common/Defs.hpp>
 #include <common/Macros.hpp>
 
+#include <fmt/format.h>
+
 namespace psx {
 	enum class MemorySegment {
 		KUSEG = 0,
@@ -48,7 +50,7 @@ namespace psx {
 			return MemoryRegion((addr >> 24) & 0x1F);
 		}
 
-		FORCE_INLINE constexpr u32 phisycal_address() const {
+		FORCE_INLINE constexpr u32 physical_address() const {
 			return addr & ((1 << 29) - 1);
 		}
 
@@ -68,26 +70,30 @@ namespace psx {
 			return addr <= other.addr;
 		}
 
+		FORCE_INLINE constexpr bool operator==(VirtualAddress const& other) const {
+			return addr == other.addr;
+		}
+
 		/// <summary>
-		/// Check if virtual address is within bounds
+		/// Check if virtual address is within bounds (exclusive)
 		/// </summary>
 		/// <param name="lower"></param>
 		/// <param name="upper"></param>
 		/// <returns></returns>
 		FORCE_INLINE constexpr bool between(VirtualAddress lower, VirtualAddress upper) const {
 			return (addr >= lower.addr) &&
-				(addr <= upper.addr);
+				(addr < upper.addr);
 		}
 
 		/// <summary>
-		/// Check if the physical address is within bounds
+		/// Check if the physical address is within bounds (exclusive)
 		/// </summary>
 		/// <param name="lower"></param>
 		/// <param name="upper"></param>
 		/// <returns></returns>
-		FORCE_INLINE constexpr bool between(u32 lower, u32 upper) const {
-			return (phisycal_address() >= lower) &&
-				(phisycal_address() <= upper);
+		FORCE_INLINE constexpr bool between_physical(u32 lower, u32 upper) const {
+			return (physical_address() >= lower) &&
+				(physical_address() < upper);
 		}
 
 		static constexpr VirtualAddress from_segment(MemorySegment segment, u32 offset) {
@@ -138,5 +144,50 @@ namespace psx {
 			addr -= other.addr;
 			return *this;
 		}
+
+		FORCE_INLINE u32 operator&(VirtualAddress const& other) {
+			return this->addr & other.addr;
+		}
+
+		FORCE_INLINE u32 operator&(u32 other) {
+			return this->addr & other;
+		}
+
+		FORCE_INLINE u32 operator|(VirtualAddress const& other) {
+			return this->addr | other.addr;
+		}
+
+		FORCE_INLINE u32 operator|(u32 other) {
+			return this->addr | other;
+		}
+
+		FORCE_INLINE VirtualAddress& operator&=(VirtualAddress const& other) {
+			addr &= other.addr;
+			return *this;
+		}
+
+		FORCE_INLINE VirtualAddress& operator&=(u32 other) {
+			addr &= other;
+			return *this;
+		}
+
+		FORCE_INLINE VirtualAddress& operator|=(VirtualAddress const& other) {
+			addr |= other.addr;
+			return *this;
+		}
+
+		FORCE_INLINE VirtualAddress& operator|=(u32 other) {
+			addr |= other;
+			return *this;
+		}
 	};
 }
+
+template <> class fmt::formatter<psx::VirtualAddress> {
+public:
+	constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+	template <typename Context>
+	constexpr auto format(psx::VirtualAddress const& addr, Context& ctx) const {
+		return fmt::format_to(ctx.out(), "{}", addr.addr);
+	}
+};

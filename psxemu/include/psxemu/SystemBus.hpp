@@ -108,7 +108,7 @@ namespace psx {
 		u32 raw;
 	};
 
-	static constexpr u32 RAM_DELAY = 6;
+	static constexpr u32 RAM_DELAY = 5;
 
 	/// <summary>
 	/// Align to the next alignment 
@@ -178,11 +178,11 @@ namespace psx {
 		/// <param name="address">Read location</param>
 		/// <returns>The bytes at "address"</returns>
 		template <typename Ty, bool Except, bool AddCycles = false>
-		Ty Read(u32 address) {
+		Ty Read(VirtualAddress address) {
 			using namespace error;
 
 			if constexpr (sizeof(Ty) != 1) {
-				if ((address & (sizeof(Ty) - 1)) != 0) {
+				if ((address & VirtualAddress(sizeof(Ty) - 1)) != 0) [[unlikely]] {
 					//Unaligned access!
 
 					if constexpr (Except) {
@@ -200,7 +200,7 @@ namespace psx {
 
 			bool curr_mode = m_sys_status->curr_mode;
 
-			if (address >= KUSEG_VOID_START && address < KUSEG_VOID_END) {
+			if (address.between(KUSEG_VOID_START, KUSEG_VOID_END)) [[unlikely]] {
 				if constexpr (Except) {
 					LOG_ERROR("MEMORY", "[MEMORY] Reading unused upper 1.5 GB of KUSEG at 0x{:x}\n", 
 						address);
@@ -213,16 +213,13 @@ namespace psx {
 				return 0x0;
 			}
 
-			if (address >= memory::KSEG2_START) {
+			if (address >= VirtualAddress(u32(memory::KSEG2_START))) [[unlikely]] {
 				LOG_ERROR("MEMORY", "[MEMORY] KSEG2 access at 0x{:x}\n", address);
 				DebugBreak();
 				return 0x0;
 			}
 
-			u32 segment = (address >> 29) & 7;
-			u32 lower = address & 0x1FFFFFFF;
-
-			if (curr_mode && segment != 0) {
+			if (curr_mode && address.memory_segment() != MemorySegment::KUSEG) [[unlikely]] {
 				//Reading KSEG in user mode
 				
 				if constexpr (Except) {
@@ -236,11 +233,13 @@ namespace psx {
 				return 0x0;
 			}
 
-			if (lower < m_ram_end) {
+			if (address.between_physical(0, m_ram_end)) {
 				if constexpr (AddCycles)
-					m_curr_cycles += 1;//RAM_DELAY;
+					m_curr_cycles += RAM_DELAY;
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
+
+			u32 lower = address.physical_address();
 
 			/*
 			Test access to expansion regions
@@ -258,61 +257,25 @@ namespace psx {
 				m_curr_cycles += reg.read_seq * seq_access_count;
 			};
 
-			if (m_exp2_enable && lower >=
-				m_exp2_config.base && lower < m_exp2_config.end) {
-				if constexpr (AddCycles)
-					compute_access_time(m_exp2_config);
-				return (Ty)ReadEXP2(lower - m_exp2_config.base);
-			}
+			/*
+			Put address ranges in order of importance
+			*/
 
-			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
-				if constexpr (AddCycles)
-					compute_access_time(m_exp1_config);
-				return (Ty)ReadEXP1(lower - m_exp1_config.base);
-			}
-
-			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
-				if constexpr (AddCycles)
-					compute_access_time(m_exp3_config);
-				return (Ty)ReadEXP3(lower - m_exp3_config.base);
-			}
-
-			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
+			if (address.between_physical(m_bios_config.base, m_bios_config.end)) {
 				if constexpr (AddCycles)
 					compute_access_time(m_bios_config);
 				return *reinterpret_cast<Ty*>(m_guest_base + address);
 			}
 
-			if (lower >= memory::region_offsets::PSX_SCRATCHPAD_OFFSET
-				&& lower < memory::region_offsets::PSX_SCRATCHPAD_OFFSET +
-				memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE) {
-				if (segment == 0x5) {
+			using memory::region_offsets::PSX_IO_OFFSET;
+			using memory::region_sizes::PSX_IO_SIZE;
 
-					if constexpr (Except) {
-						LOG_ERROR("MEMORY", "[MEMORY] Reading scratchpad in KSEG1 at 0x{:x}\n", 
-							address);
-						m_sys_status->exception = true;
-						m_sys_status->exception_number =
-							cpu::Excode::DBE;
-					}
+			if (address.between_physical(PSX_IO_OFFSET, PSX_IO_OFFSET + PSX_IO_SIZE)) {
+				//if constexpr (AddCycles)
+				//	m_curr_cycles += 1;
 
-					return 0x0;
-				}
-
-				if constexpr (AddCycles)
-					m_curr_cycles += 1;
-
-				return *reinterpret_cast<Ty*>(m_guest_base + address);
-			}
-
-			if (lower >= memory::region_offsets::PSX_IO_OFFSET
-				&& lower < memory::region_offsets::PSX_IO_OFFSET +
-				memory::region_sizes::PSX_IO_SIZE) {
-				if constexpr (AddCycles)
-					m_curr_cycles += 1;
-
-				if (!memory::IO::LOCKED[address & (memory::region_sizes::PSX_IO_SIZE - 1)]) {
-					return ReadIO<Ty, AddCycles>(address);
+				if (!memory::IO::LOCKED[address & u32(PSX_IO_SIZE - 1)]) {
+					return ReadIO<Ty, AddCycles>(address.addr);
 				}
 				else {
 					if constexpr (Except) {
@@ -323,6 +286,47 @@ namespace psx {
 				}
 
 				return 0x0;
+			}
+
+			using memory::region_offsets::PSX_SCRATCHPAD_OFFSET;
+			using memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE;
+
+			if (address.between_physical(PSX_SCRATCHPAD_OFFSET, PSX_SCRATCHPAD_OFFSET + PSX_SCRATCHPAD_PADDED_SIZE)) {
+				if (address.memory_segment() == MemorySegment::KSEG1) {
+
+					if constexpr (Except) {
+						LOG_ERROR("MEMORY", "[MEMORY] Reading scratchpad in KSEG1 at 0x{:x}\n",
+							address);
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::DBE;
+					}
+
+					return 0x0;
+				}
+
+				//if constexpr (AddCycles)
+				//	m_curr_cycles += 1;
+
+				return *reinterpret_cast<Ty*>(m_guest_base + address);
+			}
+
+			if (m_exp2_enable && address.between_physical(m_exp2_config.base, m_exp2_config.end)) {
+				if constexpr (AddCycles)
+					compute_access_time(m_exp2_config);
+				return (Ty)ReadEXP2(lower - m_exp2_config.base);
+			}
+
+			if (address.between_physical(m_exp1_config.base, m_exp1_config.end)) {
+				if constexpr (AddCycles)
+					compute_access_time(m_exp1_config);
+				return (Ty)ReadEXP1(lower - m_exp1_config.base);
+			}
+
+			if (address.between_physical(m_exp3_config.base, m_exp3_config.end)) {
+				if constexpr (AddCycles)
+					compute_access_time(m_exp3_config);
+				return (Ty)ReadEXP3(lower - m_exp3_config.base);
 			}
 
 			if constexpr (Except) {
@@ -344,11 +348,11 @@ namespace psx {
 		/// <param name="address">Write location</param>
 		/// <param name="value">Value to write</param>
 		template <typename Ty, bool Except, bool AddCycles = false>
-		void Write(u32 address, Ty value) {
+		void Write(VirtualAddress address, Ty value) {
 			using namespace error;
 
 			if constexpr (sizeof(Ty) != 1) {
-				if ((address & (sizeof(Ty) - 1)) != 0) {
+				if ((address & VirtualAddress(sizeof(Ty) - 1)) != 0) {
 					//Unaligned access!
 
 					if constexpr (Except) {
@@ -366,7 +370,7 @@ namespace psx {
 
 			bool curr_mode = m_sys_status->curr_mode;
 
-			if (address >= KUSEG_VOID_START && address < KUSEG_VOID_END) {
+			if (address.between(KUSEG_VOID_START, KUSEG_VOID_END)) [[unlikely]] {
 
 				if constexpr (Except) {
 					LOG_ERROR("MEMORY", "[MEMORY] Writing unused upper 1.5 GB of KUSEG at 0x{:x}\n", 
@@ -380,17 +384,16 @@ namespace psx {
 				return;
 			}
 
-			if (address >= memory::KSEG2_START) {
-				if (address == memory::IO::CACHE_CONTROL) {
+			if (address >= VirtualAddress(memory::KSEG2_START)) [[unlikely]] {
+				if (address == VirtualAddress(memory::IO::CACHE_CONTROL)) {
 					WriteCacheControl(value);
 					return;
 				}
 			}
 
-			u32 segment = (address >> 29) & 7;
-			u32 lower = address & 0x1FFFFFFF;
+			u32 lower = address.physical_address();
 
-			if (curr_mode && segment != 0) {
+			if (curr_mode && address.memory_segment() != MemorySegment::KUSEG) [[unlikely]] {
 
 				if constexpr (Except) {
 					LOG_ERROR("MEMORY", "[MEMORY] Writing KSEG in USER mode at 0x{:x}\n", 
@@ -404,64 +407,43 @@ namespace psx {
 				return;
 			}
 
-			if (lower < m_ram_end) {
-				if constexpr (AddCycles)
-					m_curr_cycles += 1;//RAM_DELAY;
+			if (address.between_physical(0, m_ram_end)) {
+				//If we assume write buffer, we have nothing to do here
+				//if constexpr (AddCycles)
+				//	m_curr_cycles += 1; 
 				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
 				return;
 			}
 
-			/*
-			Test access to expansion regions
-			and bios
-			*/
+			using memory::region_offsets::PSX_IO_OFFSET;
+			using memory::region_sizes::PSX_IO_SIZE;
 
-			auto compute_access_time = [this](RegionConfig const& reg) {
-				auto bus_width_byes = (u32)reg.delay_size.bus_width + 1;
-				auto seq_access_count = sizeof(Ty) / bus_width_byes - 1;
-
-				//Add first access
-				m_curr_cycles += reg.write_nonseq;
-
-				//Add as many seq. accesses as needed
-				m_curr_cycles += reg.write_seq * seq_access_count;
-			};
-
-			if (m_exp2_enable && lower >=
-				m_exp2_config.base && lower < m_exp2_config.end) {
-				WriteEXP2(value, lower - m_exp2_config.base);
-				if constexpr (AddCycles)
-					compute_access_time(m_exp2_config);
-				return;
-			}
-
-			if (lower >= m_exp1_config.base && lower < m_exp1_config.end) {
-				WriteEXP1(value, lower - m_exp1_config.base);
-				if constexpr (AddCycles)
-					compute_access_time(m_exp1_config);
-				return;
-			}
-
-			if (lower >= m_exp3_config.base && lower < m_exp3_config.end) {
-				WriteEXP3(value, lower - m_exp3_config.base);
-				if constexpr (AddCycles)
-					compute_access_time(m_exp3_config);
-				return;
-			}
-
-			if (lower >= m_bios_config.base && lower < m_bios_config.end) {
-				if constexpr (AddCycles)
-					compute_access_time(m_bios_config);
-				return;
-			}
-
-			if (lower >= memory::region_offsets::PSX_SCRATCHPAD_OFFSET
-				&& lower < memory::region_offsets::PSX_SCRATCHPAD_OFFSET +
-				memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE) {
-				if (segment == 0x5) {
-					
+			if (address.between_physical(PSX_IO_OFFSET, PSX_IO_OFFSET + PSX_IO_SIZE)) {
+				if (!memory::IO::LOCKED[address & u32(memory::region_sizes::PSX_IO_SIZE - 1)]) {
+					WriteIO<Ty, AddCycles>(address.addr, value);
+				}
+				else {
 					if constexpr (Except) {
-						LOG_ERROR("MEMORY", "[MEMORY] Writing scratchpad in KSEG1 at 0x{:x}\n", 
+						m_sys_status->exception = true;
+						m_sys_status->exception_number =
+							cpu::Excode::DBE;
+					}
+				}
+
+				//if constexpr (AddCycles)
+				//	m_curr_cycles += 1;
+
+				return;
+			}
+
+			using memory::region_offsets::PSX_SCRATCHPAD_OFFSET;
+			using memory::region_sizes::PSX_SCRATCHPAD_PADDED_SIZE;
+
+			if (address.between_physical(PSX_SCRATCHPAD_OFFSET, PSX_SCRATCHPAD_OFFSET + PSX_SCRATCHPAD_PADDED_SIZE)) {
+				if (address.memory_segment() == MemorySegment::KSEG1) {
+
+					if constexpr (Except) {
+						LOG_ERROR("MEMORY", "[MEMORY] Writing scratchpad in KSEG1 at 0x{:x}\n",
 							address);
 						m_sys_status->exception = true;
 						m_sys_status->exception_number =
@@ -471,29 +453,53 @@ namespace psx {
 					return;
 				}
 
-				if constexpr (AddCycles)
-					m_curr_cycles += 1;
+				//if constexpr (AddCycles)
+				//	m_curr_cycles += 1;
 
 				*reinterpret_cast<Ty*>(m_guest_base + address) = value;
 				return;
 			}
 
-			if (lower >= memory::region_offsets::PSX_IO_OFFSET
-				&& lower < memory::region_offsets::PSX_IO_OFFSET +
-				memory::region_sizes::PSX_IO_SIZE) {
-				if (!memory::IO::LOCKED[address & (memory::region_sizes::PSX_IO_SIZE - 1)]) {
-					WriteIO<Ty, AddCycles>(address, value);
-				}
-				else {
-					if constexpr (Except) {
-						m_sys_status->exception = true;
-						m_sys_status->exception_number =
-							cpu::Excode::DBE;
-					}
-				}
-				
-				if constexpr (AddCycles)
-					m_curr_cycles += 1;
+			/*
+			Test access to expansion regions
+			and bios
+			*/
+
+			//auto compute_access_time = [this](RegionConfig const& reg) {
+			//	auto bus_width_byes = (u32)reg.delay_size.bus_width + 1;
+			//	auto seq_access_count = sizeof(Ty) / bus_width_byes - 1;
+			//
+			//	//Add first access
+			//	m_curr_cycles += reg.write_nonseq;
+			//
+			//	//Add as many seq. accesses as needed
+			//	m_curr_cycles += reg.write_seq * seq_access_count;
+			//};
+
+			if (m_exp2_enable && address.between_physical(m_exp2_config.base, m_exp2_config.end)) {
+				WriteEXP2(value, lower - m_exp2_config.base);
+				//if constexpr (AddCycles)
+				//	compute_access_time(m_exp2_config);
+				return;
+			}
+
+			if (address.between_physical(m_exp1_config.base, m_exp1_config.end)) {
+				WriteEXP1(value, lower - m_exp1_config.base);
+				//if constexpr (AddCycles)
+				//	compute_access_time(m_exp1_config);
+				return;
+			}
+
+			if (address.between_physical(m_exp3_config.base, m_exp3_config.end)) {
+				WriteEXP3(value, lower - m_exp3_config.base);
+				//if constexpr (AddCycles)
+				//	compute_access_time(m_exp3_config);
+				return;
+			}
+
+			if (address.between_physical(m_bios_config.base, m_bios_config.end)) {
+				//if constexpr (AddCycles)
+				//	compute_access_time(m_bios_config);
 				return;
 			}
 
