@@ -167,6 +167,7 @@
     <ClInclude Include="include\psxemu\DmaBase.hpp" />
     <ClInclude Include="include\psxemu\DmaCommon.hpp" />
     <ClInclude Include="include\psxemu\DmaController.hpp" />
+    <ClInclude Include="include\psxemu\formats\GenericSaveFile.hpp" />
     <ClInclude Include="include\psxemu\formats\SystemCnf.hpp" />
     <ClInclude Include="include\psxemu\GPU.hpp" />
     <ClInclude Include="include\psxemu\GPUCommands.hpp" />
@@ -268,6 +269,7 @@
     <ClCompile Include="source\psxemu\DmaController.cpp" />
     <ClCompile Include="source\psxemu\DrawCalls.cpp" />
     <ClCompile Include="source\psxemu\DriveCommands.cpp" />
+    <ClCompile Include="source\psxemu\formats\GenericSaveFile.cpp" />
     <ClCompile Include="source\psxemu\formats\SystemCnf.cpp" />
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />

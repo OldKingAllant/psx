@@ -408,6 +408,9 @@
     <ClInclude Include="include\psxemu\MCDescriptors.hpp">
       <Filter>Header Files\bios\hlefs</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\formats\GenericSaveFile.hpp">
+      <Filter>Header Files\bios\hlefs\formats</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -619,6 +622,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\MCFilesystem.cpp">
       <Filter>Resource Files\bios\hlefs</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\formats\GenericSaveFile.cpp">
+      <Filter>Resource Files\bios\hlefs\formats</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

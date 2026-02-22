@@ -27,6 +27,7 @@ namespace psx::kernel {
 			m_card_slot);
 
 		m_last_update_seq_number = seq_number;
+		m_files.clear();
 		TraverseFilesystem();
 	}
 
@@ -181,6 +182,9 @@ namespace psx::kernel {
 		UpdateTree();
 		//There are no directories, so there is only
 		//a single level of depth
+		std::transform(path.cbegin(), path.cend(),
+			path.begin(), std::toupper);
+
 		for (auto const& entry : m_files) {
 			auto entry_name = entry->mc_data.fname;
 
@@ -279,5 +283,47 @@ namespace psx::kernel {
 		}
 
 		return file_data;
+	}
+
+	bool MCFs::IsEntryValid(std::shared_ptr<HLEFsEntry> entry) const
+	{
+		u32 file_seq_update = entry->mc_data.mc_version;
+		return file_seq_update == m_mc->GetUpdateSequenceNumber();
+	}
+
+	void MCFs::WriteReplacementData() {
+		for (u32 curr_broken_frame_index = 0; curr_broken_frame_index < BROKEN_FRAME_LIST_LEN; curr_broken_frame_index++) {
+			u32 curr_list_pos = BROKEN_FRAME_LIST_START + curr_broken_frame_index;
+			auto broken_frame_list_entry = m_mc->ReadFrame(curr_list_pos).value();
+			MCBrokenFrameDescriptor desc{};
+			std::copy_n(broken_frame_list_entry.data(), sizeof(MCBrokenFrameDescriptor),
+				std::bit_cast<u8*>(&desc));
+			if (desc.broken_frame_number == INVALID_FRAME_PTR) {
+				continue;
+			}
+
+			u32 broken_frame_replace_index = FRAME_REPLACEMENT_START + curr_broken_frame_index;
+			auto replace_data = m_mc->ReadFrame(broken_frame_replace_index).value();
+
+			if (!m_mc->WriteFrame(desc.broken_frame_number, replace_data)) {
+				LOG_ERROR("KERNEL", "[KERNELFS] Could not replace sector {:#x} of MC in slot {}",
+					desc.broken_frame_number, m_card_slot);
+				continue;
+			}
+			
+			//Writeback
+			desc.broken_frame_number = INVALID_FRAME_PTR;
+			std::copy_n(std::bit_cast<const u8*>(&desc), sizeof(MCBrokenFrameDescriptor),
+				broken_frame_list_entry.data());
+
+			if (!m_mc->WriteFrame(curr_list_pos, broken_frame_list_entry)) {
+				LOG_ERROR("KERNEL", "[KERNELFS] Could not confirm replacement of sector {:#x} of MC in slot {}",
+					desc.broken_frame_number, m_card_slot);
+				continue;
+			}
+
+			LOG_INFO("KERNEL", "[KERNELFS] Replaced sector {:#x} of MC in slot {}",
+				desc.broken_frame_number, m_card_slot);
+		}
 	}
 }

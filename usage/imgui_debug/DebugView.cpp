@@ -12,10 +12,13 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 
+#include <GL/glew.h>
+
 DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sys) 
 	: m_win{ win }, m_psx{ sys }, m_gl_ctx{ nullptr }, 
 	m_first_frame{ true }, m_enabled_opts{}, 
-	m_except_init{ false }, m_except_init_hook{ 0xFFFFF } {
+	m_except_init{ false }, m_except_init_hook{ 0xFFFFF },
+	m_tracked_mc_files{} {
 	m_gl_ctx = m_win->GetGlContext();
 
 	ImGui::CreateContext();
@@ -47,6 +50,14 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 }
 
 DebugView::~DebugView() {
+	for (auto& [_, file_tex] : m_tracked_mc_files[0]) {
+		FreeTexture(file_tex.second);
+	}
+
+	for (auto& [_, file_tex] : m_tracked_mc_files[1]) {
+		FreeTexture(file_tex.second);
+	}
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext();
@@ -68,6 +79,8 @@ void DebugView::Update() {
 	KernelWindow();
 	DriveWindow();
 	MdecWindow();
+	MemcardWindow(m_psx->GetKernel().GetMC0Fs(), 0);
+	MemcardWindow(m_psx->GetKernel().GetMC1Fs(), 1);
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -1441,6 +1454,68 @@ void DebugView::MdecWindow() {
 	ImGui::End();
 }
 
+void DebugView::MemcardWindow(psx::kernel::MCFs& mcfs, psx::u32 slot) {
+	if (slot > 1) {
+		return;
+	}
+
+	auto const& mc = mcfs.GetMc();
+	if (!mc) {
+		return;
+	}
+
+	if (!mc->IsConnected()) {
+		return;
+	}
+
+	auto win_name = fmt::format("MC {}", slot);
+	if (!ImGui::Begin(win_name.c_str())) {
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Card path: %s", mc->GetMcPath().value().c_str());
+	ImGui::Text("Card type: %s", mc->GetType().c_str());
+
+	std::vector<std::string> files_to_remove{};
+	for (auto& [_, file_texture_pair] : m_tracked_mc_files[slot]) {
+		if (!file_texture_pair.first.TryUpdateHandle()) {
+			files_to_remove.push_back(file_texture_pair.first.GetSavedName());
+		}
+	}
+
+	for (auto const& filename : files_to_remove) {
+		{
+			psx::u32 texture_handle = m_tracked_mc_files[slot][filename].second;
+			FreeTexture(texture_handle);
+		}
+		m_tracked_mc_files[slot].erase(filename);
+	}
+
+	auto const& file_list = mcfs.GetFileList();
+	for (psx::u32 index = 0; auto const& entry : file_list) {
+		if (!m_tracked_mc_files[slot].contains(entry->mc_data.fname)) {
+			auto save_handle = psx::kernel::GenericSaveFile::CreateSavefileHandle(entry->mc_data.fname, &mcfs).value();
+			m_tracked_mc_files[slot][entry->mc_data.fname] = std::pair{
+				save_handle,
+				CreateTextureFromIcon(save_handle.GetIconFrames()[0]).value()
+			};
+		}
+
+		auto header_title = fmt::format("File {} with name {}",
+			index, entry->mc_data.fname);
+		if (ImGui::CollapsingHeader(header_title.c_str())) {
+			ImGui::Text("File name: %s", entry->mc_data.fname.c_str());
+			ImGui::Text("Title    : %s", m_tracked_mc_files[slot][entry->mc_data.fname].first.GetTitle().c_str());
+			ImGui::Text("First icon:");
+			ImGui::Image((void*)m_tracked_mc_files[slot][entry->mc_data.fname].second, ImVec2(80, 80));
+		}
+		index++;
+	}
+
+	ImGui::End();
+}
+
 static void ShowTestCommand(psx::DriveCommand const* cmd) {
 	const auto yellow = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 
@@ -1470,4 +1545,27 @@ void DebugView::ShowDriveCommand(psx::DriveCommand const* cmd) {
 	default:
 		break;
 	}
+}
+
+std::optional<psx::u32> DebugView::CreateTextureFromIcon(std::vector<psx::u32> icon_data) {
+	GLuint tex_handle{};
+	glGenTextures(1, &tex_handle);
+	glBindTexture(GL_TEXTURE_2D, tex_handle);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 16, 16, 0, GL_BGRA,
+		GL_UNSIGNED_INT_8_8_8_8, std::bit_cast<const void*>(icon_data.data()));
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return (psx::u32)tex_handle;
+}
+
+void DebugView::FreeTexture(psx::u32 handle) {
+	glDeleteTextures(1, std::bit_cast<const GLuint*>(&handle));
 }

@@ -17,6 +17,7 @@ namespace psx::kernel {
 		FORCE_INLINE void SetMemoryCard(std::shared_ptr<AbstractMemcard> new_card, u32 slot) {
 			m_card_slot = slot;
 			m_mc.swap(new_card);
+			WriteReplacementData();
 			TraverseFilesystem();
 		}
 
@@ -27,6 +28,20 @@ namespace psx::kernel {
 
 		std::optional<std::vector<u8>> ReadFileFromEntry(std::shared_ptr<HLEFsEntry> entry);
 		std::optional<std::vector<u8>> ReadFileFromEntry(std::shared_ptr<HLEFsEntry> entry, u32 off, u32 len);
+
+		bool IsEntryValid(std::shared_ptr<HLEFsEntry> entry) const;
+
+		FORCE_INLINE std::shared_ptr<AbstractMemcard> const& GetMc() const {
+			return m_mc;
+		}
+
+		FORCE_INLINE auto const& GetFileList() {
+			UpdateTree();
+			return m_files;
+		}
+
+	private :
+		void WriteReplacementData();
 
 	private :
 		std::shared_ptr<AbstractMemcard> m_mc;

@@ -21,6 +21,19 @@ namespace psx {
 		}
 
 		std::optional<std::vector<u8>> ReadFrame(u32 frame_num) const override;
+		bool WriteFrame(u32 frame_num, std::vector<u8> const& data) override;
+
+		bool IsConnected() const override {
+			return m_path.has_value();
+		}
+
+		std::optional<std::string> GetMcPath() const override {
+			return m_path;
+		}
+
+		virtual std::string GetType() const override {
+			return "OFFICIAL";
+		}
 
 		~OfficialMemcard() override;
 
@@ -89,6 +102,7 @@ namespace psx {
 		u8 ComputeTempSectorChecksum(u32 sector_num);
 
 	private :
+		std::optional<std::string> m_path;
 		CurrState m_state;
 		FlagByte m_flag;
 		ReadStatus m_rd_status;

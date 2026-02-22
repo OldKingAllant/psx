@@ -11,6 +11,7 @@
 
 namespace psx {
 	OfficialMemcard::OfficialMemcard() :
+		m_path{std::nullopt},
 		m_state{CurrState::IDLE},
 		m_flag{FlagByte::NONE},
 		m_rd_status{ReadStatus::ID},
@@ -73,8 +74,9 @@ namespace psx {
 
 		auto temp_buf = std::make_unique<char[]>(MEMCARD_SIZE);
 		m_mc_buffer.swap(temp_buf);
-
 		file.read(m_mc_buffer.get(), MEMCARD_SIZE);
+
+		m_path = path;
 
 		return true; 
 	}
@@ -91,6 +93,20 @@ namespace psx {
 			data.data());
 
 		return data;
+	}
+
+	bool OfficialMemcard::WriteFrame(u32 frame_num, std::vector<u8> const& data) {
+		if (data.size() != SECTOR_SIZE) {
+			return false;
+		}
+		if (frame_num > MAX_SECTOR) {
+			return false;
+		}
+
+		std::copy_n(data.data(), SECTOR_SIZE, m_mc_buffer.get() + (frame_num * SECTOR_SIZE));
+		m_update_seq_number += 1;
+		
+		return true;
 	}
 
 	OfficialMemcard::~OfficialMemcard() {}

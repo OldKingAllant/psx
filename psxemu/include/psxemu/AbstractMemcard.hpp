@@ -25,6 +25,14 @@ namespace psx {
 		virtual u32 GetUpdateSequenceNumber() const = 0;
 
 		virtual std::optional<std::vector<u8>> ReadFrame(u32 frame_num) const = 0;
+		virtual bool WriteFrame(u32 frame_num, std::vector<u8> const& data) = 0;
+
+		virtual bool IsConnected() const = 0;
+		virtual std::optional<std::string> GetMcPath() const = 0;
+
+		virtual std::string GetType() const {
+			return "NULL";
+		}
 
 		virtual ~AbstractMemcard() {}
 	};

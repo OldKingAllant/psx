@@ -10,6 +10,7 @@
 #include <psxemu/include/psxemu/OfficialMemcard.hpp>
 
 #include <psxemu/include/psxemu/formats/SystemCnf.hpp>
+#include <psxemu/include/psxemu/formats/GenericSaveFile.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
@@ -317,6 +318,8 @@ namespace psx {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
 				.GetDevice1())->ConnectCard(memcard);
 			m_kernel.GetMC0Fs().SetMemoryCard(memcard, 0);
+			//BESLES-01734G00sr@GA
+			//auto savefile = kernel::GenericSaveFile::CreateSavefileHandle("BESLES-01734G00sr@GA", m_kernel.GetMC0Fs());
 		}
 		else {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()

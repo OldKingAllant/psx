@@ -60,6 +60,11 @@ namespace psx::kernel {
 	};
 #pragma pack(pop)
 
+	static constexpr u32 BROKEN_FRAME_LIST_START = 16;
+	static constexpr u32 FRAME_REPLACEMENT_START = 36;
+
+	static constexpr u32 BROKEN_FRAME_LIST_LEN = 20;
+
 	enum class MCIconDisplayFlag : u8 {
 		SINGLE_FRAME = 0x11,
 		TWO_FRAMES = 0x12,

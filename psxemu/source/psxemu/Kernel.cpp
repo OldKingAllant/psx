@@ -182,7 +182,6 @@ namespace psx::kernel {
 		return true;
 	}
 
-#pragma optimize("", off)
 	std::optional<std::string> Kernel::DecodeShiftJIS(std::span<char> data) {
 		if (data.size() & 1) {
 			LOG_ERROR("KERNEL", "[KERNEL] Cannot decode shift-jis string with odd length");
@@ -299,5 +298,4 @@ namespace psx::kernel {
 
 		return decoded;
 	}
-#pragma optimize("", on)
 }
