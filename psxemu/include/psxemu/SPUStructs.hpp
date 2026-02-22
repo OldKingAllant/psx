@@ -87,8 +87,10 @@ namespace psx {
 		};
 #pragma pack(pop)
 
-		u16 lower;
-		u16 upper;
+		struct {
+			u16 lower;
+			u16 upper;
+		};
 		
 		u32 reg;
 	};

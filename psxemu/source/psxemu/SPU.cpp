@@ -45,6 +45,23 @@ namespace psx {
 		case SPU_REGS::SPU_CNT:
 			return m_regs.m_cnt.reg;
 			break;
+		case SPU_REGS::SOUND_RAM_TRANSFER_CONTROL:
+			return m_regs.m_transfer_control.reg;
+			break;
+		//These registers are write-only, but the PSX bios
+		//reads from them
+		case SPU_REGS::KEY_ON:
+			return 0;
+			break;
+		case SPU_REGS::KEY_ON + 2:
+			return 0;
+			break;
+		case SPU_REGS::KEY_OFF:
+			return 0;
+			break;
+		case SPU_REGS::KEY_OFF + 2:
+			return 0;
+			break;
 		default:
 			LOG_ERROR("SPU", "[SPU] Read invalid/unimplemented register: {:#x}", address);
 			//LOG_FLUSH();
@@ -152,6 +169,12 @@ namespace psx {
 		case SPU_REGS::KEY_OFF + 2:
 			LOG_DEBUG("SPU", "[SPU] KEY OFF HI {:08b}", u8(value));
 			break;
+		case SPU_REGS::KEY_ON:
+			LOG_DEBUG("SPU", "[SPU] KEY ON LO {:016b}", value);
+			break;
+		case SPU_REGS::KEY_ON + 2:
+			LOG_DEBUG("SPU", "[SPU] KEY ON HI {:08b}", u8(value));
+			break;
 		case SPU_REGS::PMON:
 			m_regs.m_pmon.m_reg = value;
 			break;
@@ -211,6 +234,138 @@ namespace psx {
 			}
 			m_fifo.queue(value);
 			break;
+		case SPU_REGS::REVERB_MBASE:
+			m_regs.m_reverb.work_area_start = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB MBASE {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_OFFSET_1:
+			m_regs.m_reverb.apf_off_1 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF OFFSET 1 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_OFFSET_2:
+			m_regs.m_reverb.apf_off_2 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF OFFSET 2 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_REFLECTION_VOLUME_1:
+			m_regs.m_reverb.refl_vol_1 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB REFL. VOLUME 1 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_VOLUME_1:
+			m_regs.m_reverb.comb_vol_1 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB VOLUME 1 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_VOLUME_2:
+			m_regs.m_reverb.comb_vol_2 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB VOLUME 2 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_VOLUME_3:
+			m_regs.m_reverb.comb_vol_3 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB VOLUME 3 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_VOLUME_4:
+			m_regs.m_reverb.comb_vol_4 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB VOLUME 4 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_REFLECTION_VOLUME_2:
+			m_regs.m_reverb.refl_vol_2 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB REFL. VOLUME 2 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_VOLUME_1:
+			m_regs.m_reverb.apf_vol_1 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF VOLUME 1 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_VOLUME_2:
+			m_regs.m_reverb.apf_vol_2 = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF VOLUME 2 {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_SAME_SIDE_REFL_ADDRESS_1_LEFT:
+			m_regs.m_reverb.same_side_refl_add_1_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB SAME SIDE REFL. ADDRESS 1 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_SAME_SIDE_REFL_ADDRESS_1_RIGHT:
+			m_regs.m_reverb.same_side_refl_add_1_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB SAME SIDE REFL. ADDRESS 1 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_1_LEFT:
+			m_regs.m_reverb.comb_add_1_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 1 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_1_RIGHT:
+			m_regs.m_reverb.comb_add_1_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 1 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_2_LEFT:
+			m_regs.m_reverb.comb_add_2_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 2 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_2_RIGHT:
+			m_regs.m_reverb.comb_add_2_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 2 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_SAME_SIDE_REFL_ADDRESS_2_LEFT:
+			m_regs.m_reverb.same_side_refl_add_2_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB SAME SIDE REFL. ADDRESS 2 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_SAME_SIDE_REFL_ADDRESS_2_RIGHT:
+			m_regs.m_reverb.same_side_refl_add_2_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB SAME SIDE REFL. ADDRESS 2 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_DIFFERENT_SIDE_REFL_ADDRESS_1_LEFT:
+			m_regs.m_reverb.diff_side_refl_add_1_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB DIFFERENT SIDE REFL. ADDRESS 1 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_DIFFERENT_SIDE_REFL_ADDRESS_1_RIGHT:
+			m_regs.m_reverb.diff_side_refl_add_1_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB DIFFERENT SIDE REFL. ADDRESS 1 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_3_LEFT:
+			m_regs.m_reverb.comb_add_3_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 3 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_3_RIGHT:
+			m_regs.m_reverb.comb_add_3_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 3 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_4_LEFT:
+			m_regs.m_reverb.comb_add_4_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 4 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_COMB_ADDRESS_4_RIGHT:
+			m_regs.m_reverb.comb_add_4_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB COMB ADDRESS 3 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_DIFFERENT_SIDE_REFL_ADDRESS_2_LEFT:
+			m_regs.m_reverb.diff_side_refl_add_2_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB DIFFERENT SIDE REFL. ADDRESS 2 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_DIFFERENT_SIDE_REFL_ADDRESS_2_RIGHT:
+			m_regs.m_reverb.diff_side_refl_add_2_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB DIFFERENT SIDE REFL. ADDRESS 2 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_ADDRESS_1_LEFT:
+			m_regs.m_reverb.apf_add_1_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF ADDRESS 1 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_ADDRESS_1_RIGHT:
+			m_regs.m_reverb.apf_add_1_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF ADDRESS 1 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_ADDRESS_2_LEFT:
+			m_regs.m_reverb.apf_add_2_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF ADDRESS 2 LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_APF_ADDRESS_2_RIGHT:
+			m_regs.m_reverb.apf_add_2_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB APF ADDRESS 2 RIGHT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_INPUT_VOL_LEFT:
+			m_regs.m_reverb.input_vol_left = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB INPUT VOLUME LEFT {:04x}", value);
+			break;
+		case SPU_REGS::REVERB_INPUT_VOL_RIGHT:
+			m_regs.m_reverb.input_vol_right = value;
+			LOG_DEBUG("SPU", "[SPU] REVERB INPUT VOLUME RIGHT {:04x}", value);
+			break;
 		default:
 			if (address >= SPU_REGS::VOICE_REGS_START && address <= SPU_REGS::VOICE_REGS_END) {
 				u16 address_temp = address - SPU_REGS::VOICE_REGS_START;
@@ -225,7 +380,33 @@ namespace psx {
 					m_voices[voice_id].SetVolLeft(vol);
 					return;
 				} break;
+				case SPU_REGS::VOICE_REG_VOL_RIGHT: {
+					SPU_VoiceVolume vol{};
+					vol.set_u16(value);
+					m_voices[voice_id].SetVolRight(vol);
+					return;
+				} break;
+				case SPU_REGS::VOICE_REG_PITCH: {
+					m_voices[voice_id].SetPitch(value);
+					return;
+				} break;
+				case SPU_REGS::VOICE_REG_ADSR_LOW: {
+					m_voices[voice_id].SetADSRLow(value);
+					return;
+				} break;
+				case SPU_REGS::VOICE_REG_ADSR_HIGH: {
+					m_voices[voice_id].SetADSRHigh(value);
+					return;
+				} break;
+				case SPU_REGS::VOICE_REG_START_ADDRESS: {
+					m_voices[voice_id].SetStartAddress(value);
+					return;
+				} break;
 				default:
+					LOG_ERROR("SPU", "[SPU] Write unimplemented voice {} register: {:#x}", 
+						voice_id,
+						reg_id);
+					return;
 					break;
 				}
 			}
@@ -319,6 +500,8 @@ namespace psx {
 
 	void SPU::FifoTransferComplete() {
 		m_fifo_transfer_event = INVALID_EVENT;
+		LOG_DEBUG("SPU", "[SPU] SOUND RAM TRANSFER FROM ADDRESS {:#08x}",
+			m_curr_ram_transfer_address);
 		WriteSoundRam(&m_fifo.peek(), m_fifo.len());
 		m_fifo.clear();
 	}

@@ -16,6 +16,16 @@ namespace psx {
 		inline void SetSPU(SPU* spu) { m_spu = spu; }
 
 		void SetVolLeft(SPU_VoiceVolume vol);
+		void SetVolRight(SPU_VoiceVolume vol);
+		void SetPitch(u16 pitch);
+
+		void SetADSRLow(u16 low);
+		void SetADSRHigh(u16 high);
+
+		void SetStartAddress(u16 start);
+
+		static constexpr u16 PITCH_MAX_VALUE = 0x4000;
+
 
 	private :
 		u8 m_voice_id;
