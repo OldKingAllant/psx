@@ -58,6 +58,7 @@ namespace psx {
 		constexpr static u32 EXT_INPUT_VOL_RIGHT = 0xDB6;
 		constexpr static u32 SOUND_RAM_TRANSFER_CONTROL = 0xDAC;
 		constexpr static u32 SOUND_RAM_TRANSFER_ADDRESS = 0xDA6;
+		constexpr static u32 SOUND_RAM_IRQ_ADDRESS = 0xDA4;
 		constexpr static u32 SOUND_RAM_TRANSFER_FIFO = 0xDA8;
 		constexpr static u32 VOICE_REGS_START = 0xC00;
 		constexpr static u32 VOICE_REGS_END = 0xD7F;
@@ -68,5 +69,7 @@ namespace psx {
 		constexpr static u32 VOICE_REG_START_ADDRESS = 0x06;
 		constexpr static u32 VOICE_REG_ADSR_LOW = 0x08;
 		constexpr static u32 VOICE_REG_ADSR_HIGH = 0x0A;
+		constexpr static u32 VOICE_REG_REPEAT_ADDRESS = 0x0E;
+		constexpr static u32 VOICE_REG_CURR_ADSR_VOLUME = 0x0C;
 	}
 }

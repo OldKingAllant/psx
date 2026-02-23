@@ -11,9 +11,16 @@ namespace psx {
 		m_spu{nullptr},
 		m_config{},
 		m_curr_volume_left{},
-		m_next_volume_left{},
 		m_curr_volume_right{},
-		m_next_volume_right{}
+		m_next_volume_left{},
+		m_next_volume_right{},
+		m_curr_adsr_level{},
+		m_adsr_step{},
+		m_counter_increment{},
+		m_is_noise{false},
+		m_enable_modulation{false},
+		m_curr_adsr_phase{AdsrPhase::NONE},
+		m_is_on{false}
 	{
 	}
 
@@ -96,6 +103,52 @@ namespace psx {
 	void SPUVoice::SetStartAddress(u16 start) {
 		m_config.m_adpcm_start_address = start;
 		LOG_DEBUG("SPU", "[SPU] SET VOICE {} START ADDRESS: {:#08x}", m_voice_id, u32(start << 3));
+	}
+
+	void SPUVoice::SetRepeatAddress(u16 repeat) {
+		m_config.m_repeat_address = repeat;
+		LOG_DEBUG("SPU", "[SPU] SET VOICE {} REPEAT ADDRESS: {:#08x}", m_voice_id, u32(repeat << 3));
+	}
+
+	void SPUVoice::KeyOn() {
+		m_config.m_repeat_address = m_config.m_adpcm_start_address;
+		m_curr_adsr_level = 0;
+		BeginAdsrPhase(AdsrPhase::ATTACK);
+		m_is_on = true;
+	}
+
+	void SPUVoice::KeyOff() {
+		BeginAdsrPhase(AdsrPhase::RELEASE);
+	}
+
+	void SPUVoice::SetNoiseEnable(bool enable_noise) {
+		m_is_noise = enable_noise;
+	}
+
+	void SPUVoice::SetPitchModulation(bool enable_modulation) {
+		m_enable_modulation = enable_modulation;
+	}
+
+	void SPUVoice::BeginAdsrPhase(AdsrPhase phase) {
+		auto step_value = i16(m_config.m_adsr.attack_step);
+		switch (phase)
+		{
+		case psx::SPUVoice::AdsrPhase::NONE:
+			return;
+		case psx::SPUVoice::AdsrPhase::ATTACK:
+			step_value = m_config.m_adsr.attack_step;
+			break;
+		case psx::SPUVoice::AdsrPhase::SUSTAIN:
+			step_value = m_config.m_adsr.sustain_step;
+			break;
+		case psx::SPUVoice::AdsrPhase::RELEASE:
+			step_value = RELEASE_STEP;
+			break;
+		}
+		m_curr_adsr_phase = phase;
+		m_adsr_step = 7 - step_value;
+
+		
 	}
 #pragma optimize("", on)
 }

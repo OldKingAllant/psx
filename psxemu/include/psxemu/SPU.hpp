@@ -36,12 +36,18 @@ namespace psx {
 		static constexpr inline u64 CYCLES_PER_SAMPLE = SYSTEM_CLOCK / SAMPLE_FREQUENCY;
 
 		friend void fifo_transfer_callback(void*, u64);
+		friend void sample_callback(void*, u64);
 
 		~SPU();
+
+		friend class SPUVoice;
 
 	private :
 		void UpdateStat();
 		void FifoTransferComplete();
+		void SampleCycle(u64 cycles_late);
+
+		void CheckRamIRQ(u32 ram_address);
 
 	private :
 		system_status* m_sys_status;
@@ -68,6 +74,7 @@ namespace psx {
 			SPU_SoundRamTransferControl m_transfer_control;
 
 			u16 m_ram_transfer_address;
+			u16 m_irq_address;
 		} m_regs;
 
 		u32 m_curr_ram_transfer_address;
@@ -76,5 +83,7 @@ namespace psx {
 		u64 m_fifo_transfer_event;
 
 		std::unique_ptr<SPUVoice[]> m_voices;
+
+		bool m_irq_happened;
 	};
 }

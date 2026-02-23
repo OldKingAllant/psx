@@ -1,17 +1,18 @@
 #include <psxemu/include/psxemu/SPU.hpp>
 #include <psxemu/include/psxemu/SPURegisters.hpp>
 #include <psxemu/include/psxemu/SPUVoice.hpp>
-
 #include <psxemu/include/psxemu/SystemStatus.hpp>
-
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
+#include <psxemu/include/psxemu/Interrupts.hpp>
 
 #include <common/Errors.hpp>
 
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
 
 namespace psx {
+	void sample_callback(void*, u64);
+
 	SPU::SPU(system_status* sys_status) :
 		m_sys_status{ sys_status }, 
 		m_regs{},
@@ -19,7 +20,7 @@ namespace psx {
 		m_fifo{},
 		m_sound_ram{},
 		m_fifo_transfer_event{INVALID_EVENT},
-		m_voices{} {
+		m_voices{}, m_irq_happened{} {
 		m_sound_ram.resize(RAM_SIZE);
 
 		m_voices = std::make_unique<SPUVoice[]>(NUM_VOICES);
@@ -27,6 +28,9 @@ namespace psx {
 			m_voices[id].SetId(u8(id));
 			m_voices[id].SetSPU(this);
 		}
+
+		(void)m_sys_status->scheduler.Schedule(CYCLES_PER_SAMPLE, sample_callback,
+			std::bit_cast<void*>(this));
 	}
 
 	void fifo_transfer_callback(void*, u64);
@@ -63,6 +67,23 @@ namespace psx {
 			return 0;
 			break;
 		default:
+			if (address >= SPU_REGS::VOICE_REGS_START && address <= SPU_REGS::VOICE_REGS_END) {
+				u16 address_temp = address - SPU_REGS::VOICE_REGS_START;
+				u16 voice_id = address_temp >> 4;
+				u16 reg_id = address_temp & 0xF;
+
+				switch (reg_id)
+				{
+				case SPU_REGS::VOICE_REG_CURR_ADSR_VOLUME:
+					return (u16)m_voices[voice_id].m_curr_adsr_level;
+				default:
+					LOG_ERROR("SPU", "[SPU] Write unimplemented voice {} register: {:#x}",
+						voice_id,
+						reg_id);
+					return 0;
+					break;
+				}
+			}
 			LOG_ERROR("SPU", "[SPU] Read invalid/unimplemented register: {:#x}", address);
 			//LOG_FLUSH();
 			//error::DebugBreak();
@@ -140,6 +161,10 @@ namespace psx {
 			LOG_DEBUG("SPU", "      CD Audio reverb   : {}", bool(m_regs.m_cnt.cd_audio_reverb));
 			LOG_DEBUG("SPU", "      Ext. audio enable : {}", bool(m_regs.m_cnt.ext_audio_en));
 			LOG_DEBUG("SPU", "      CD Audio enable   : {}", bool(m_regs.m_cnt.cd_audio_en));
+
+			if (!m_regs.m_cnt.enable) {
+				m_irq_happened = false;
+			}
 		
 			if (!m_regs.m_cnt.enable) {
 				return;
@@ -163,18 +188,38 @@ namespace psx {
 				break;
 			}
 			break;
-		case SPU_REGS::KEY_OFF:
+		case SPU_REGS::KEY_OFF: {
 			LOG_DEBUG("SPU", "[SPU] KEY OFF LO {:016b}", value);
-			break;
-		case SPU_REGS::KEY_OFF + 2:
+			for (u32 voice_index = 0; voice_index < 16; voice_index++) {
+				if (((value >> voice_index) & 1) != 0) {
+					m_voices[voice_index].KeyOff();
+				}
+			}
+		} break;
+		case SPU_REGS::KEY_OFF + 2: {
 			LOG_DEBUG("SPU", "[SPU] KEY OFF HI {:08b}", u8(value));
-			break;
-		case SPU_REGS::KEY_ON:
+			for (u32 voice_index = 0; voice_index < 8; voice_index++) {
+				if (((value >> voice_index) & 1) != 0) {
+					m_voices[16 + voice_index].KeyOff();
+				}
+			}
+		} break;
+		case SPU_REGS::KEY_ON: {
 			LOG_DEBUG("SPU", "[SPU] KEY ON LO {:016b}", value);
-			break;
-		case SPU_REGS::KEY_ON + 2:
+			for (u32 voice_index = 0; voice_index < 16; voice_index++) {
+				if (((value >> voice_index) & 1) != 0) {
+					m_voices[voice_index].KeyOn();
+				}
+			}
+		} break;
+		case SPU_REGS::KEY_ON + 2: {
 			LOG_DEBUG("SPU", "[SPU] KEY ON HI {:08b}", u8(value));
-			break;
+			for (u32 voice_index = 0; voice_index < 8; voice_index++) {
+				if (((value >> voice_index) & 1) != 0) {
+					m_voices[16 + voice_index].KeyOn();
+				}
+			}
+		} break;
 		case SPU_REGS::PMON:
 			m_regs.m_pmon.m_reg = value;
 			break;
@@ -234,17 +279,21 @@ namespace psx {
 			}
 			m_fifo.queue(value);
 			break;
+		case SPU_REGS::SOUND_RAM_IRQ_ADDRESS:
+			m_regs.m_irq_address = value;
+			LOG_DEBUG("SPU", "[SPU] SET IRQ ADDRESS {:#04x}", value);
+			break;
 		case SPU_REGS::REVERB_MBASE:
 			m_regs.m_reverb.work_area_start = value;
-			LOG_DEBUG("SPU", "[SPU] REVERB MBASE {:04x}", value);
+			LOG_DEBUG("SPU", "[SPU] REVERB MBASE {:#04x}", value);
 			break;
 		case SPU_REGS::REVERB_APF_OFFSET_1:
 			m_regs.m_reverb.apf_off_1 = value;
-			LOG_DEBUG("SPU", "[SPU] REVERB APF OFFSET 1 {:04x}", value);
+			LOG_DEBUG("SPU", "[SPU] REVERB APF OFFSET 1 {:#04x}", value);
 			break;
 		case SPU_REGS::REVERB_APF_OFFSET_2:
 			m_regs.m_reverb.apf_off_2 = value;
-			LOG_DEBUG("SPU", "[SPU] REVERB APF OFFSET 2 {:04x}", value);
+			LOG_DEBUG("SPU", "[SPU] REVERB APF OFFSET 2 {:#04x}", value);
 			break;
 		case SPU_REGS::REVERB_REFLECTION_VOLUME_1:
 			m_regs.m_reverb.refl_vol_1 = value;
@@ -402,6 +451,10 @@ namespace psx {
 					m_voices[voice_id].SetStartAddress(value);
 					return;
 				} break;
+				case SPU_REGS::VOICE_REG_REPEAT_ADDRESS: {
+					m_voices[voice_id].SetRepeatAddress(value);
+					return;
+				} break;
 				default:
 					LOG_ERROR("SPU", "[SPU] Write unimplemented voice {} register: {:#x}", 
 						voice_id,
@@ -432,6 +485,11 @@ namespace psx {
 
 		auto ram_ptr = std::bit_cast<u16*>(m_sound_ram.data() + m_curr_ram_transfer_address);
 
+		while (count--) {
+			CheckRamIRQ(m_curr_ram_transfer_address);
+			m_curr_ram_transfer_address += 2;
+		}
+
 		switch (m_regs.m_transfer_control.type)
 		{
 		case SoundRamTransferControlType::FILL_0:
@@ -439,18 +497,15 @@ namespace psx {
 		case SoundRamTransferControlType::FILL_6:
 		case SoundRamTransferControlType::FILL_7:
 			std::fill_n(ram_ptr, count, buf[count - 1]);
-			m_curr_ram_transfer_address += u32(count << 1);
 			break;
 		case SoundRamTransferControlType::NORMAL:
 			std::copy_n(buf, count, ram_ptr);
-			m_curr_ram_transfer_address += u32(count << 1);
 			break;
 		case SoundRamTransferControlType::REP2: {
 			for (u64 curr_pos = 0; curr_pos < count; curr_pos += 2) {
 				ram_ptr[curr_pos] = buf[curr_pos];
 				ram_ptr[curr_pos + 1] = buf[curr_pos];
 			}
-			m_curr_ram_transfer_address += u32((count + 1) & ~1) << 1;
 		} break;
 		case SoundRamTransferControlType::REP4: {
 			for (u64 curr_pos = 0; curr_pos < count; curr_pos += 4) {
@@ -459,19 +514,17 @@ namespace psx {
 				ram_ptr[curr_pos + 2] = buf[curr_pos];
 				ram_ptr[curr_pos + 3] = buf[curr_pos];
 			}
-			m_curr_ram_transfer_address += u32((count + 3) & ~3) << 1;
 		} break;
 		case SoundRamTransferControlType::REP8: {
 			for (u64 curr_pos = 7; curr_pos < count; curr_pos += 8) {
 				ram_ptr[curr_pos] = buf[curr_pos];
-				ram_ptr[curr_pos + 1] = buf[curr_pos];
-				ram_ptr[curr_pos + 2] = buf[curr_pos];
-				ram_ptr[curr_pos + 3] = buf[curr_pos];
-				ram_ptr[curr_pos + 4] = buf[curr_pos];
-				ram_ptr[curr_pos + 5] = buf[curr_pos];
-				ram_ptr[curr_pos + 6] = buf[curr_pos];
-				ram_ptr[curr_pos + 7] = buf[curr_pos];
-				m_curr_ram_transfer_address += 16;
+				ram_ptr[curr_pos - 1] = buf[curr_pos];
+				ram_ptr[curr_pos - 2] = buf[curr_pos];
+				ram_ptr[curr_pos - 3] = buf[curr_pos];
+				ram_ptr[curr_pos - 4] = buf[curr_pos];
+				ram_ptr[curr_pos - 5] = buf[curr_pos];
+				ram_ptr[curr_pos - 6] = buf[curr_pos];
+				ram_ptr[curr_pos - 7] = buf[curr_pos];
 			}
 		} break;
 		default:
@@ -485,6 +538,7 @@ namespace psx {
 
 	void SPU::UpdateStat() {
 		m_regs.m_stat.transfer_busy = m_fifo_transfer_event != INVALID_EVENT;
+		m_regs.m_stat.irq9_flag = m_irq_happened;
 
 		if (!m_regs.m_stat.transfer_busy) {
 			m_regs.m_stat.dma_read_req = m_regs.m_cnt.transer_mode == SoundRamTransferMode::DMA_READ;
@@ -506,9 +560,40 @@ namespace psx {
 		m_fifo.clear();
 	}
 
+	void SPU::SampleCycle(u64 cycles_late) {
+		for (u32 voice_index = 0; voice_index < 24; voice_index++) {
+			m_voices[voice_index].SetNoiseEnable(m_regs.m_noise_en.is_channel_noise(voice_index));
+		}
+
+		for (u32 voice_index = 0; voice_index < 24; voice_index++) {
+			m_voices[voice_index].SetPitchModulation(m_regs.m_pmon.is_channel_modulated(voice_index));
+		}
+
+		(void)m_sys_status->scheduler.Schedule(CYCLES_PER_SAMPLE, sample_callback,
+			std::bit_cast<void*>(this));
+	}
+
+	void SPU::CheckRamIRQ(u32 ram_address) {
+		if (!m_regs.m_cnt.enable) {
+			return;
+		}
+
+		if (!m_regs.m_cnt.irq9_enable) {
+			return;
+		}
+
+		if (ram_address == (m_regs.m_irq_address << 3)) {
+			m_irq_happened = true;
+			m_sys_status->Interrupt(u32(Interrupts::SPU));
+		}
+	}
+
 	void fifo_transfer_callback(void* spu, u64 cycles_late) {
 		std::bit_cast<SPU*>(spu)->FifoTransferComplete();
 	}
 
+	void sample_callback(void* spu, u64 cycles_late) {
+		std::bit_cast<SPU*>(spu)->SampleCycle(cycles_late);
+	}
 #pragma optimize("", on)
 }

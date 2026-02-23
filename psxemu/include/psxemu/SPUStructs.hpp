@@ -181,7 +181,10 @@ namespace psx {
 		u32 m_reg;
 
 		inline bool is_channel_modulated(u32 chan) const noexcept {
-			return ((m_reg >> (chan + 1)) & 1) != 0;
+			if (chan == 0) {
+				return false;
+			}
+			return ((m_reg >> chan) & 1) != 0;
 		}
 	};
 
@@ -191,6 +194,7 @@ namespace psx {
 		u16 m_sample_rate;
 		u16 m_adpcm_start_address;
 		SPU_VoiceADSR m_adsr;
+		u16 m_repeat_address;
 	};
 
 	/*
