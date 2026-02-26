@@ -411,6 +411,9 @@
     <ClInclude Include="include\psxemu\formats\GenericSaveFile.hpp">
       <Filter>Header Files\bios\hlefs\formats</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\ADPCM.hpp">
+      <Filter>Header Files\dev\spu</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -625,6 +628,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\formats\GenericSaveFile.cpp">
       <Filter>Resource Files\bios\hlefs\formats</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\ADPCM.cpp">
+      <Filter>Resource Files\dev\spu</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

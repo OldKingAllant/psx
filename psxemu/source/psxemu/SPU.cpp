@@ -75,7 +75,7 @@ namespace psx {
 				switch (reg_id)
 				{
 				case SPU_REGS::VOICE_REG_CURR_ADSR_VOLUME:
-					return (u16)m_voices[voice_id].m_curr_adsr_level;
+					return (u16)m_voices[voice_id].m_adsr_envelope.level;
 				default:
 					LOG_ERROR("SPU", "[SPU] Write unimplemented voice {} register: {:#x}",
 						voice_id,

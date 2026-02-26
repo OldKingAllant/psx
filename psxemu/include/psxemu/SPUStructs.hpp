@@ -168,13 +168,15 @@ namespace psx {
 	enum SPU_ADPCM_BlockFlags : u8 {
 		LOOP_END = 1,
 		LOOP_REPEAT = 2,
-		LOOP_START = 3
+		LOOP_START = 4
 	};
 
 	struct SPU_ADPCM_Block {
+#pragma pack(push, 1)
 		SPU_XA_ADPCM_Header  header;
 		SPU_ADPCM_BlockFlags flags;
 		u8 compressed_samples[14];
+#pragma pack(pop)
 	};
 
 	struct SPU_VoicePitchModulation {

@@ -3,7 +3,7 @@
 #include <common/Defs.hpp>
 #include <psxemu/include/psxemu/SPUStructs.hpp>
 
-#include <optional>
+#include <array>
 
 namespace psx {
 	class SPU;
@@ -30,39 +30,105 @@ namespace psx {
 		void SetNoiseEnable(bool enable_noise);
 		void SetPitchModulation(bool enable_modulation);
 
+		i16 Step();
+
 		static constexpr u16 PITCH_MAX_VALUE = 0x4000;
 		static constexpr i16 RELEASE_STEP = -8;
+		static constexpr i32 MIN_VOLUME = -0x8000;
+		static constexpr i32 MAX_VOLUME = 0x7FFF;
 
 		friend class SPU;
 
 		enum class AdsrPhase {
 			NONE,
 			ATTACK,
+			DECAY,
 			SUSTAIN,
 			RELEASE
 		};
 
+		struct VolumeEnvelope {
+			bool exponential;
+			bool increase;
+			u8 shift;
+			u8 step;
+			bool phase_negative;
+
+			i32 calc_step;
+			i32 counter_increment;
+			i32 counter;
+
+			i16 level;
+
+			void Reset(bool _exponential, bool _increase, 
+				u8 _shift, u8 _step, bool _phase_negative);
+
+			bool Step();
+		};
+
+		struct VolumeSweep {
+			VolumeEnvelope envelope;
+			bool enabled;
+			i16 level;
+
+			void Reset(SPU_VoiceVolume vol);
+			void Step();
+		};
+
+		struct PitchCounter {
+			u16 counter;
+
+			u8 sample_index() const {
+				return (counter >> 12) & 0xF;
+			}
+
+			u8 gauss_index() const {
+				return (counter >> 4) & 0xFF;
+			}
+		};
+
+		struct Noise {
+			bool cycle_odd;
+			i32 timer;
+			i16 noise_level;
+		};
+
 	private :
-		void BeginAdsrPhase(AdsrPhase phase);
+		AdsrPhase GetNextAdsrPhase();
+		void ResetAdsrPhase();
+		void StartAdsrPhase(AdsrPhase phase);
+		void StepAdsr();
+
+		void CalculatePitch();
+		void CalculateNoise();
+
+		void ReadNextBlock();
 
 	private :
 		u8 m_voice_id;
 		SPU* m_spu;
 		SPU_Voice m_config;
+		
+		VolumeEnvelope m_adsr_envelope;
+		i16 m_adsr_target;
 
-		i16 m_curr_volume_left;
-		i16 m_curr_volume_right;
-		std::optional<i16> m_next_volume_left;
-		std::optional<i16> m_next_volume_right;
-		i16 m_curr_adsr_level;
-		i32 m_adsr_step;
-		i32 m_counter_increment;
+		VolumeSweep m_sweep_left;
+		VolumeSweep m_sweep_right;
 
 		bool m_is_noise;
 		bool m_enable_modulation;
 
-		AdsrPhase m_curr_adsr_phase;
-
 		bool m_is_on;
+
+		AdsrPhase m_curr_adsr_phase;
+		PitchCounter m_pitch_counter;
+		Noise m_noise;
+
+		std::array<i16, 2> m_old_decode_samples;
+		std::array<i16, 3> m_old_out_samples;
+		
+		SPU_ADPCM_Block m_curr_block;
+		std::array<i16, 28> m_decoded_block;
+		bool m_has_block;
 	};
 }

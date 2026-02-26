@@ -152,6 +152,7 @@
     <ClInclude Include="..\common\Stack.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
     <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
+    <ClInclude Include="include\psxemu\ADPCM.hpp" />
     <ClInclude Include="include\psxemu\BiosHash.hpp" />
     <ClInclude Include="include\psxemu\CDDrive.hpp" />
     <ClInclude Include="include\psxemu\CDDriveStructs.hpp" />
@@ -257,6 +258,7 @@
     <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="renderer\WindowManager.cpp" />
     <ClCompile Include="source\MIPS1.cpp" />
+    <ClCompile Include="source\psxemu\ADPCM.cpp" />
     <ClCompile Include="source\psxemu\BiosHash.cpp" />
     <ClCompile Include="source\psxemu\CDDrive.cpp" />
     <ClCompile Include="source\psxemu\CDFilesystem.cpp" />
