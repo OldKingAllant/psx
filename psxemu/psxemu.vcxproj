@@ -299,6 +299,7 @@
     <ClCompile Include="source\psxemu\OfficialMemcard.cpp" />
     <ClCompile Include="source\psxemu\OTDma.cpp" />
     <ClCompile Include="source\psxemu\psxexe.cpp" />
+    <ClCompile Include="source\psxemu\Reverb.cpp" />
     <ClCompile Include="source\psxemu\RootCounters.cpp" />
     <ClCompile Include="source\psxemu\Scheduler.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />

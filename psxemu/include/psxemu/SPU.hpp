@@ -30,10 +30,14 @@ namespace psx {
 		friend class DebugView;
 
 		static constexpr inline u64 RAM_SIZE = 512 * 1024;
+		static constexpr inline u64 CAPTURE_BUFFER_SIZE = 1024;
 		static constexpr inline u64 FIFO_TRANSFER_DELAY = 0x300;
 		static constexpr inline u32 NUM_VOICES = 24;
 		static constexpr inline u64 SAMPLE_FREQUENCY = 44100;
 		static constexpr inline u64 CYCLES_PER_SAMPLE = SYSTEM_CLOCK / SAMPLE_FREQUENCY;
+
+		static constexpr inline u64 VOICE_1_CAPTURE_BUFFER_POS = 0x800;
+		static constexpr inline u64 VOICE_3_CAPTURE_BUFFER_POS = 0xC00;
 
 		friend void fifo_transfer_callback(void*, u64);
 		friend void sample_callback(void*, u64);
@@ -42,12 +46,20 @@ namespace psx {
 
 		friend class SPUVoice;
 
+		u32 WriteRamDirect16(u16 value, u32 address);
+		u32 WriteRamDirect8(u8 value, u32 address);
+
+		std::pair<u8, u32> ReadRamDirect8(u32 address);
+		std::pair<u16, u32> ReadRamDirect16(u32 address);
+
 	private :
 		void UpdateStat();
 		void FifoTransferComplete();
 		void SampleCycle(u64 cycles_late);
 
 		void CheckRamIRQ(u32 ram_address);
+
+		std::pair<i32, i32> DoReverb(i32 l, i32 r);
 
 	private :
 		system_status* m_sys_status;
@@ -85,5 +97,9 @@ namespace psx {
 		std::unique_ptr<SPUVoice[]> m_voices;
 
 		bool m_irq_happened;
+		bool m_reverb_odd_cycle;
+
+		u32 m_curr_voice1_capture_pos;
+		u32 m_curr_voice3_capture_pos;
 	};
 }

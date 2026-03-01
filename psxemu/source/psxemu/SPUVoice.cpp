@@ -9,6 +9,8 @@
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
 
 #include <algorithm>
+#include <tuple>
+#include <bit>
 
 namespace psx {
 	SPUVoice::SPUVoice() :
@@ -29,7 +31,9 @@ namespace psx {
 		m_old_out_samples{},
 		m_curr_block{},
 		m_decoded_block{},
-		m_has_block{false}
+		m_has_block{false},
+		m_curr_address{},
+		m_endx_flag{true}
 	{
 	}
 
@@ -122,9 +126,15 @@ namespace psx {
 	}
 
 	void SPUVoice::KeyOn() {
-		m_config.m_repeat_address = m_config.m_adpcm_start_address;
+		m_adsr_envelope.level = 0;
+		m_curr_address = (u32)m_config.m_adpcm_start_address << 3;
 		m_is_on = true;
 		StartAdsrPhase(AdsrPhase::ATTACK);
+		m_has_block = false;
+		m_pitch_counter.counter = 0;
+		std::fill_n(m_decoded_block.data(), m_decoded_block.size(), 0x0);
+		std::fill_n(m_old_decode_samples.data(), m_old_decode_samples.size(), 0x0);
+		m_endx_flag = false;
 	}
 
 	void SPUVoice::KeyOff() {
@@ -139,8 +149,8 @@ namespace psx {
 		m_enable_modulation = enable_modulation;
 	}
 
-	i16 SPUVoice::Step() {
-		if (!m_is_on) {
+	std::pair<i16, i16> SPUVoice::Step() {
+		if (m_curr_adsr_phase == AdsrPhase::NONE) {
 			return;
 		}
 
@@ -148,16 +158,62 @@ namespace psx {
 			ReadNextBlock();
 		}
 
-		if (m_is_noise) {
-			CalculateNoise();
-		}
-		else {
-			CalculatePitch();
-		}
-
 		StepAdsr();
 		m_sweep_left.Step();
 		m_sweep_right.Step();
+
+		i32 curr_sample = {};
+
+		if (m_is_noise) {
+			CalculateNoise();
+			curr_sample = m_noise.noise_level;
+		}
+		else {
+			curr_sample = m_decoded_block[m_pitch_counter.sample_index()];
+			curr_sample = InterpolateSamples(m_old_out_samples, curr_sample, m_pitch_counter.gauss_index());
+			if (CalculatePitch()) {
+				auto flag_code = u8(m_curr_block.flags) & 0x3;
+
+				switch (flag_code)
+				{
+				case 0:
+				case 2:
+					ReadNextBlock();
+					break;
+				case 1:
+					m_curr_address = u32(m_config.m_repeat_address) << 3;
+					m_adsr_envelope.level = 0;
+					StartAdsrPhase(AdsrPhase::RELEASE);
+					ReadNextBlock();
+					m_endx_flag = true;
+					break;
+				case 3:
+					m_curr_address = u32(m_config.m_repeat_address) << 3;
+					ReadNextBlock();
+					m_endx_flag = true;
+					break;
+				default:
+					error::DebugBreak();
+					break;
+				}
+				
+			}
+		}
+
+		curr_sample = (curr_sample * m_adsr_envelope.level) >> 15;
+
+		m_old_out_samples[0] = m_old_out_samples[1];
+		m_old_out_samples[1] = m_old_out_samples[2];
+		m_old_out_samples[2] = i16(curr_sample);
+
+		if (!m_is_on) {
+			curr_sample = 0;
+		}
+
+		m_sample_left = i16((curr_sample * m_sweep_left.level) >> 15);
+		m_sample_right = i16((curr_sample * m_sweep_right.level) >> 15);
+
+		return { m_sample_left, m_sample_right };
 	}
 
 	SPUVoice::AdsrPhase SPUVoice::GetNextAdsrPhase() {
@@ -251,11 +307,11 @@ namespace psx {
 		}
 	}
 
-	void SPUVoice::CalculatePitch() {
+	bool SPUVoice::CalculatePitch() {
 		auto step = m_config.m_sample_rate;
 
 		if (m_enable_modulation && m_voice_id > 0) {
-			auto vxout = m_spu->m_voices[m_voice_id - 1].m_adsr_envelope.level;
+			auto vxout = m_spu->m_voices[m_voice_id - 1].m_old_out_samples[2];
 			u16 factor = vxout + 0x8000;
 			auto sext_step = i32(i16(step));
 			sext_step = (sext_step * factor) >> 15;
@@ -266,7 +322,20 @@ namespace psx {
 			step = PITCH_MAX_VALUE;
 		}
 
-		m_pitch_counter.counter += step;
+		u32 new_counter = m_pitch_counter.counter + (u32)step;
+		m_pitch_counter.counter = new_counter;
+		if ((new_counter >> 17) != 0 || m_pitch_counter.sample_index() >= 28) {
+			m_pitch_counter.counter &= 0x1FFFF;
+			auto index = m_pitch_counter.sample_index();
+			if (index >= 28) {
+				m_pitch_counter.counter &= ~(0x1F << 12);
+				index -= 28;
+				index &= 0x1F;
+				m_pitch_counter.counter |= u32(index) << 12;
+			}
+			return true;
+		}
+		return false;
 	}
 
 	void SPUVoice::CalculateNoise() {
@@ -295,13 +364,12 @@ namespace psx {
 	}
 
 	void SPUVoice::ReadNextBlock() {
-		auto start = u32(m_config.m_adpcm_start_address) << 3;
+		auto start = m_curr_address;
 		constexpr auto READ_SIZE = sizeof(SPU_ADPCM_Block);
 
 		std::array<u8, READ_SIZE> raw_block;
 		for (size_t byte_pos = 0; byte_pos < READ_SIZE; byte_pos++) {
-			raw_block[byte_pos] = m_spu->m_sound_ram[start + byte_pos];
-			m_spu->CheckRamIRQ(start + byte_pos);
+			std::tie(raw_block[byte_pos], m_curr_address) = m_spu->ReadRamDirect8(start + byte_pos);
 		}
 
 		std::copy_n(raw_block.data(), READ_SIZE,
@@ -309,6 +377,10 @@ namespace psx {
 
 		m_decoded_block = DecodeADPCMBlock(m_curr_block, m_old_decode_samples[0],
 			m_old_decode_samples[1]);
+
+		if (u8(m_curr_block.flags) & u8(SPU_ADPCM_BlockFlags::LOOP_START)) {
+			m_config.m_repeat_address = u16(m_curr_address >> 3);
+		}
 	}
 
 	void SPUVoice::VolumeEnvelope::Reset(bool _exponential, bool _increase, u8 _shift, u8 _step, bool _phase_negative) {

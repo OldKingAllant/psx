@@ -30,7 +30,7 @@ namespace psx {
 		void SetNoiseEnable(bool enable_noise);
 		void SetPitchModulation(bool enable_modulation);
 
-		i16 Step();
+		std::pair<i16, i16> Step();
 
 		static constexpr u16 PITCH_MAX_VALUE = 0x4000;
 		static constexpr i16 RELEASE_STEP = -8;
@@ -76,10 +76,10 @@ namespace psx {
 		};
 
 		struct PitchCounter {
-			u16 counter;
+			u32 counter;
 
 			u8 sample_index() const {
-				return (counter >> 12) & 0xF;
+				return (counter >> 12) & 0x1F;
 			}
 
 			u8 gauss_index() const {
@@ -99,7 +99,7 @@ namespace psx {
 		void StartAdsrPhase(AdsrPhase phase);
 		void StepAdsr();
 
-		void CalculatePitch();
+		bool CalculatePitch();
 		void CalculateNoise();
 
 		void ReadNextBlock();
@@ -130,5 +130,11 @@ namespace psx {
 		SPU_ADPCM_Block m_curr_block;
 		std::array<i16, 28> m_decoded_block;
 		bool m_has_block;
+
+		u32 m_curr_address;
+		bool m_endx_flag;
+
+		i16 m_sample_left;
+		i16 m_sample_right;
 	};
 }

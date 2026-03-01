@@ -20,7 +20,10 @@ namespace psx {
 		m_fifo{},
 		m_sound_ram{},
 		m_fifo_transfer_event{INVALID_EVENT},
-		m_voices{}, m_irq_happened{} {
+		m_voices{}, m_irq_happened{},
+		m_reverb_odd_cycle{ false },
+		m_curr_voice1_capture_pos{},
+		m_curr_voice3_capture_pos{} {
 		m_sound_ram.resize(RAM_SIZE);
 
 		m_voices = std::make_unique<SPUVoice[]>(NUM_VOICES);
@@ -152,6 +155,7 @@ namespace psx {
 		
 			LOG_DEBUG("SPU", "[SPU] Write control ({:#06x}):", value);
 			LOG_DEBUG("SPU", "      SPU enable        : {}", bool(m_regs.m_cnt.enable));
+			LOG_DEBUG("SPU", "      Unmute            : {}", bool(m_regs.m_cnt.unmute));
 			LOG_DEBUG("SPU", "      Noise freq. shift : {:x}", u8(m_regs.m_cnt.noise_freq_shift));
 			LOG_DEBUG("SPU", "      Noise freq. step  : {:x}", u8(m_regs.m_cnt.noise_freq_step));
 			LOG_DEBUG("SPU", "      Reverb enable     : {}", bool(m_regs.m_cnt.reverb_master_en));
@@ -477,18 +481,18 @@ namespace psx {
 	}
 
 	void SPU::WriteSoundRam(const u16* buf, u64 count) {
-		if (m_curr_ram_transfer_address >= RAM_SIZE) [[unlikely]] {
-			LOG_ERROR("SPU", "[SPU] RAM WRITE OUT OF BOUNDS (ADDRESS {:#010x})",
-				m_curr_ram_transfer_address);
-			return;
-		}
+		//if (m_curr_ram_transfer_address >= RAM_SIZE) [[unlikely]] {
+		//	LOG_ERROR("SPU", "[SPU] RAM WRITE OUT OF BOUNDS (ADDRESS {:#010x})",
+		//		m_curr_ram_transfer_address);
+		//	return;
+		//}
 
-		auto ram_ptr = std::bit_cast<u16*>(m_sound_ram.data() + m_curr_ram_transfer_address);
-
-		while (count--) {
-			CheckRamIRQ(m_curr_ram_transfer_address);
-			m_curr_ram_transfer_address += 2;
-		}
+		//auto ram_ptr = std::bit_cast<u16*>(m_sound_ram.data() + m_curr_ram_transfer_address);
+		//
+		//while (count--) {
+		//	CheckRamIRQ(m_curr_ram_transfer_address);
+		//	m_curr_ram_transfer_address += 2;
+		//}
 
 		switch (m_regs.m_transfer_control.type)
 		{
@@ -496,35 +500,41 @@ namespace psx {
 		case SoundRamTransferControlType::FILL_1:
 		case SoundRamTransferControlType::FILL_6:
 		case SoundRamTransferControlType::FILL_7:
-			std::fill_n(ram_ptr, count, buf[count - 1]);
+			for (u64 curr_pos = 0; curr_pos < count; curr_pos += 1) {
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[count - 1], m_curr_ram_transfer_address);
+			}
 			break;
 		case SoundRamTransferControlType::NORMAL:
-			std::copy_n(buf, count, ram_ptr);
+			for (u64 curr_pos = 0; curr_pos < count; curr_pos += 1) {
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+			}
 			break;
 		case SoundRamTransferControlType::REP2: {
 			for (u64 curr_pos = 0; curr_pos < count; curr_pos += 2) {
-				ram_ptr[curr_pos] = buf[curr_pos];
-				ram_ptr[curr_pos + 1] = buf[curr_pos];
+				//Write two times the value from the same position in the fifo,
+				//skip the next value
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
 			}
 		} break;
 		case SoundRamTransferControlType::REP4: {
 			for (u64 curr_pos = 0; curr_pos < count; curr_pos += 4) {
-				ram_ptr[curr_pos] = buf[curr_pos];
-				ram_ptr[curr_pos + 1] = buf[curr_pos];
-				ram_ptr[curr_pos + 2] = buf[curr_pos];
-				ram_ptr[curr_pos + 3] = buf[curr_pos];
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
 			}
 		} break;
 		case SoundRamTransferControlType::REP8: {
 			for (u64 curr_pos = 7; curr_pos < count; curr_pos += 8) {
-				ram_ptr[curr_pos] = buf[curr_pos];
-				ram_ptr[curr_pos - 1] = buf[curr_pos];
-				ram_ptr[curr_pos - 2] = buf[curr_pos];
-				ram_ptr[curr_pos - 3] = buf[curr_pos];
-				ram_ptr[curr_pos - 4] = buf[curr_pos];
-				ram_ptr[curr_pos - 5] = buf[curr_pos];
-				ram_ptr[curr_pos - 6] = buf[curr_pos];
-				ram_ptr[curr_pos - 7] = buf[curr_pos];
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
+				m_curr_ram_transfer_address = WriteRamDirect16(buf[curr_pos], m_curr_ram_transfer_address);
 			}
 		} break;
 		default:
@@ -535,6 +545,30 @@ namespace psx {
 
 	SPU::~SPU()
 	{}
+
+	u32 SPU::WriteRamDirect16(u16 value, u32 address) {
+		address = WriteRamDirect8(u8(value), address);
+		return WriteRamDirect8(u8(value >> 8), address);
+	}
+
+	u32 SPU::WriteRamDirect8(u8 value, u32 address) {
+		address %= RAM_SIZE;
+		CheckRamIRQ(address);
+		m_sound_ram[address] = value;
+		return (address + 1) % u32(RAM_SIZE);
+	}
+
+	std::pair<u8, u32> SPU::ReadRamDirect8(u32 address) {
+		address %= RAM_SIZE;
+		CheckRamIRQ(address);
+		return { m_sound_ram[address], (address + 1) % u32(RAM_SIZE) };
+	}
+
+	std::pair<u16, u32> SPU::ReadRamDirect16(u32 address) {
+		auto [low, next_address] = ReadRamDirect8(address);
+		auto [high, final_address] = ReadRamDirect8(next_address);
+		return { (u16(high) << 8) | low, final_address };
+	}
 
 	void SPU::UpdateStat() {
 		m_regs.m_stat.transfer_busy = m_fifo_transfer_event != INVALID_EVENT;
@@ -561,15 +595,59 @@ namespace psx {
 	}
 
 	void SPU::SampleCycle(u64 cycles_late) {
-		for (u32 voice_index = 0; voice_index < 24; voice_index++) {
+		if (!m_regs.m_cnt.enable) {
+			return;
+		}
+
+		for (u32 voice_index = 0; voice_index < NUM_VOICES; voice_index++) {
 			m_voices[voice_index].SetNoiseEnable(m_regs.m_noise_en.is_channel_noise(voice_index));
 		}
 
-		for (u32 voice_index = 0; voice_index < 24; voice_index++) {
+		for (u32 voice_index = 0; voice_index < NUM_VOICES; voice_index++) {
 			m_voices[voice_index].SetPitchModulation(m_regs.m_pmon.is_channel_modulated(voice_index));
 		}
 
-		(void)m_sys_status->scheduler.Schedule(CYCLES_PER_SAMPLE, sample_callback,
+		i32 sum_left = {};
+		i32 sum_right = {};
+
+		i32 reverb_left = {};
+		i32 reverb_right = {};
+
+		for (u32 voice_index = 0; voice_index < NUM_VOICES; voice_index++) {
+			auto [l, r] = m_voices[voice_index].Step();
+			sum_left += l;
+			sum_right += r;
+
+			if (m_regs.m_reverb_en.is_channel_reverb(voice_index)) {
+				reverb_left += l;
+				reverb_right += r;
+			}
+		}
+
+		auto [calc_reverb_l, calc_reverb_r] = DoReverb(sum_left, sum_right);
+		sum_left += calc_reverb_l;
+		sum_right += calc_reverb_r;
+
+		if (!m_regs.m_cnt.unmute) {
+			sum_left = 0;
+			sum_right = 0;
+		}
+
+		sum_left *= m_regs.m_mainvolume_left.volume.half_volume << 1;
+		sum_right *= m_regs.m_mainvolume_left.volume.half_volume << 1;
+
+		sum_left = std::clamp<i32>(sum_left, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+		sum_right = std::clamp<i32>(sum_right, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+
+		auto write_capture = [this](u32 pos, u32 base, u16 value) {
+			(void)WriteRamDirect16(value, base + pos);
+			return (pos + 2) % u32(CAPTURE_BUFFER_SIZE);
+		};
+
+		m_curr_voice1_capture_pos = write_capture(m_curr_voice1_capture_pos, VOICE_1_CAPTURE_BUFFER_POS, m_voices[0].m_old_out_samples[2]);
+		m_curr_voice3_capture_pos = write_capture(m_curr_voice3_capture_pos, VOICE_3_CAPTURE_BUFFER_POS, m_voices[2].m_old_out_samples[2]);
+
+		(void)m_sys_status->scheduler.Schedule(CYCLES_PER_SAMPLE - cycles_late, sample_callback,
 			std::bit_cast<void*>(this));
 	}
 
@@ -586,6 +664,16 @@ namespace psx {
 			m_irq_happened = true;
 			m_sys_status->Interrupt(u32(Interrupts::SPU));
 		}
+	}
+
+	std::pair<i32, i32> SPU::DoReverb(i32 l, i32 r) {
+		bool old_reverb_cycle = m_reverb_odd_cycle;
+		m_reverb_odd_cycle = !m_reverb_odd_cycle;
+		if (old_reverb_cycle) {
+			return { 0, 0 };
+		}
+
+		//Do reverb
 	}
 
 	void fifo_transfer_callback(void* spu, u64 cycles_late) {

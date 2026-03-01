@@ -632,6 +632,9 @@
     <ClCompile Include="source\psxemu\ADPCM.cpp">
       <Filter>Resource Files\dev\spu</Filter>
     </ClCompile>
+    <ClCompile Include="source\psxemu\Reverb.cpp">
+      <Filter>Resource Files\dev\spu</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\vram_view_blit.fragment">

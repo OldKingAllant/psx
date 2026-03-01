@@ -23,7 +23,7 @@ namespace psx {
 
 			u8 noise_freq_step  : 2;
 			u8 noise_freq_shift : 4;
-			bool mute           : 1;
+			bool unmute           : 1;
 			bool enable         : 1;
 		};
 #pragma pack(pop)
