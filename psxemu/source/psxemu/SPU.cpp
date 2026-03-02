@@ -23,7 +23,8 @@ namespace psx {
 		m_voices{}, m_irq_happened{},
 		m_reverb_odd_cycle{ false },
 		m_curr_voice1_capture_pos{},
-		m_curr_voice3_capture_pos{} {
+		m_curr_voice3_capture_pos{},
+		m_reverb_buf_address{} {
 		m_sound_ram.resize(RAM_SIZE);
 
 		m_voices = std::make_unique<SPUVoice[]>(NUM_VOICES);
@@ -289,6 +290,7 @@ namespace psx {
 			break;
 		case SPU_REGS::REVERB_MBASE:
 			m_regs.m_reverb.work_area_start = value;
+			m_reverb_buf_address = u32(value) << 3;
 			LOG_DEBUG("SPU", "[SPU] REVERB MBASE {:#04x}", value);
 			break;
 		case SPU_REGS::REVERB_APF_OFFSET_1:
@@ -481,19 +483,6 @@ namespace psx {
 	}
 
 	void SPU::WriteSoundRam(const u16* buf, u64 count) {
-		//if (m_curr_ram_transfer_address >= RAM_SIZE) [[unlikely]] {
-		//	LOG_ERROR("SPU", "[SPU] RAM WRITE OUT OF BOUNDS (ADDRESS {:#010x})",
-		//		m_curr_ram_transfer_address);
-		//	return;
-		//}
-
-		//auto ram_ptr = std::bit_cast<u16*>(m_sound_ram.data() + m_curr_ram_transfer_address);
-		//
-		//while (count--) {
-		//	CheckRamIRQ(m_curr_ram_transfer_address);
-		//	m_curr_ram_transfer_address += 2;
-		//}
-
 		switch (m_regs.m_transfer_control.type)
 		{
 		case SoundRamTransferControlType::FILL_0:
@@ -571,6 +560,7 @@ namespace psx {
 	}
 
 	void SPU::UpdateStat() {
+		m_regs.m_stat.writing_second_half_of_capture = m_curr_voice1_capture_pos >= (CAPTURE_BUFFER_SIZE >> 1);
 		m_regs.m_stat.transfer_busy = m_fifo_transfer_event != INVALID_EVENT;
 		m_regs.m_stat.irq9_flag = m_irq_happened;
 
@@ -664,16 +654,6 @@ namespace psx {
 			m_irq_happened = true;
 			m_sys_status->Interrupt(u32(Interrupts::SPU));
 		}
-	}
-
-	std::pair<i32, i32> SPU::DoReverb(i32 l, i32 r) {
-		bool old_reverb_cycle = m_reverb_odd_cycle;
-		m_reverb_odd_cycle = !m_reverb_odd_cycle;
-		if (old_reverb_cycle) {
-			return { 0, 0 };
-		}
-
-		//Do reverb
 	}
 
 	void fifo_transfer_callback(void* spu, u64 cycles_late) {

@@ -41,7 +41,7 @@ namespace psx {
 			bool dma_write_req  : 1;
 			bool dma_read_req   : 1;
 			bool transfer_busy  : 1;
-			bool writing_loc    : 1;
+			bool writing_second_half_of_capture    : 1;
 		};
 #pragma pack(pop)
 

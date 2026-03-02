@@ -39,6 +39,8 @@ namespace psx {
 		static constexpr inline u64 VOICE_1_CAPTURE_BUFFER_POS = 0x800;
 		static constexpr inline u64 VOICE_3_CAPTURE_BUFFER_POS = 0xC00;
 
+		static constexpr inline u32 REVERB_BUFFER_END = 0x7FFFE;
+
 		friend void fifo_transfer_callback(void*, u64);
 		friend void sample_callback(void*, u64);
 
@@ -60,6 +62,8 @@ namespace psx {
 		void CheckRamIRQ(u32 ram_address);
 
 		std::pair<i32, i32> DoReverb(i32 l, i32 r);
+		void ReverbWrite(i16 value, i32 offset);
+		i16 ReverbRead(i32 offset);
 
 	private :
 		system_status* m_sys_status;
@@ -101,5 +105,6 @@ namespace psx {
 
 		u32 m_curr_voice1_capture_pos;
 		u32 m_curr_voice3_capture_pos;
+		u32 m_reverb_buf_address;
 	};
 }
