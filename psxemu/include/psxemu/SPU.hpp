@@ -6,11 +6,13 @@
 #include <memory>
 
 #include "SPUStructs.hpp"
+#include "FirResample.hpp"
 
 namespace psx {
 	struct system_status;
 
 	class SPUVoice;
+	class AudioBackend;
 
 	class SPU {
 	public :
@@ -40,6 +42,8 @@ namespace psx {
 		static constexpr inline u64 VOICE_3_CAPTURE_BUFFER_POS = 0xC00;
 
 		static constexpr inline u32 REVERB_BUFFER_END = 0x7FFFE;
+
+		static constexpr inline u64 AUDIO_BUFFER_SIZE = 1024;
 
 		friend void fifo_transfer_callback(void*, u64);
 		friend void sample_callback(void*, u64);
@@ -106,5 +110,12 @@ namespace psx {
 		u32 m_curr_voice1_capture_pos;
 		u32 m_curr_voice3_capture_pos;
 		u32 m_reverb_buf_address;
+
+		FirResampler m_fir_left;
+		FirResampler m_fir_right;
+
+		std::unique_ptr<AudioBackend> m_backend;
+		std::vector<i16> m_audio_buffer;
+		size_t m_curr_buffer_pos;
 	};
 }

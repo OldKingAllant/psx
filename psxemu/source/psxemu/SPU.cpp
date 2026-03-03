@@ -6,6 +6,8 @@
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 #include <psxemu/include/psxemu/Interrupts.hpp>
 
+#include <psxemu/audio/AudioBackend.hpp>
+
 #include <common/Errors.hpp>
 
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
@@ -24,7 +26,20 @@ namespace psx {
 		m_reverb_odd_cycle{ false },
 		m_curr_voice1_capture_pos{},
 		m_curr_voice3_capture_pos{},
-		m_reverb_buf_address{} {
+		m_reverb_buf_address{},
+		m_fir_left{},
+		m_fir_right{},
+		m_backend{},
+		m_curr_buffer_pos{} {
+		static_assert((AUDIO_BUFFER_SIZE & 1) == 0, "AUDIO BUFFER SIZE NOT DIVISIBLE BY 2");
+		//if ((AUDIO_BUFFER_SIZE & 1) != 0) {
+		//	LOG_ERROR("SPU", "[SPU] AUDIO BUFFER SIZE NOT DIVISIBLE BY 2");
+		//	LOG_FLUSH();
+		//	std::exit(1);
+		//}
+
+		m_backend = std::make_unique<AudioBackend>();
+		m_audio_buffer.resize(AUDIO_BUFFER_SIZE);
 		m_sound_ram.resize(RAM_SIZE);
 
 		m_voices = std::make_unique<SPUVoice[]>(NUM_VOICES);
@@ -624,7 +639,7 @@ namespace psx {
 		}
 
 		sum_left *= m_regs.m_mainvolume_left.volume.half_volume << 1;
-		sum_right *= m_regs.m_mainvolume_left.volume.half_volume << 1;
+		sum_right *= m_regs.m_mainvolume_right.volume.half_volume << 1;
 
 		sum_left = std::clamp<i32>(sum_left, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
 		sum_right = std::clamp<i32>(sum_right, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
@@ -636,6 +651,15 @@ namespace psx {
 
 		m_curr_voice1_capture_pos = write_capture(m_curr_voice1_capture_pos, VOICE_1_CAPTURE_BUFFER_POS, m_voices[0].m_old_out_samples[2]);
 		m_curr_voice3_capture_pos = write_capture(m_curr_voice3_capture_pos, VOICE_3_CAPTURE_BUFFER_POS, m_voices[2].m_old_out_samples[2]);
+
+		m_audio_buffer[m_curr_buffer_pos] = sum_left;
+		m_audio_buffer[m_curr_buffer_pos + 1] = sum_right;
+		m_curr_buffer_pos += 2;
+
+		if (m_curr_buffer_pos >= AUDIO_BUFFER_SIZE) {
+			m_backend->PushSamples(m_audio_buffer.data(), AUDIO_BUFFER_SIZE);
+			m_curr_buffer_pos = 0;
+		}
 
 		(void)m_sys_status->scheduler.Schedule(CYCLES_PER_SAMPLE - cycles_late, sample_callback,
 			std::bit_cast<void*>(this));

@@ -8,6 +8,7 @@ namespace psx {
 #define R(offset) (ReverbRead(offset))
 #define MULT(l, r) (((l) * (r)) >> 15)
 
+#pragma optimize("", off)
 	std::pair<i32, i32> SPU::DoReverb(i32 l, i32 r) {
 		bool old_reverb_cycle = m_reverb_odd_cycle;
 		m_reverb_odd_cycle = !m_reverb_odd_cycle;
@@ -93,6 +94,12 @@ namespace psx {
 
 		m_reverb_buf_address = std::max(mbase, (m_reverb_buf_address + 2) & REVERB_BUFFER_END);
 
+		m_fir_left.Push(lout);
+		m_fir_right.Push(rout);
+
+		lout = m_fir_left.Apply();
+		rout = m_fir_right.Apply();
+
 		return { lout, rout };
 	}
 
@@ -112,4 +119,5 @@ namespace psx {
 		final_address = std::max<u32>(MBASE, final_address & REVERB_BUFFER_END);
 		return ReadRamDirect16(final_address).first;
 	}
+#pragma optimize("", on)
 }
