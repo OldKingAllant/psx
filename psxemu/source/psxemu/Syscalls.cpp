@@ -420,9 +420,9 @@ namespace psx {
 			log_message << LogParameter(param, param_val, status);
 			param_pos++;
 		}
-
+		
 		log_message << ')';
-		LOG_DEBUG("SYSCALL", log_message.str());
+		LOG_DEBUG("SYSCALL", "{} RA = {:#010x}", log_message.str(), status->cpu->GetRegs().ra);
 	}
 
 	std::vector<u32> GetSyscallIdsByName(std::string const& name) {

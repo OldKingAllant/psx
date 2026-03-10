@@ -53,7 +53,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <EnableASAN>false</EnableASAN>
-    <UseDynamicDebugging>true</UseDynamicDebugging>
+    <UseDynamicDebugging>false</UseDynamicDebugging>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -74,10 +74,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir);</IncludePath>
+    <IncludePath>$(SolutionDir)/thirdparty/wave/src;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir);</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)/thirdparty/wave/src;$(SolutionDir)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -133,6 +133,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
       <UseDynamicDebugging>false</UseDynamicDebugging>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,6 +151,7 @@
     <ClInclude Include="..\common\Queue.hpp" />
     <ClInclude Include="..\common\SetThreadName.hpp" />
     <ClInclude Include="..\common\Stack.hpp" />
+    <ClInclude Include="audio\AudioBackend.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
     <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
     <ClInclude Include="include\psxemu\ADPCM.hpp" />
@@ -168,6 +170,7 @@
     <ClInclude Include="include\psxemu\DmaBase.hpp" />
     <ClInclude Include="include\psxemu\DmaCommon.hpp" />
     <ClInclude Include="include\psxemu\DmaController.hpp" />
+    <ClInclude Include="include\psxemu\FirResample.hpp" />
     <ClInclude Include="include\psxemu\formats\GenericSaveFile.hpp" />
     <ClInclude Include="include\psxemu\formats\SystemCnf.hpp" />
     <ClInclude Include="include\psxemu\GPU.hpp" />
@@ -213,6 +216,7 @@
     <ClInclude Include="include\psxemu\SIOPort.hpp" />
     <ClInclude Include="include\psxemu\SIOStructs.hpp" />
     <ClInclude Include="include\psxemu\SPU.hpp" />
+    <ClInclude Include="include\psxemu\SPUDma.hpp" />
     <ClInclude Include="include\psxemu\SPURegisters.hpp" />
     <ClInclude Include="include\psxemu\SPUStructs.hpp" />
     <ClInclude Include="include\psxemu\SPUVoice.hpp" />
@@ -242,6 +246,7 @@
   <ItemGroup>
     <ClCompile Include="..\common\Errors.cpp" />
     <ClCompile Include="..\common\SetThreadName.cpp" />
+    <ClCompile Include="audio\AudioBackend.cpp" />
     <ClCompile Include="input\KeyboardManager.cpp" />
     <ClCompile Include="KernelExe.cpp" />
     <ClCompile Include="renderer\Buffer.cpp" />
@@ -271,6 +276,7 @@
     <ClCompile Include="source\psxemu\DmaController.cpp" />
     <ClCompile Include="source\psxemu\DrawCalls.cpp" />
     <ClCompile Include="source\psxemu\DriveCommands.cpp" />
+    <ClCompile Include="source\psxemu\FirResample.cpp" />
     <ClCompile Include="source\psxemu\formats\GenericSaveFile.cpp" />
     <ClCompile Include="source\psxemu\formats\SystemCnf.cpp" />
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
@@ -307,6 +313,7 @@
     <ClCompile Include="source\psxemu\SIOPadMemcardDriver.cpp" />
     <ClCompile Include="source\psxemu\SIOPort.cpp" />
     <ClCompile Include="source\psxemu\SPU.cpp" />
+    <ClCompile Include="source\psxemu\SPUDma.cpp" />
     <ClCompile Include="source\psxemu\SPUVoice.cpp" />
     <ClCompile Include="source\psxemu\StandardController.cpp" />
     <ClCompile Include="source\psxemu\Syscalls.cpp" />

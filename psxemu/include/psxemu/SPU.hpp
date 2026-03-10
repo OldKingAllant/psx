@@ -8,6 +8,8 @@
 #include "SPUStructs.hpp"
 #include "FirResample.hpp"
 
+#include <thirdparty/wave/src/wave/file.h>
+
 namespace psx {
 	struct system_status;
 
@@ -17,6 +19,8 @@ namespace psx {
 	class SPU {
 	public :
 		SPU(system_status* sys_status);
+
+		void SetupEvents();
 
 		u8 Read8(u32 address);
 		u16 Read16(u32 address);
@@ -34,6 +38,7 @@ namespace psx {
 		static constexpr inline u64 RAM_SIZE = 512 * 1024;
 		static constexpr inline u64 CAPTURE_BUFFER_SIZE = 1024;
 		static constexpr inline u64 FIFO_TRANSFER_DELAY = 0x300;
+		static constexpr inline u64 FIFO_SIZE_BYTES = 64;
 		static constexpr inline u32 NUM_VOICES = 24;
 		static constexpr inline u64 SAMPLE_FREQUENCY = 44100;
 		static constexpr inline u64 CYCLES_PER_SAMPLE = SYSTEM_CLOCK / SAMPLE_FREQUENCY;
@@ -42,8 +47,6 @@ namespace psx {
 		static constexpr inline u64 VOICE_3_CAPTURE_BUFFER_POS = 0xC00;
 
 		static constexpr inline u32 REVERB_BUFFER_END = 0x7FFFE;
-
-		static constexpr inline u64 AUDIO_BUFFER_SIZE = 1024;
 
 		friend void fifo_transfer_callback(void*, u64);
 		friend void sample_callback(void*, u64);
@@ -57,6 +60,9 @@ namespace psx {
 
 		std::pair<u8, u32> ReadRamDirect8(u32 address);
 		std::pair<u16, u32> ReadRamDirect16(u32 address);
+
+		void DmaWrite(u32 value);
+		u32 DmaRead();
 
 	private :
 		void UpdateStat();
@@ -117,5 +123,7 @@ namespace psx {
 		std::unique_ptr<AudioBackend> m_backend;
 		std::vector<i16> m_audio_buffer;
 		size_t m_curr_buffer_pos;
+
+		wave::File m_wavefile;
 	};
 }

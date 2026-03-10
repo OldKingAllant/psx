@@ -216,6 +216,7 @@ namespace psx {
 				ResponseTimings::GETSTAT_NORMAL + ResponseTimings::PAUSE_PAUSED);
 			LOG_DEBUG("CDROM", "[CDROM] Pause() -> INT3({:#x}) -> INT2({:#x})",
 				m_stat.reg, m_stat.reg);
+			return;
 		}
 
 		if (m_stat.reading) {

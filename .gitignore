@@ -12,3 +12,6 @@ imgui.ini
 config/*
 psxemu_log.txt
 hash/x64/*
+wave/x64/*
+*.bin
+*.wav

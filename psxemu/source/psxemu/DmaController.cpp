@@ -19,6 +19,7 @@ namespace psx {
 		m_mdecin_dma{sys_status, this},
 		m_mdecout_dma{sys_status, this},
 		m_cdrom_dma{sys_status, this},
+		m_spu_dma{sys_status, this},
 		m_active_dmas{}, m_num_active{0},
 		m_enable_fast_dma{ false } {
 		m_control.raw = DPCR_INIT;
@@ -113,6 +114,11 @@ namespace psx {
 			return;
 		}
 
+		if ((address & 0xF0) == DMA4_ADD) {
+			m_spu_dma.Write(address - DMA4_ADD, value, mask);
+			return;
+		}
+
 		fmt::println("[DMA CONTROLLER] Accessing invalid/unused register 0x{:x}", address);
 	}
 
@@ -144,6 +150,10 @@ namespace psx {
 
 		if ((address & 0xF0) == DMA3_ADD) {
 			return m_cdrom_dma.Read(address - DMA3_ADD);
+		}
+
+		if ((address & 0xF0) == DMA4_ADD) {
+			return m_spu_dma.Read(address - DMA4_ADD);
 		}
 
 		fmt::println("[DMA CONTROLLER] Accessing invalid/unused register 0x{:x}", address);
@@ -206,6 +216,9 @@ namespace psx {
 		case 0x3:
 			m_cdrom_dma.AdvanceTransfer();
 			break;
+		case 0x4:
+			m_spu_dma.AdvanceTransfer();
+			break;
 		case 0x6:
 			m_ot_dma.AdvanceTransfer();
 			break;
@@ -229,18 +242,14 @@ namespace psx {
 	}
 
 	void DmaController::InterruptRequest(u8 dma_id, bool last_block) {
-		UpdateMasterIRQ();
-
 		if (!last_block && !(bool)(m_int_control.interrupt_on_block >> dma_id))
 			return;
 
 		if ((m_int_control.channel_int_enable >> dma_id) & 1) {
 			m_int_control.channel_int_req |= (1 << dma_id);
-
-			if (!m_int_control.master_irq) {
-				m_int_control.master_irq = true;
-				m_sys_status->Interrupt((u32)Interrupts::DMA);
-			}
+			m_sys_status->Interrupt((u32)Interrupts::DMA);
 		}
+
+		UpdateMasterIRQ();
 	}
 }

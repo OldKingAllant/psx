@@ -54,9 +54,7 @@ namespace psx {
 			u8 step;
 			bool phase_negative;
 
-			i32 calc_step;
-			i32 counter_increment;
-			i32 counter;
+			i32 adsr_cycles;
 
 			i16 level;
 
@@ -64,6 +62,8 @@ namespace psx {
 				u8 _shift, u8 _step, bool _phase_negative);
 
 			bool Step();
+
+			i32 GetStep() const;
 		};
 
 		struct VolumeSweep {

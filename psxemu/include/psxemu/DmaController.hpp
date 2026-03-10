@@ -7,6 +7,7 @@
 #include <psxemu/include/psxemu/MDECInDma.hpp>
 #include <psxemu/include/psxemu/MDECOutDma.hpp>
 #include <psxemu/include/psxemu/CDROMDma.hpp>
+#include <psxemu/include/psxemu/SPUDma.hpp>
 
 class DebugView;
 
@@ -105,6 +106,10 @@ namespace psx {
 			return m_cdrom_dma;
 		}
 
+		SPUDma& GetSpuDma() {
+			return m_spu_dma;
+		}
+
 		void AddTransfer(u8 dma_id);
 		void RemoveTransfer();
 
@@ -152,6 +157,7 @@ namespace psx {
 		MDECIn  m_mdecin_dma;
 		MDECOut m_mdecout_dma;
 		CDROMDma m_cdrom_dma;
+		SPUDma m_spu_dma;
 
 		Transfer m_active_dmas[8];
 		u8 m_num_active;

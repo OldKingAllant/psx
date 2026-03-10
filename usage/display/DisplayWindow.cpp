@@ -58,14 +58,6 @@ void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_siz
 
 	using psx::video::HostVertex2D;
 
-	//m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  xoff, yoff });
-	//m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  endx, endy });
-	//m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, xoff, endy });
-	//
-	//m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, xoff, yoff });
-	//m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  endx, yoff });
-	//m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, endx, endy });
-
 	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 0.0  });
 	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 1.0  });
 	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 1.0 });
@@ -98,42 +90,6 @@ void DisplayWindow::Blit24(uint32_t texture_id) {
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture_id);
-
-	////////////////////////////////////////////////
-
-	/*glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
-		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, 
-		std::bit_cast<void*>(m_temp_buf.data()));
-	for (std::size_t y = 0; y < 512; y++) {
-		std::size_t vram_offset = y * 1024;
-		std::size_t tex_offset = vram_offset * 3;
-		for (std::size_t x = 0; x < 1024; x += 3) {
-			auto c0 = m_temp_buf[vram_offset + 0]; //RG
-			auto c1 = m_temp_buf[vram_offset + 1]; //BR
-			auto c2 = m_temp_buf[vram_offset + 2]; //GB
-
-			u8 r0 = u8((c0 >> 0) & 0xFF);
-			u8 g0 = u8((c0 >> 8) & 0xFF);
-			u8 b0 = u8((c1 >> 0) & 0xFF);
-			u8 r1 = u8((c1 >> 8) & 0xFF);
-			u8 g1 = u8((c2 >> 0) & 0xFF);
-			u8 b1 = u8((c2 >> 8) & 0xFF);
-
-			m_24bit_buf[tex_offset + 0] = r0;
-			m_24bit_buf[tex_offset + 1] = g0;
-			m_24bit_buf[tex_offset + 2] = b0;
-
-			m_24bit_buf[tex_offset + 3] = r1;
-			m_24bit_buf[tex_offset + 4] = g1;
-			m_24bit_buf[tex_offset + 5] = b1;
-
-			tex_offset += 6;
-			vram_offset += 3;
-		}
-	}
-	glBindTexture(GL_TEXTURE_2D, m_24bit_tex);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, 512,
-		GL_RGB, GL_UNSIGNED_BYTE, std::bit_cast<void*>(m_24bit_buf.data()));*/
 
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
 		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,

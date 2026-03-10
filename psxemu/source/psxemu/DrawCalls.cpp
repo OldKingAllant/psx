@@ -429,6 +429,7 @@ namespace psx {
 		);
 	}
 
+#pragma optimize("", off)
 	void Gpu::DrawQuad() {
 		u32 cmd = m_cmd_fifo.peek();
 
@@ -456,6 +457,7 @@ namespace psx {
 
 		//CheckIfDrawNeeded();
 	}
+#pragma optimize("", on)
 
 	void Gpu::DrawTriangle() {
 		u32 cmd = m_cmd_fifo.peek();

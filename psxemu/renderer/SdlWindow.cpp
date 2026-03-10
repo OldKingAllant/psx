@@ -27,19 +27,12 @@ namespace psx::video {
 	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize, bool enable_debug)
 		: m_win{ nullptr }, m_gl_ctx{ nullptr }, m_blit{ nullptr },
 		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
-		m_forward_ev_handler{}, m_size{ size } {
+		m_forward_ev_handler{}, m_size{ size }, m_last_title_update_time{},
+		m_curr_frame_count{}, m_window_name{ name } {
 		if (reuse_ctx)
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 		else
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
-
-		//SDL_GL_LoadLibrary(nullptr);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
-		//	SDL_GL_CONTEXT_PROFILE_CORE);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-		//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	
 
 		auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
@@ -86,6 +79,10 @@ namespace psx::video {
 				fmt::println("[OPENGL] Error : {}",
 					(const char*)glewGetErrorString(err));
 		}
+
+		m_last_title_update_time = std::chrono::system_clock::now();
+
+		SDL_GL_SetSwapInterval(1);
 	}
 
 	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize, bool enable_debug)
@@ -129,8 +126,18 @@ namespace psx::video {
 					(const char*)glewGetErrorString(err));
 		}
 
-		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+		m_curr_frame_count++;
+		auto curr_time = std::chrono::system_clock::now();
+		auto diff = std::chrono::duration_cast<std::chrono::seconds>(curr_time - m_last_title_update_time).count();
+		
+		if (diff >= 1) {
+			auto new_title = std::format("{} | {} fps", m_window_name, m_curr_frame_count);
+			m_curr_frame_count = 0;
+			SDL_SetWindowTitle((SDL_Window*)m_win, new_title.c_str());
+			m_last_title_update_time = std::chrono::system_clock::now();
+		}
 
+		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
 		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 

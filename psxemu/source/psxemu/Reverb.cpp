@@ -53,7 +53,7 @@ namespace psx {
 		const i32 vrin = m_regs.m_reverb.input_vol_right;
 
 		//Do reverb
-		i32 lin = MULT(vlin, r);
+		i32 lin = MULT(vlin, l);
 		i32 rin = MULT(vrin, r);
 
 		if(m_regs.m_cnt.reverb_master_en) {
@@ -94,11 +94,11 @@ namespace psx {
 
 		m_reverb_buf_address = std::max(mbase, (m_reverb_buf_address + 2) & REVERB_BUFFER_END);
 
-		m_fir_left.Push(lout);
-		m_fir_right.Push(rout);
-
-		lout = m_fir_left.Apply();
-		rout = m_fir_right.Apply();
+		//m_fir_left.Push(lout);
+		//m_fir_right.Push(rout);
+		//
+		//lout = m_fir_left.Apply();
+		//rout = m_fir_right.Apply();
 
 		return { lout, rout };
 	}

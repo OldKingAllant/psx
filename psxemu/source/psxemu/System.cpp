@@ -37,6 +37,7 @@ namespace psx {
 		m_status.cpu = &m_cpu;
 		m_status.sysbus = &m_sysbus;
 		m_status.sysbus->GetGPU().InitEvents();
+		m_status.sysbus->GetSPU().SetupEvents();
 		m_status.sys_conf = m_sys_conf;
 
 		m_cpu.SetHLEHandler([this](u32 address, bool enter) {

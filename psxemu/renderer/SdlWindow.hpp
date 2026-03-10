@@ -6,6 +6,7 @@
 #include <any>
 #include <functional>
 #include <map>
+#include <chrono>
 
 union SDL_Event;
 
@@ -75,5 +76,8 @@ namespace psx::video {
 		std::multimap<SdlEvent, EventCallback> m_ev_callbacks;
 		std::function<void(SDL_Event*)> m_forward_ev_handler;
 		Rect m_size;
+		std::chrono::system_clock::time_point m_last_title_update_time;
+		u64 m_curr_frame_count;
+		std::string m_window_name;
 	};
 }

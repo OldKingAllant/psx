@@ -108,7 +108,7 @@ namespace psx {
 		IndexRegister m_index_reg;
 		u8 m_curr_cmd;
 		u8 m_new_cmd;
-		Queue<Response, 3> m_response_fifo;
+		Queue<Response, 16> m_response_fifo;
 		Queue<u8, 16> m_param_fifo;
 
 		InterruptEnable m_int_enable;

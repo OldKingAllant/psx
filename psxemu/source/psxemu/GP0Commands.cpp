@@ -8,6 +8,8 @@
 
 #include <psxemu/renderer/GLRenderer.hpp>
 
+#include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
+
 namespace psx {
 
 	void Gpu::EnvCommand(u32 cmd) {
@@ -111,8 +113,16 @@ namespace psx {
 		}
 	}
 
+#pragma optimize("", off)
 	void Gpu::CommandStart(u32 cmd) {
 		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
+
+		if (cmd == 0x3a737373) {
+			bool br = true;
+		}
+
+		LOG_DEBUG("GPU", "[GPU] COMMAND TYPE {}, VALUE = {:#010x}", magic_enum::enum_name(cmd_type),
+			cmd);
 
 		m_stat.recv_cmd_word = false;
 		m_stat.recv_dma = false;
@@ -214,7 +224,10 @@ namespace psx {
 			LOG_ERROR("GPU", "[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
 			break;
 		}
+
+		LOG_DEBUG("GPU", "[GPU] WAITING {} PARAMETERS", m_required_params);
 	}
+#pragma optimize("", on)
 
 	void Gpu::DrawAreaTopLeft(u32 cmd) {
 		cmd &= 0xFFFFF;
@@ -356,6 +369,7 @@ namespace psx {
 		case psx::CommandType::MISC: {
 			u8 upper = u8(cmd >> 24);
 			if (upper != 0x2) {
+				LOG_FLUSH();
 				error::DebugBreak();
 			}
 			else {

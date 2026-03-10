@@ -3,40 +3,39 @@
 #include <algorithm>
 
 namespace psx {
-	static constexpr std::array<i16, 5> POS_XA_ADPCM_TABLE = { 0, +60, +115, +98, +122 };
-	static constexpr std::array<i16, 5> NEG_XA_ADPCM_TABLE = { 0,   0,  -52, -55,  -60 };
+	static constexpr std::array<i32, 5> POS_XA_ADPCM_TABLE = { 0, +60, +115, +98, +122 };
+	static constexpr std::array<i32, 5> NEG_XA_ADPCM_TABLE = { 0,   0,  -52, -55,  -60 };
 
 	std::array<i16, 28> DecodeADPCMBlock(SPU_ADPCM_Block block, i16& old, i16& older) {
-		auto shift = 12 - block.header.shift;
-		auto filter = block.header.filter;
+		auto shift = block.header.shift;
+		if (shift > 12) {
+			shift = 9;
+		}
+
+		auto filter = std::min<u8>(4, u8(block.header.filter));
 
 		auto f0 = POS_XA_ADPCM_TABLE[filter];
 		auto f1 = NEG_XA_ADPCM_TABLE[filter];
 
-		auto decode_nibble = [shift, filter, f0, f1](u8 nibble, i16 old, i16 older) {
-			i16 sext_nibble = i8(nibble << 4);
-			i32 s = (sext_nibble << shift) + ((old * f0 + older * f1 + 32) / 64);
-			s = std::clamp<i32>(s, -0x8000, 0x7FFF);
-			return i16(s);
-		};
-
 		std::array<i16, 28> decompressed{};
-		for (size_t curr_pos = 0; u8 compressed_sample : block.compressed_samples) {
-			u8 first_nibble = compressed_sample & 0xF;
-			u8 second_nibble = (compressed_sample >> 4) & 0xF;
-			{
-				decompressed[curr_pos] = decode_nibble(first_nibble, old, older);
-				older = old;
-				old = decompressed[curr_pos];
+
+		for (size_t curr_pos = 0; curr_pos < decompressed.size(); curr_pos++) {
+			i16 nibble = {};
+			if ((curr_pos & 1) != 0) {
+				nibble = (block.compressed_samples[curr_pos >> 1] >> 4) & 0xF;
+			}
+			else {
+				nibble = block.compressed_samples[curr_pos >> 1] & 0xF;
 			}
 
-			{
-				decompressed[curr_pos + 1] = decode_nibble(second_nibble, old, older);
-				older = old;
-				old = decompressed[curr_pos + 1];
-			}
+			i32 sext_nibble = (i32)(i16)(nibble << 12);
+			i32 s = sext_nibble >> shift;
+			s += (old * f0 + older * f1 + 32) / 64;
+			s = std::clamp<i32>(s, -0x8000, 0x7FFF);
 
-			curr_pos += 2;
+			decompressed[curr_pos] = i16(s);
+			older = old;
+			old = decompressed[curr_pos];
 		}
 
 		return decompressed;
@@ -110,10 +109,10 @@ namespace psx {
 			0x5997,0x599E,0x59A4,0x59A9,0x59AD,0x59B0,0x59B2,0x59B3,
 		};
 
-		i32 out = ((GAUSS_TABLE[0xFF - index] * old[0]) >> 15);
-		out =     ((GAUSS_TABLE[0x1FF - index] * old[1]) >> 15);
-		out =     ((GAUSS_TABLE[0x100 + index] * old[2]) >> 15);
-		out =     ((GAUSS_TABLE[0x0 + index] * new_sample) >> 15);
+		i32 out = ((GAUSS_TABLE[0xFF - index]     * (i32)old[0]) >> 15);
+		out = out +  ((GAUSS_TABLE[0x1FF - index] * (i32)old[1]) >> 15);
+		out = out + ((GAUSS_TABLE[0x100 + index]  * (i32)old[2]) >> 15);
+		out = out + ((GAUSS_TABLE[0x0 + index]    * (i32)new_sample) >> 15);
 
 		return i16(out);
 	}

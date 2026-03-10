@@ -17,6 +17,9 @@
 #include <usage/config/ConfigLoader.hpp>
 #include <usage/display/DisplayWindow.hpp>
 
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+#include <psxemu/include/psxemu/Logger.hpp>
+
 std::string GetRenderdocPath() {
 	char* buf{ nullptr };
 	size_t len{ 0 };
@@ -156,22 +159,19 @@ int main(int argc, char* argv[]) {
 					"Fatal error", MB_OK | MB_ICONERROR);
 			});
 
-	bool correct_event = false;
-	kernel.InsertEnterHook(std::string("TestEvent"), [&sys, &correct_event](psx::u32 pc, psx::u32 id) {
-		if (sys.GetCPU().GetRegs().a0 == 0xF1000009) {
-			auto evs = sys.GetKernel().DumpEventControlBlocks();
-			if (evs[9].ev_class == psx::kernel::EventClass::SPU) {
-				correct_event = true;
-				fmt::println("Test event at {:#010x}", pc);
-			}
-		}
-	});
-	
-	kernel.InsertExitHook(std::string("TestEvent"), [&sys, &correct_event](psx::u32 pc, psx::u32 id) {
-		if (correct_event) {
-			correct_event = false;
-			sys.GetCPU().GetRegs().array[2] = 1;
-		}
+	//bool correct_event = false;
+	//kernel.InsertEnterHook(std::string("TestEvent"), [&sys, &correct_event](psx::u32 pc, psx::u32 id) {
+	//	if (sys.GetCPU().GetRegs().a0 == 0xF1000009) {
+	//		auto evs = sys.GetKernel().DumpEventControlBlocks();
+	//		if (evs[9].ev_class == psx::kernel::EventClass::SPU) {
+	//			correct_event = true;
+	//			fmt::println("Test event at {:#010x}", pc);
+	//		}
+	//	}
+	//});
+	//
+	kernel.InsertExitHook(std::string("OpenThread"), [&sys](psx::u32 pc, psx::u32 id) {
+		psx::LOG_DEBUG("SYSCALL", "[SYSCALL] OpenThread returned {:#010x}", sys.GetCPU().GetRegs().v0);
 	});
 
 	if (renderdoc) {
@@ -200,6 +200,16 @@ int main(int argc, char* argv[]) {
 		if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
 			fmt::println("[CDROM] Could not load file");
 		}
+	}
+
+	if (!config->exe_file.empty() && !config->patch_load) {
+		auto args = config->exe_args.empty() ?
+			std::nullopt :
+			std::optional{ std::span{ 
+			std::bit_cast<psx::u8*>( config->exe_args.data() ), 
+			config->exe_args.size()
+		} };
+		sys.LoadExe(config->exe_file, args);
 	}
 
 	std::unique_ptr<DebugView> debug_view{};

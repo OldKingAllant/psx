@@ -158,7 +158,7 @@ namespace psx {
 #pragma pack(push, 1)
 		struct {
 			u8 shift  : 4;
-			u8 filter : 2;
+			u8 filter : 3;
 		};
 #pragma pack(pop)
 

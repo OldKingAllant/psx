@@ -91,6 +91,11 @@ namespace psx {
 			break;
 		}
 
+		if (m_cmd_status == Status::IDLE && m_cmd_fifo.len() > 0) {
+			LOG_ERROR("GPU", "[GPU] Status is idle but command fifo is not empty");
+			LOG_FLUSH();
+		}
+
 		UpdateDreq();
 	}
 

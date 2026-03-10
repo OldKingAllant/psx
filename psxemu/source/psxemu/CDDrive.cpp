@@ -101,6 +101,7 @@ namespace psx {
 		Write16(address + 2, (u16)(value >> 16));
 	}
 
+#pragma optimize("", off)
 	void CDDrive::WriteReg1(u8 value) {
 		switch (m_index_reg.index)
 		{
@@ -147,6 +148,7 @@ namespace psx {
 			break;
 		}
 	}
+#pragma optimize("", on)
 
 	void CDDrive::WriteReg2(u8 value) {
 		switch (m_index_reg.index)
@@ -420,8 +422,8 @@ namespace psx {
 
 	void CDDrive::PushResponse(CdInterrupt interrupt, std::initializer_list<u8> args, u64 delay) {
 		if (m_response_fifo.full()) {
-			LOG_DEBUG("CDROM", "[CDROM] Response FIFO is full!");
-			error::DebugBreak();
+			LOG_WARN("CDROM", "[CDROM] Response FIFO is full!");
+			LOG_FLUSH();
 			return;
 		}
 
@@ -481,6 +483,9 @@ namespace psx {
 			error::DebugBreak();
 			return;
 		}
+
+		LOG_DEBUG("CDROM", "[CDROM] INTERRUPT ACK");
+		LOG_FLUSH();
 
 		{
 			auto& response = m_response_fifo.peek();

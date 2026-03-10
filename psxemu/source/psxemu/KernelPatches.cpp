@@ -159,9 +159,10 @@ namespace psx::kernel {
 
 			LOG_INFO("KERNEL", "         Executable hash: {}", exe_sha);
 
-			PatchInstruction(0x8003e668, NEXT_EVENT_INSTRUCTION);
-			PatchInstruction(0x8003e6b0, GET_VBLANK_COUNT_INSTRUCTION);
-			m_sys_status->sysbus->GetGPU().ResetVblankCount();
+			//PatchInstruction(0x8003e668, NEXT_EVENT_INSTRUCTION);
+			//PatchInstruction(0x8003e6b0, GET_VBLANK_COUNT_INSTRUCTION);
+			PatchInstruction(0x8008e634, 0xFC000001);
+			//m_sys_status->sysbus->GetGPU().ResetVblankCount();
 		}
 
 		the_cpu.GetPc() += 0x4;
@@ -207,6 +208,26 @@ namespace psx::kernel {
 
 			case GET_VBLANK_COUNT_INSTRUCTION:
 				return GetVblankCountInstruction(old_instruction);
+
+			case 0xFC000001: {
+				auto a0 = m_sys_status->cpu->GetRegs().a0;
+				auto a1 = m_sys_status->cpu->GetRegs().a1;
+				auto ra = m_sys_status->cpu->GetRegs().ra;
+				auto debug_string = m_sys_status->sysbus->ReadString(a0, 256);
+				auto percent_pos = debug_string.find_first_of('%');
+				if (percent_pos != std::string::npos && debug_string[percent_pos + 1] == 's') {
+					auto second_string = m_sys_status->sysbus->ReadString(a1, 256);
+					LOG_DEBUG("KERNEL", "[KERNEL] debug_printf({}, {}) called from {:#010x}", debug_string, second_string,
+						ra - 0x8);
+				}
+				else {
+					LOG_DEBUG("KERNEL", "[KERNEL] debug_printf({}) called from {:#010x}", debug_string,
+						ra - 0x4);
+				}
+				
+				return false;
+			}
+				
 			}
 
 			return false;

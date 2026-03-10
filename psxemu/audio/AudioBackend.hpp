@@ -3,7 +3,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_audio.h>
 
-#include <thirdparty/ringbuffer/ringbuffer.hpp>
+#include <deque>
 #include <mutex>
 #include <condition_variable>
 
@@ -27,8 +27,8 @@ namespace psx {
 	private :
 		SDL_AudioDeviceID m_dev_id;
 		SDL_AudioSpec m_dev_specs;
-		jnk0le::Ringbuffer<i16, 4096> m_audio_buffer;
-		std::condition_variable m_cv;
+		std::deque<i16> m_audio_buffer;
 		std::mutex m_mux;
+		std::condition_variable m_cv;
 	};
 }

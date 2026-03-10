@@ -33,7 +33,9 @@ namespace psx {
 		m_decoded_block{},
 		m_has_block{false},
 		m_curr_address{},
-		m_endx_flag{true}
+		m_endx_flag{true},
+		m_sample_left{},
+		m_sample_right{}
 	{
 	}
 
@@ -85,7 +87,7 @@ namespace psx {
 			LOG_DEBUG("SPU", "      STEP  : {:x}", u8(m_config.m_volume_right.sweep.step));
 		}
 
-		m_sweep_left.Reset(vol);
+		m_sweep_right.Reset(vol);
 	}
 
 	void SPUVoice::SetPitch(u16 pitch) {
@@ -113,6 +115,8 @@ namespace psx {
 		LOG_DEBUG("SPU", "      SUSTAIN STEP     : {:#x}", u8(m_config.m_adsr.sustain_step));
 		LOG_DEBUG("SPU", "      RELEASE MODE     : {}", magic_enum::enum_name(m_config.m_adsr.release_mode));
 		LOG_DEBUG("SPU", "      RELEASE SHIFT    : {:#x}", u8(m_config.m_adsr.release_shift));
+
+		ResetAdsrPhase();
 	}
 
 	void SPUVoice::SetStartAddress(u16 start) {
@@ -139,6 +143,7 @@ namespace psx {
 
 	void SPUVoice::KeyOff() {
 		StartAdsrPhase(AdsrPhase::RELEASE);
+		LOG_DEBUG("SPU", "[SPU] Voice {} current address {:#010x}", m_voice_id, m_curr_address);
 	}
 
 	void SPUVoice::SetNoiseEnable(bool enable_noise) {
@@ -151,7 +156,7 @@ namespace psx {
 
 	std::pair<i16, i16> SPUVoice::Step() {
 		if (m_curr_adsr_phase == AdsrPhase::NONE) {
-			return;
+			return { 0, 0 };
 		}
 
 		if (!m_has_block && !m_is_noise) {
@@ -172,42 +177,20 @@ namespace psx {
 			curr_sample = m_decoded_block[m_pitch_counter.sample_index()];
 			curr_sample = InterpolateSamples(m_old_out_samples, curr_sample, m_pitch_counter.gauss_index());
 			if (CalculatePitch()) {
-				auto flag_code = u8(m_curr_block.flags) & 0x3;
-
-				switch (flag_code)
-				{
-				case 0:
-				case 2:
-					ReadNextBlock();
-					break;
-				case 1:
-					m_curr_address = u32(m_config.m_repeat_address) << 3;
-					m_adsr_envelope.level = 0;
-					StartAdsrPhase(AdsrPhase::RELEASE);
-					ReadNextBlock();
-					m_endx_flag = true;
-					break;
-				case 3:
-					m_curr_address = u32(m_config.m_repeat_address) << 3;
-					ReadNextBlock();
-					m_endx_flag = true;
-					break;
-				default:
-					error::DebugBreak();
-					break;
-				}
-				
+				m_has_block = false;
 			}
 		}
-
-		curr_sample = (curr_sample * m_adsr_envelope.level) >> 15;
 
 		m_old_out_samples[0] = m_old_out_samples[1];
 		m_old_out_samples[1] = m_old_out_samples[2];
 		m_old_out_samples[2] = i16(curr_sample);
 
-		if (!m_is_on) {
-			curr_sample = 0;
+		curr_sample = (curr_sample * m_adsr_envelope.level) >> 15;
+
+		if (m_curr_adsr_phase == AdsrPhase::NONE) {
+			m_sample_left = 0;
+			m_sample_right = 0;
+			return { m_sample_left, m_sample_right };
 		}
 
 		m_sample_left = i16((curr_sample * m_sweep_left.level) >> 15);
@@ -230,6 +213,7 @@ namespace psx {
 		case AdsrPhase::RELEASE:
 			return AdsrPhase::NONE;
 		}
+		return AdsrPhase::NONE;
 	}
 
 	void SPUVoice::ResetAdsrPhase() {
@@ -250,7 +234,10 @@ namespace psx {
 			);
 			break;
 		case AdsrPhase::DECAY:
-			m_adsr_target = 0;
+			m_adsr_target = i16(
+				std::min<i32>(u32(m_config.m_adsr.sustain_level + 1) * 0x800,
+					MAX_VOLUME)
+			);
 			m_adsr_envelope.Reset(
 				true,
 				false,
@@ -260,10 +247,7 @@ namespace psx {
 			);
 			break;
 		case AdsrPhase::SUSTAIN:
-			m_adsr_target = i16(
-				std::min<i32>(u32(m_config.m_adsr.sustain_level + 1) * 0x800,
-					MAX_VOLUME)
-			);
+			m_adsr_target = -1;
 			m_adsr_envelope.Reset(
 				m_config.m_adsr.sustain_mode == SPU_SustainMode::EXPONENTIAL,
 				m_config.m_adsr.sustain_dir == SPU_SustainDirection::INCREASE,
@@ -289,6 +273,7 @@ namespace psx {
 		m_curr_adsr_phase = phase;
 		if (m_curr_adsr_phase == AdsrPhase::NONE) {
 			m_is_on = false;
+			m_has_block = false;
 			return;
 		}
 		ResetAdsrPhase();
@@ -322,17 +307,15 @@ namespace psx {
 			step = PITCH_MAX_VALUE;
 		}
 
-		u32 new_counter = m_pitch_counter.counter + (u32)step;
-		m_pitch_counter.counter = new_counter;
-		if ((new_counter >> 17) != 0 || m_pitch_counter.sample_index() >= 28) {
-			m_pitch_counter.counter &= 0x1FFFF;
+		m_pitch_counter.counter += (u32)step;
+		if (m_pitch_counter.sample_index() >= 28) {
 			auto index = m_pitch_counter.sample_index();
-			if (index >= 28) {
-				m_pitch_counter.counter &= ~(0x1F << 12);
-				index -= 28;
-				index &= 0x1F;
-				m_pitch_counter.counter |= u32(index) << 12;
-			}
+			
+			m_pitch_counter.counter &= ~(0x1F << 12);
+			index -= 28;
+			index &= 0x1F;
+			m_pitch_counter.counter |= u32(index) << 12;
+			
 			return true;
 		}
 		return false;
@@ -369,7 +352,7 @@ namespace psx {
 
 		std::array<u8, READ_SIZE> raw_block;
 		for (size_t byte_pos = 0; byte_pos < READ_SIZE; byte_pos++) {
-			std::tie(raw_block[byte_pos], m_curr_address) = m_spu->ReadRamDirect8(start + byte_pos);
+			std::tie(raw_block[byte_pos], m_curr_address) = m_spu->ReadRamDirect8(start + (u32)byte_pos);
 		}
 
 		std::copy_n(raw_block.data(), READ_SIZE,
@@ -379,8 +362,21 @@ namespace psx {
 			m_old_decode_samples[1]);
 
 		if (u8(m_curr_block.flags) & u8(SPU_ADPCM_BlockFlags::LOOP_START)) {
-			m_config.m_repeat_address = u16(m_curr_address >> 3);
+			m_config.m_repeat_address = u16(start >> 3);
 		}
+
+		if (u8(m_curr_block.flags) & u8(SPU_ADPCM_BlockFlags::LOOP_END)) {
+			m_curr_address = (i32)m_config.m_repeat_address << 3;
+
+			if ((u8(m_curr_block.flags) & u8(SPU_ADPCM_BlockFlags::LOOP_REPEAT)) == 0) {
+				m_adsr_envelope.level = 0;
+				StartAdsrPhase(AdsrPhase::RELEASE);
+			}
+
+			m_endx_flag = true;
+		}
+
+		m_has_block = true;
 	}
 
 	void SPUVoice::VolumeEnvelope::Reset(bool _exponential, bool _increase, u8 _shift, u8 _step, bool _phase_negative) {
@@ -389,71 +385,36 @@ namespace psx {
 		shift = _shift;
 		step = _step;
 		phase_negative = _phase_negative;
-
-		calc_step = 7 - step;
-		if (!increase ^ phase_negative) {
-			calc_step = ~calc_step;
-		}
-
-		calc_step <<= std::max(0, 11 - shift);
-		counter_increment = 0x8000 >> std::max(0, shift - 11);
-
-		if (exponential && increase && level > 0x6000) {
-			if (shift < 10) {
-				calc_step >>= 2;
-			}
-			else if (shift >= 11) {
-				counter_increment >>= 2;
-			}
-			else {
-				calc_step >>= 2;
-				counter_increment >>= 2;
-			}
-		}
-		else if (exponential && !increase) {
-			calc_step = (level * calc_step) >> 15;
-		}
-
-		if ((step | (shift << 2)) != 0xFF) {
-			counter_increment = std::max(counter_increment, 1);
-		}
+		adsr_cycles = 0;
 	}
 
 	bool SPUVoice::VolumeEnvelope::Step() {
-		if (exponential && increase && level > 0x6000) {
-			if (shift < 10) {
-				calc_step >>= 2;
-			}
-			else if (shift >= 11) {
-				counter_increment >>= 2;
-			}
-			else {
-				calc_step >>= 2;
-				counter_increment >>= 2;
-			}
-		}
-		else if (exponential && !increase) {
-			calc_step = (level * calc_step) >> 15;
+		if (adsr_cycles > 0) {
+			adsr_cycles--;
 		}
 
-		counter += counter_increment;
-		if ((counter & 0x8000) == 0) {
-			return false;
+		auto cycles_to_increment = 1 << std::max(0, shift - 11);
+		i32 vol_step = GetStep() << std::max(0, 11 - shift);
+
+		if (exponential) {
+			if (increase && level > 0x6000) {
+				cycles_to_increment *= 4;
+			}
+			if (!increase) {
+				vol_step = (vol_step * level) >> 15;
+			}
 		}
 
-		auto new_level = level + calc_step;
-		if (increase) {
-			level = (i16)std::clamp(new_level, (i32)MIN_VOLUME, (i32)MAX_VOLUME);
-			return (new_level != ((calc_step < 0) ? MIN_VOLUME : MAX_VOLUME));
+		if (adsr_cycles == 0) {
+			adsr_cycles = cycles_to_increment;
+			level = (i16)std::clamp<i32>((i32)level + vol_step, 0, 0x7FFF);
 		}
-		else if(phase_negative) {
-			level = (i16)std::clamp(new_level, (i32)MIN_VOLUME, 0);
-			return (new_level == 0);
-		}
-		else {
-			level = (i16)std::max(new_level, 0);
-			return (new_level == 0);
-		}
+
+		return increase ? (level >= SPUVoice::MAX_VOLUME) : (level <= 0);
+	}
+
+	i32 SPUVoice::VolumeEnvelope::GetStep() const {
+		return increase ? (7 - step) : (-8 + step);
 	}
 
 	void SPUVoice::VolumeSweep::Reset(SPU_VoiceVolume vol) {
@@ -469,7 +430,7 @@ namespace psx {
 			);
 		}
 		else {
-			level = (vol.volume.half_volume << 2);
+			level = (vol.volume.half_volume << 1);
 		}
 	}
 
@@ -478,10 +439,8 @@ namespace psx {
 			return;
 		}
 
-		if (envelope.counter_increment > 0) {
-			enabled =  envelope.Step();
-			level = envelope.level;
-		}
+		enabled = envelope.Step();
+		level = envelope.level;
 	}
-#pragma optimize("", on)
+#pragma optimize("", off)
 }

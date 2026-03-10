@@ -388,7 +388,7 @@ namespace psx::cpu {
 
 				//ReturnFromException is [[noreturn]]
 				//Better not put it in the frame pointer stack
-				if (function_id != 0xb17) {
+				if (function_id != 0xb17 && function_id != 0xb10) {
 					m_syscall_frames.push(
 						SyscallCallstackEntry{
 							.exitpoint = m_regs.ra & 0x1FFFFFFF,

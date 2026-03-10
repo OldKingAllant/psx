@@ -124,6 +124,12 @@
     <Filter Include="Resource Files\bios\hlefs\formats">
       <UniqueIdentifier>{e27206d7-ce6a-40df-8048-69cd60f8910a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\audio">
+      <UniqueIdentifier>{b468c07d-a4ac-4c46-88e2-397993ce9a4c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\audio">
+      <UniqueIdentifier>{2e7be474-ab95-4a29-ad8c-b1852ed32d45}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\Defs.hpp">
@@ -414,6 +420,15 @@
     <ClInclude Include="include\psxemu\ADPCM.hpp">
       <Filter>Header Files\dev\spu</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\FirResample.hpp">
+      <Filter>Header Files\dev\spu</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\AudioBackend.hpp">
+      <Filter>Header Files\audio</Filter>
+    </ClInclude>
+    <ClInclude Include="include\psxemu\SPUDma.hpp">
+      <Filter>Header Files\dev\dma</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -634,6 +649,15 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\Reverb.cpp">
       <Filter>Resource Files\dev\spu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\FirResample.cpp">
+      <Filter>Resource Files\dev\spu</Filter>
+    </ClCompile>
+    <ClCompile Include="audio\AudioBackend.cpp">
+      <Filter>Resource Files\audio</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\SPUDma.cpp">
+      <Filter>Resource Files\dev\dma</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
