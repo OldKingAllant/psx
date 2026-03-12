@@ -30,12 +30,14 @@ namespace psx {
 		~StandardController() override;
 
 		enum class Command {
-			READ = 0x42
+			READ = 0x42,
+			CONFIG_MODE = 0x43
 		};
 
 		enum class ControllerStatus {
 			IDLE,
 			READ_STAT,
+			CONFIG,
 			COMMAND_END
 		};
 
@@ -75,12 +77,18 @@ namespace psx {
 	private :
 		void EnqueueStatus();
 
+		void IdleProcessByte(u8 value);
+		void ConfigProcessByte(u8 value);
+
 	private :
 		ControllerStatus m_status;
 		ControllerMode m_mode;
 		Queue<u8, 16> m_response;
+		Queue<u8, 32> m_in_fifo;
 		StandardButtonStatus m_btn_status;
 
 		std::unordered_map<std::string, u64> m_btn_map;
+
+		u32 m_byte_count;
 	};
 }

@@ -208,6 +208,7 @@ namespace psx::video {
 		void DrawMonoTransparentLine(MonoLine line, u8 transparency_type);
 		void DrawShadedLine(ShadedLine line);
 		void DrawShadedTransparentLine(ShadedLine line, u8 transparency_type);
+		void DrawTransparentGouraud(BasicGouraudTriangle triangle, u8 transparency_type);
 
 		void DrawBatch();
 

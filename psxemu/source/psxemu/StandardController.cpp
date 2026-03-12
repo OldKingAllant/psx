@@ -11,8 +11,8 @@ namespace psx {
 	StandardController::StandardController() :
 		m_status{ControllerStatus::IDLE}, 
 		m_mode{ControllerMode::DIGITAL},
-		m_response{}, m_btn_status{},
-		m_btn_map{}
+		m_response{}, m_in_fifo{},
+		m_btn_status {}, m_btn_map{}, m_byte_count{}
 	{
 		m_btn_status.reg = 0xFFFF;
 
@@ -42,31 +42,37 @@ namespace psx {
 	}
 
 	u8 StandardController::Send(u8 value) {
-		if (m_status == ControllerStatus::IDLE) {
-			if (value != u32(Command::READ)) {
-				LOG_ERROR("PAD", "[PAD] UNKNOWN COMMAND {:#x}", value);
-				error::DebugBreak();
-			}
-
-			m_status = ControllerStatus::READ_STAT;
-			EnqueueStatus();
+		switch (m_status)
+		{
+		case ControllerStatus::IDLE:
+			IdleProcessByte(value);
+			break;
+		case ControllerStatus::READ_STAT:
+			break;
+		case ControllerStatus::CONFIG:
+			ConfigProcessByte(value);
+			break;
+		case ControllerStatus::COMMAND_END:
+			m_status = ControllerStatus::IDLE;
+			break;
+		default:
+			error::Unreachable();
+			break;
 		}
 
-		if (m_response.empty()) {
-			LOG_ERROR("PAD", "[PAD] Response queue is empty!");
-			error::DebugBreak();
+		u8 resp = 0xff;
+		if (!m_response.empty()) {
+			m_response.deque();
 		}
 
-		u8 resp = m_response.deque();
-
-		if (m_response.empty())
+		if (m_response.empty() && m_status == ControllerStatus::READ_STAT)
 			m_status = ControllerStatus::COMMAND_END;
 
 		return resp;
 	}
 
 	bool StandardController::Ack() {
-		switch (m_status)
+		/*switch (m_status)
 		{
 		case psx::StandardController::ControllerStatus::IDLE:
 		case psx::StandardController::ControllerStatus::READ_STAT:
@@ -74,13 +80,15 @@ namespace psx {
 			break;
 		default:
 			break;
-		}
+		}*/
+
+		bool ack = m_status == ControllerStatus::IDLE || !m_response.empty();
 
 		if (m_status == ControllerStatus::COMMAND_END) {
 			m_status = ControllerStatus::IDLE;
 		}
 
-		return false;
+		return ack;
 	}
 
 	void StandardController::EnqueueStatus() {
@@ -95,9 +103,32 @@ namespace psx {
 		m_response.queue(u8((m_btn_status.reg >> 8) & 0xFF));
 	}
 
+	void StandardController::IdleProcessByte(u8 value) {
+		auto cmd = Command(value);
+		switch (cmd)
+		{
+		case Command::READ:
+			m_status = ControllerStatus::READ_STAT;
+			EnqueueStatus();
+			break;
+		case Command::CONFIG_MODE:
+			m_status = ControllerStatus::CONFIG;
+			EnqueueStatus();
+			break;
+		default:
+			LOG_ERROR("PAD", "[PAD] UNKNOWN COMMAND {:#x}", value);
+			error::DebugBreak();
+			break;
+		}
+	}
+
+	void StandardController::ConfigProcessByte(u8 value) {
+	}
+
 	void StandardController::Reset() {
 		m_response.clear();
-		m_status = ControllerStatus::IDLE;
+		m_status = m_status == ControllerStatus::CONFIG ? m_status : ControllerStatus::IDLE;
+		m_byte_count = 0;
 	}
 
 	void StandardController::UpdateStatus(ButtonStatus status) {

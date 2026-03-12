@@ -113,13 +113,8 @@ namespace psx {
 		}
 	}
 
-#pragma optimize("", off)
 	void Gpu::CommandStart(u32 cmd) {
 		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
-
-		if (cmd == 0x3a737373) {
-			bool br = true;
-		}
 
 		LOG_DEBUG("GPU", "[GPU] COMMAND TYPE {}, VALUE = {:#010x}", magic_enum::enum_name(cmd_type),
 			cmd);
@@ -224,10 +219,7 @@ namespace psx {
 			LOG_ERROR("GPU", "[GPU] Invalid command type 0x{:x}", (u32)cmd_type);
 			break;
 		}
-
-		LOG_DEBUG("GPU", "[GPU] WAITING {} PARAMETERS", m_required_params);
 	}
-#pragma optimize("", on)
 
 	void Gpu::DrawAreaTopLeft(u32 cmd) {
 		cmd &= 0xFFFFF;
@@ -355,7 +347,6 @@ namespace psx {
 			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");
 	}
 
-#pragma optimize("", off)
 	void Gpu::CommandEnd() {
 		if (m_cmd_fifo.empty())
 			error::DebugBreak();
@@ -542,5 +533,4 @@ namespace psx {
 			break;
 		}
 	}
-#pragma optimize("", on)
 }

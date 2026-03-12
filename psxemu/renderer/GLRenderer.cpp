@@ -255,6 +255,26 @@ namespace psx::video {
 		AppendCommand(cmd);
 	}
 
+	void Renderer::DrawTransparentGouraud(BasicGouraudTriangle triangle, u8 transparency_type) {
+		if (m_basic_gouraud_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
+			FlushCommands();
+
+		m_basic_gouraud_pipeline.PushVertex(triangle.v0);
+		m_basic_gouraud_pipeline.PushVertex(triangle.v1);
+		m_basic_gouraud_pipeline.PushVertex(triangle.v2);
+
+		m_basic_gouraud_pipeline.AddPrimitiveData({});
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = 3;
+		cmd.type = PipelineType::BASIC_GOURAUD_TRIANGLE;
+		cmd.semi_transparent = true;
+		cmd.semi_transparency_type = transparency_type;
+
+		AppendCommand(cmd);
+	}
+
 	void Renderer::DrawBatch() {
 		if (m_commands.empty())
 			return;
@@ -301,28 +321,27 @@ namespace psx::video {
 				glBlendColor(0.25f, 0.25f, 0.25f, 0.5f);
 
 				//glBlendFuncSeparate order: src dst src dst
-				switch (cmd.semi_transparency_type)
-				{
-				case 0: {
-					GLenum coeff_src = GL_CONSTANT_ALPHA;
-					GLenum coeff_dst = GL_CONSTANT_ALPHA;
-					if (cmd.type == PipelineType::TEXTURED_TRIANGLE) {
-						coeff_src = GL_SRC1_ALPHA;
-						coeff_dst = GL_SRC1_COLOR;
+				if (cmd.type == PipelineType::TEXTURED_TRIANGLE) {
+					glBlendFuncSeparate(GL_SRC1_ALPHA, GL_SRC1_COLOR, GL_ONE, GL_ZERO);
+				}
+				else {
+					switch (cmd.semi_transparency_type)
+					{
+					case 0: {
+						glBlendFuncSeparate(GL_CONSTANT_ALPHA, GL_CONSTANT_ALPHA, GL_ONE, GL_ZERO);
+					} break;
+					case 1:
+						glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
+						break;
+					case 2:
+						glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
+						break;
+					case 3:
+						glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE, GL_ONE, GL_ZERO);
+						break;
+					default:
+						break;
 					}
-					glBlendFuncSeparate(coeff_src, coeff_dst, GL_ONE, GL_ZERO);
-				} break;
-				case 1:
-					glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
-					break;
-				case 2:
-					glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ZERO);
-					break;
-				case 3:
-					glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE, GL_ONE, GL_ZERO);
-					break;
-				default:
-					break;
 				}
 			}
 			else {

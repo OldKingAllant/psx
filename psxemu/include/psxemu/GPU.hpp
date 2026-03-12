@@ -245,6 +245,8 @@ namespace psx {
 		void DrawShadedPolyLine();
 		void DrawNormalTriangle();
 		void DrawSemitransparentQuad();
+		void DrawSemiTransparentGouraudQuad();
+		void DrawSemiTransparentGouraudTriangle();
 
 		void QuickFill();
 

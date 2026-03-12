@@ -38,11 +38,15 @@ namespace psx {
 		}
 
 		if (address >= STAT_ADDRESS && address < STAT_ADDRESS + 4) {
-			m_stat.dsr_input_level = !m_has_ack;
-			//m_has_ack = false;
+			if (m_event_id != INVALID_EVENT) {
+				m_sys_status->scheduler.Deschedule(m_event_id);
+				TransferComplete();
+			}
 			u64 timestamp = m_sys_status->scheduler.GetTimestamp();
 			u32 baudrate_timer = u32(timestamp % m_baud_rate);
-			return m_stat.reg | (baudrate_timer << 11);
+			auto data = m_stat.reg | (baudrate_timer << 11);
+			m_stat.dsr_input_level = !m_has_ack;
+			return data;
 		}
 
 		if (address >= MODE_ADDRESS && address < CTRL_ADDRESS + 2) {
@@ -65,7 +69,7 @@ namespace psx {
 				error::DebugBreak();
 			}
 
-			return Read8(DATA_ADDRESS + 1) | (Read8(DATA_ADDRESS) << 8);
+			return Read8(DATA_ADDRESS) | (Read8(DATA_ADDRESS) << 8);
 		}
 
 		if (address >= STAT_ADDRESS && address < STAT_ADDRESS + 4) {
@@ -92,10 +96,16 @@ namespace psx {
 
 	u8 SIOPort::Read8(u32 address) {
 		if (address >= DATA_ADDRESS && address < DATA_ADDRESS + 4) {
+			if (m_event_id != INVALID_EVENT) {
+				m_sys_status->scheduler.Deschedule(m_event_id);
+				TransferComplete();
+			}
 			u8 offset = (address - DATA_ADDRESS);
+			LOG_DEBUG("PAD", "[PAD] READ DATA, OFFSET {}, PC = {:#010x}", offset, m_sys_status->cpu->GetPc());
 			if (m_rx_fifo.num_bytes <= offset)
 				return 0;
 			u8 return_val = m_rx_fifo.entries[offset];
+			LOG_DEBUG("PAD", "[PAD] RETURN VALUE {:#04x}", return_val);
 			if (offset == 0) {
 				std::shift_left(m_rx_fifo.entries, std::end(m_rx_fifo.entries), 1);
 				m_rx_fifo.num_bytes -= 1;
@@ -254,7 +264,7 @@ namespace psx {
 
 	void SIOPort::HandlePendingTransfer() {
 		//static constexpr u64 ACK_INT_DELAY = 350; //For 2 CPI
-		static constexpr u64 ACK_INT_DELAY = 700;
+		static constexpr u64 ACK_INT_DELAY = 800;
 
 		if (m_pending_transfer && (m_control.tx_enable || m_tx_enable_latch) && 
 			m_stat.tx_idle && m_control.dtr_output_level) {
@@ -310,6 +320,7 @@ namespace psx {
 			m_sys_status->Interrupt(u32(Interrupts::PAD_CARD));
 		}
 
+		m_event_id = INVALID_EVENT;
 		HandlePendingTransfer();
 	}
 }

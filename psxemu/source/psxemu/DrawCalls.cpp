@@ -429,7 +429,107 @@ namespace psx {
 		);
 	}
 
-#pragma optimize("", off)
+	void Gpu::DrawSemiTransparentGouraudQuad() {
+		u32 color1 = m_cmd_fifo.deque() & 0xFFFFFF;
+
+		u32 vertex1 = m_cmd_fifo.deque();
+		u32 color2 = m_cmd_fifo.deque();
+		u32 vertex2 = m_cmd_fifo.deque();
+		u32 color3 = m_cmd_fifo.deque();
+		u32 vertex3 = m_cmd_fifo.deque();
+		u32 color4 = m_cmd_fifo.deque();
+		u32 vertex4 = m_cmd_fifo.deque();
+
+		video::BasicGouraudVertex v1 = {};
+		video::BasicGouraudVertex v2 = {};
+		video::BasicGouraudVertex v3 = {};
+		video::BasicGouraudVertex v4 = {};
+
+		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
+
+		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
+
+		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
+
+		v4.x = sign_extend<i32, 10>(vertex4 & 0xFFFF);
+		v4.y = sign_extend<i32, 10>((vertex4 >> 16) & 0xFFFF);
+
+		v1.color = color1;
+		v2.color = color2;
+		v3.color = color3;
+		v4.color = color4;
+
+		video::BasicGouraudTriangle triangle1 = {};
+		video::BasicGouraudTriangle triangle2 = {};
+
+		triangle1.v0 = v1;
+		triangle1.v1 = v2;
+		triangle1.v2 = v3;
+
+		triangle2.v0 = v2;
+		triangle2.v1 = v3;
+		triangle2.v2 = v4;
+
+		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD QUAD");
+		//LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
+			//r, g, b);
+		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
+			v1.x, v1.y);
+		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
+			v2.x, v2.y);
+		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
+			v3.x, v3.y);
+		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
+			v4.x, v4.y);
+
+		u8 transparency_type = u8(m_stat.semi_transparency);
+
+		m_renderer->DrawTransparentGouraud(triangle1, transparency_type);
+		m_renderer->DrawTransparentGouraud(triangle2, transparency_type);
+	}
+
+	void Gpu::DrawSemiTransparentGouraudTriangle() {
+		u32 color1 = m_cmd_fifo.deque() & 0xFFFFFF;
+
+		u32 vertex1 = m_cmd_fifo.deque();
+		u32 color2 = m_cmd_fifo.deque();
+		u32 vertex2 = m_cmd_fifo.deque();
+		u32 color3 = m_cmd_fifo.deque();
+		u32 vertex3 = m_cmd_fifo.deque();
+
+		video::BasicGouraudVertex v1 = {};
+		video::BasicGouraudVertex v2 = {};
+		video::BasicGouraudVertex v3 = {};
+
+		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
+		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
+
+		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
+		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
+
+		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
+		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
+
+		v1.color = color1;
+		v2.color = color2;
+		v3.color = color3;
+
+		video::BasicGouraudTriangle triangle1 = {};
+
+		triangle1.v0 = v1;
+		triangle1.v1 = v2;
+		triangle1.v2 = v3;
+
+		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD TRIANGLE");
+
+		u8 transparency_type = u8(m_stat.semi_transparency);
+
+		m_renderer->DrawTransparentGouraud(triangle1, transparency_type);
+	}
+
 	void Gpu::DrawQuad() {
 		u32 cmd = m_cmd_fifo.peek();
 
@@ -451,13 +551,13 @@ namespace psx {
 		else if (tex) {
 			DrawTexturedQuad();
 		}
+		else if (gouraud) {
+			DrawSemiTransparentGouraudQuad();
+		}
 		else {
 			DrawSemitransparentQuad();
 		}
-
-		//CheckIfDrawNeeded();
 	}
-#pragma optimize("", on)
 
 	void Gpu::DrawTriangle() {
 		u32 cmd = m_cmd_fifo.peek();
@@ -473,10 +573,11 @@ namespace psx {
 
 		if (gouraud && !tex) {
 			if (transparent) {
-				fmt::println("[GPU] TRANSPARENT GOURAUD TRIANGLE");
-				error::DebugBreak();
+				DrawSemiTransparentGouraudTriangle();
 			}
-			DrawBasicGouraudTriangle();
+			else {
+				DrawBasicGouraudTriangle();
+			}
 		}
 		else if (tex) {
 			DrawTexturedTriangle();
@@ -484,8 +585,6 @@ namespace psx {
 		else {
 			DrawNormalTriangle();
 		}
-
-		//CheckIfDrawNeeded();
 	}
 
 	void Gpu::QuickFill() {
@@ -1012,11 +1111,6 @@ namespace psx {
 
 		v2.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
 		v2.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
-
-		//fmt::println("[GPU]  R = {}, G = {}, B = {}", r, g, b);
-		//fmt::println("       X0 = {:#x}, Y0 = {:#x}", v0.x, v0.y);
-		//fmt::println("       X1 = {:#x}, Y1 = {:#x}", v1.x, v1.y);
-		//fmt::println("       X2 = {:#x}, Y2 = {:#x}", v2.x, v2.y);
 
 		v0.r = r;
 		v0.g = g;
