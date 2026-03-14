@@ -248,7 +248,9 @@ namespace psx {
 				clut_and_page |= page;
 			}
 
-			vertices[i].uv = uv & 0xFFFF;
+			u32 u = uv & 0xFF;
+			u32 v = (uv >> 8) & 0xFF;
+			vertices[i].uv = (v << 16) | u;
 
 			vertices[i].flags = flags;
 		}
@@ -326,7 +328,9 @@ namespace psx {
 				clut_and_page |= page;
 			}
 
-			vertices[i].uv = uv & 0xFFFF;
+			u32 u = uv & 0xFF;
+			u32 v = (uv >> 8) & 0xFF;
+			vertices[i].uv = (v << 16) | u;
 
 			vertices[i].flags = flags;
 		}
@@ -638,8 +642,9 @@ namespace psx {
 		bool semi_trans = bool((cmd >> 25) & 1);
 		bool raw = bool((cmd >> 24) & 1);
 
-		if (semi_trans)
+		if (semi_trans) {
 			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
+		}
 
 		if (raw)
 			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
@@ -652,8 +657,8 @@ namespace psx {
 		u32 clutuv = m_cmd_fifo.deque();
 		u16 clut = (clutuv >> 16) & 0xFFFF;
 
-		u8 u1 = u8(clutuv & 0xFF);
-		u8 v1 = u8((clutuv >> 8) & 0xFF);
+		u32 u1 = clutuv & 0xFF;
+		u32 v1 = (clutuv >> 8) & 0xFF;
 
 		u32 tex_and_clut = (u32(clut) << 16) | texpage;
 
@@ -682,29 +687,29 @@ namespace psx {
 		i32 x2 = x1;
 		i32 y2 = y1 + sizey;
 
-		u8 u2 = u1;
-		u8 v2 = v1 + sizey;
+		u32 u2 = u1;
+		u32 v2 = v1 + sizey;
 
 		//Top right
 		i32 x3 = x1 + sizex;
 		i32 y3 = y1;
 
-		u8 u3 = u1 + sizex;
-		u8 v3 = v1;
+		u32 u3 = u1 + sizex;
+		u32 v3 = v1;
 
 		//Bottom right
 		i32 x4 = x1 + sizex;
 		i32 y4 = y1 + sizey;
 
-		u8 u4 = u1 + sizex;
-		u8 v4 = v1 + sizey;
+		u32 u4 = u1 + sizex;
+		u32 v4 = v1 + sizey;
 
 		if (m_tex_x_flip) {
-			u4 = u3 = u8(std::max(0, i32(u1 + 1 - sizex)));
+			u4 = u3 = (u32)std::max(0, i32(u1 + 1 - sizex));
 		}
 
 		if (m_tex_y_flip) {
-			v4 = v2 = u8(std::max(0, i32(v1 + 1 - sizey)));
+			v4 = v2 = (u32)std::max(0, i32(v1 + 1 - sizey));
 		}
 
 		video::TexturedVertex vertices[4] = {};
@@ -714,28 +719,28 @@ namespace psx {
 		vertices[0].flags = flags;
 		vertices[0].x = x1;
 		vertices[0].y = y1;
-		vertices[0].uv = u1 | ((u16)v1 << 8);
+		vertices[0].uv = u1 | (v1 << 16);
 
 		vertices[1].clut_page = tex_and_clut;
 		vertices[1].color = color;
 		vertices[1].flags = flags;
 		vertices[1].x = x2;
 		vertices[1].y = y2;
-		vertices[1].uv = u2 | ((u16)v2 << 8);
+		vertices[1].uv = u2 | (v2 << 16);
 
 		vertices[2].clut_page = tex_and_clut;
 		vertices[2].color = color;
 		vertices[2].flags = flags;
 		vertices[2].x = x3;
 		vertices[2].y = y3;
-		vertices[2].uv = u3 | ((u16)v3 << 8);
+		vertices[2].uv = u3 | (v3 << 16);
 
 		vertices[3].clut_page = tex_and_clut;
 		vertices[3].color = color;
 		vertices[3].flags = flags;
 		vertices[3].x = x4;
 		vertices[3].y = y4;
-		vertices[3].uv = u4 | ((u16)v4 << 8);
+		vertices[3].uv = u4 | (v4 << 16);
 
 		video::TexturedTriangle triangle1 = {};
 		video::TexturedTriangle triangle2 = {};

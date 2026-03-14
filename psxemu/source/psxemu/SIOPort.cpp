@@ -101,11 +101,9 @@ namespace psx {
 				TransferComplete();
 			}
 			u8 offset = (address - DATA_ADDRESS);
-			LOG_DEBUG("PAD", "[PAD] READ DATA, OFFSET {}, PC = {:#010x}", offset, m_sys_status->cpu->GetPc());
 			if (m_rx_fifo.num_bytes <= offset)
 				return 0;
 			u8 return_val = m_rx_fifo.entries[offset];
-			LOG_DEBUG("PAD", "[PAD] RETURN VALUE {:#04x}", return_val);
 			if (offset == 0) {
 				std::shift_left(m_rx_fifo.entries, std::end(m_rx_fifo.entries), 1);
 				m_rx_fifo.num_bytes -= 1;
@@ -258,13 +256,17 @@ namespace psx {
 			m_id, m_baud_rate, bits_second, m_clocks_per_bit);
 	}
 
+	u64 SIOPort::GetTransferTime() const {
+		return ((u64)m_mode.char_len + 5) * m_clocks_per_bit;
+	}
+
 	void transfer_end_callback(void* port, u64 cycles_late) {
 		std::bit_cast<SIOPort*>(port)->TransferComplete();
 	}
 
 	void SIOPort::HandlePendingTransfer() {
 		//static constexpr u64 ACK_INT_DELAY = 350; //For 2 CPI
-		static constexpr u64 ACK_INT_DELAY = 800;
+		const u64 ACK_INT_DELAY = GetTransferTime();
 
 		if (m_pending_transfer && (m_control.tx_enable || m_tx_enable_latch) && 
 			m_stat.tx_idle && m_control.dtr_output_level) {

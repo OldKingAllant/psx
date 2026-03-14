@@ -51,6 +51,7 @@ namespace psx {
 			return;
 
 		FlushDrawOps();
+		m_renderer->SyncTextures();
 
 		m_raw_conf.texpage = cmd;
 

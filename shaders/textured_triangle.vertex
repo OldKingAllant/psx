@@ -56,8 +56,8 @@ void main() {
 	base_color = float_color;
 	interpolated_color = float_color;
 
-	uint v = (uv >> 8) & 0xFF;
-	uint u = uv & 0xFF;
+	uint v = (uv >> 16) & 0xFFFF;
+	uint u = uv & 0xFFFF;
 
 	out_uv = vec2(
 		float(u),

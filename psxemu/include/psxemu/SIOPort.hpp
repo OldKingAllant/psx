@@ -31,6 +31,7 @@ namespace psx {
 		void Write8(u32 address, u8 value);
 
 		void ComputeClocksPerBit();
+		u64  GetTransferTime() const;
 		void HandlePendingTransfer();
 
 		FORCE_INLINE void Port1Connect(std::unique_ptr<SIOAbstractDevice> dev) {

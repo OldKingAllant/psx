@@ -32,6 +32,8 @@ layout(std140, binding = 2) uniform globals {
 };
 
 void vram_fetch(in uint x, in uint y, out vec4 vram_color) {
+	x = x & 0x3FF;
+	y = y & 0x1FF;
 	vram_color = texelFetch(vram_tex, ivec2(x, y), 0);
 }
 
@@ -39,10 +41,10 @@ void vram_clut_index(in uint x, in uint y, out uint index) {
 	vec4 color;
 	vram_fetch(x, y, color);
 	index = 0;
-	index |= uint(floor(color.r * 31.0 + 0.1));
-	index |= (uint(floor(color.g * 31.0 + 0.1)) << 5);
-	index |= (uint(floor(color.b * 31.0 + 0.1)) << 10);
-	index |= (uint(floor(color.a + 0.1)) << 15);
+	index |= uint(floor(color.r * 31.0 + 0.5));
+	index |= (uint(floor(color.g * 31.0 + 0.5)) << 5);
+	index |= (uint(floor(color.b * 31.0 + 0.5)) << 10);
+	index |= (uint(floor(color.a + 0.5)) << 15);
 }
 
 void modulate(in uvec3 texel, in uvec3 frag_color, out vec3 final) {
@@ -102,8 +104,8 @@ void dither(in vec2 coordinates, in vec4 color, out vec4 dithered_color) {
 }
 
 void compute_uv(in vec2 uv, out vec2 effective_uv) {
-	uint u = uint(uv.x) & 0xFF;
-	uint v = uint(uv.y) & 0xFF;
+	uint u = uint(uv.x) & 0xFFFF;
+	uint v = uint(uv.y) & 0xFFFF;
 	u = (u & ~(tex_window_mask_x * 8)) |
 		((tex_window_off_x & tex_window_mask_x) * 8);
 	v = (v & ~(tex_window_mask_y * 8)) |
