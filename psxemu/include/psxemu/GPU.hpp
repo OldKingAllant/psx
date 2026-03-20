@@ -299,7 +299,7 @@ namespace psx {
 
 		DisplayConfig m_disp_conf;
 
-		u64 m_last_even_timestamp;
+		u64 m_last_event_timestamp;
 		u64 m_curr_vblank_count;
 	};
 }

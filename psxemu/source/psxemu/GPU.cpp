@@ -25,7 +25,7 @@ namespace psx {
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
 		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{},
-		m_renderer{ nullptr }, m_disp_conf{}, m_last_even_timestamp{},
+		m_renderer{ nullptr }, m_disp_conf{}, m_last_event_timestamp{},
 		m_curr_vblank_count{} {
 		m_renderer = new video::Renderer();
 		m_cpu_vram = m_renderer->GetVramPtr();
@@ -295,16 +295,16 @@ namespace psx {
 	}
 
 	void Gpu::InitEvents() {
-		m_last_even_timestamp = ACTIVE_CLOCKS;
+		m_last_event_timestamp = ACTIVE_CLOCKS;
 		(void)m_sys_status->scheduler.ScheduleAbsolute(ACTIVE_CLOCKS, hblank_callback, this);
 	}
 
 	void Gpu::HBlank(u64 cycles_late) {
 		m_sys_status->sysbus->GetCounter0().HBlank();
 		m_sys_status->sysbus->GetCounter1().UpdateFromTimestamp();
-		m_last_even_timestamp += (CLOCKS_SCANLINE - ACTIVE_CLOCKS);
+		m_last_event_timestamp += (CLOCKS_SCANLINE - ACTIVE_CLOCKS);
 		(void)m_sys_status->scheduler.ScheduleAbsolute(
-			m_last_even_timestamp, 
+			m_last_event_timestamp, 
 			hblank_end_callback, 
 			this);
 	}
@@ -340,8 +340,8 @@ namespace psx {
 			}
 		}
 
-		m_last_even_timestamp += ACTIVE_CLOCKS;
-		(void)m_sys_status->scheduler.ScheduleAbsolute(m_last_even_timestamp, 
+		m_last_event_timestamp += ACTIVE_CLOCKS;
+		(void)m_sys_status->scheduler.ScheduleAbsolute(m_last_event_timestamp, 
 			hblank_callback, this);
 	}
 
@@ -507,13 +507,13 @@ namespace psx {
 		u64 rem_scanlines = (SCANLINES_FRAME - m_scanline) - 1;
 		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 
-		if (curr_time > m_last_even_timestamp) {
+		if (curr_time > m_last_event_timestamp) {
 			LOG_ERROR("GPU", "[GPU] SCHEDULER TIME < LAST EVENT TIME");
 			LOG_FLUSH();
 			error::DebugBreak();
 		}
 
-		u64 total_time = (m_last_even_timestamp - curr_time) +
+		u64 total_time = (m_last_event_timestamp - curr_time) +
 			rem_scanlines * CLOCKS_SCANLINE;
 
 		return total_time;
