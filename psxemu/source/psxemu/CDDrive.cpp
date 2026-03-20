@@ -101,7 +101,6 @@ namespace psx {
 		Write16(address + 2, (u16)(value >> 16));
 	}
 
-#pragma optimize("", off)
 	void CDDrive::WriteReg1(u8 value) {
 		switch (m_index_reg.index)
 		{
@@ -120,6 +119,8 @@ namespace psx {
 			}
 			else {
 				if (m_has_next_cmd) {
+					LOG_ERROR("CDROM", "[CDROM] CANNOT PROCESS ANOTHER COMMAND");
+					LOG_FLUSH();
 					error::DebugBreak();
 				}
 				m_new_cmd = value;
@@ -148,7 +149,6 @@ namespace psx {
 			break;
 		}
 	}
-#pragma optimize("", on)
 
 	void CDDrive::WriteReg2(u8 value) {
 		switch (m_index_reg.index)
@@ -484,9 +484,6 @@ namespace psx {
 			return;
 		}
 
-		LOG_DEBUG("CDROM", "[CDROM] INTERRUPT ACK");
-		LOG_FLUSH();
-
 		{
 			auto& response = m_response_fifo.peek();
 			auto curr_timestamp = m_sys_status->scheduler.GetTimestamp();
@@ -635,6 +632,10 @@ namespace psx {
 			}
 		}
 
+		if (m_response_fifo.full() || m_has_pending_read || contains_data_response) {
+			LOG_INFO("CDROM", "[CDROM] DELAYING SECTOR DELIVERY");
+		}
+
 		if (!(m_response_fifo.full() || m_has_pending_read || contains_data_response)) {
 			PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
 				100);
@@ -648,7 +649,7 @@ namespace psx {
 		u64 read_time = m_mode.double_speed ? ResponseTimings::READ_DOUBLE_SPEED :
 			ResponseTimings::READ;
 
-		m_read_event = m_sys_status->scheduler.Schedule( read_time,
+		m_read_event = m_sys_status->scheduler.Schedule( read_time / 2,
 			read_callback, std::bit_cast<void*>(this));
 	}
 

@@ -9,6 +9,7 @@
 #include "Renderdoc.hpp"
 
 #include <list>
+#include <optional>
 
 namespace psx::video {
 	struct UntexturedOpaqueFlatVertex {
@@ -67,7 +68,6 @@ namespace psx::video {
 			};
 		}
 	};
-
 
 	struct UntexturedOpaqueFlatTriangle {
 		UntexturedOpaqueFlatVertex v0;
@@ -133,6 +133,22 @@ namespace psx::video {
 				//of used elements in the enum
 	};
 
+	struct GenericVertex {
+		int32_t x, y;
+		uint32_t color;
+		uint32_t clut_page;
+		uint32_t flags;
+		uint32_t uv;
+	};
+
+	struct GenericPrimitive {
+		GenericVertex vertices[3];
+		PipelineType type;
+		bool semi_transparent;
+		u8 semi_transparency_type;
+		u8 vertex_count;
+	};
+
 	struct DrawCommand {
 		PipelineType type;
 		u32 vertex_count;
@@ -157,6 +173,7 @@ namespace psx::video {
 		int32_t draw_y_off;
 		uint32_t set_mask;
 		uint32_t check_mask;
+		uint32_t resolution_multiplier;
 #pragma pack(pop)
 	};
 
@@ -200,18 +217,9 @@ namespace psx::video {
 			return m_framebuffer;
 		}
 
-		void DrawFlatUntexturedOpaque(UntexturedOpaqueFlatTriangle triangle);
-		void DrawBasicGouraud(BasicGouraudTriangle triangle);
-		void DrawTexturedTriangle(TexturedTriangle triangle);
-		void DrawTransparentUntexturedTriangle(UntexturedOpaqueFlatTriangle triangle, u8 transparency_type);
-		void DrawMonoLine(MonoLine line);
-		void DrawMonoTransparentLine(MonoLine line, u8 transparency_type);
-		void DrawShadedLine(ShadedLine line);
-		void DrawShadedTransparentLine(ShadedLine line, u8 transparency_type);
-		void DrawTransparentGouraud(BasicGouraudTriangle triangle, u8 transparency_type);
-
 		void DrawBatch();
 
+		void DrawPrimitive(GenericPrimitive const& primitive);
 		void AppendCommand(DrawCommand cmd);
 
 		void CommandFenceSync();
@@ -251,6 +259,7 @@ namespace psx::video {
 		~Renderer();
 
 	private :
+		u32 m_resolution_multiplier;
 		Vram m_vram;
 		FrameBuffer m_framebuffer;
 		bool m_need_gpu_to_host_copy;

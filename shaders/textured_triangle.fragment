@@ -29,7 +29,14 @@ layout(std140, binding = 2) uniform globals {
 	int draw_y_off;
 	bool set_mask;
 	bool check_mask;
+	uint resolution_multiplier;
 };
+
+const uint VRAM_X_SIZE = 1024;
+const uint VRAM_Y_SIZE = 512;
+
+const uint VRAM_X_SIZE_MASK = VRAM_X_SIZE - 1;
+const uint VRAM_Y_SIZE_MASK = VRAM_Y_SIZE - 1;
 
 void vram_fetch(in uint x, in uint y, out vec4 vram_color) {
 	x = x & 0x3FF;

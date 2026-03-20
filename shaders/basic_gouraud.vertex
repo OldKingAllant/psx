@@ -14,6 +14,7 @@ layout(std140, binding = 2) uniform globals {
 	int draw_y_off;
 	bool set_mask;
 	bool check_mask;
+	uint resolution_multiplier;
 };
 
 out vec3 vertex_color;

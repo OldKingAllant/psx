@@ -152,6 +152,7 @@
     <ClInclude Include="..\common\SetThreadName.hpp" />
     <ClInclude Include="..\common\Stack.hpp" />
     <ClInclude Include="audio\AudioBackend.hpp" />
+    <ClInclude Include="audio\FirstOrderLPF.hpp" />
     <ClInclude Include="include\psxemu\AbstractController.hpp" />
     <ClInclude Include="include\psxemu\AbstractMemcard.hpp" />
     <ClInclude Include="include\psxemu\ADPCM.hpp" />

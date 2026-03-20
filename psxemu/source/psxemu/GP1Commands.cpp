@@ -50,7 +50,7 @@ namespace psx {
 		switch (dir)
 		{
 		case psx::DmaDir::OFF:
-			LOG_DEBUG("GPU", "[GPU] DMA OFF");
+			//LOG_DEBUG("GPU", "[GPU] DMA OFF");
 			break;
 		case psx::DmaDir::IDK:
 			LOG_DEBUG("GPU", "[GPU] DMA ?");

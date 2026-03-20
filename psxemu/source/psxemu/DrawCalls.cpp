@@ -1,4 +1,5 @@
 #include <psxemu/include/psxemu/GPU.hpp>
+#include <psxemu/include/psxemu/GPUCommands.hpp>
 #include <psxemu/renderer/GLRenderer.hpp>
 
 #include <common/Errors.hpp>
@@ -9,585 +10,512 @@
 #include <fmt/format.h>
 
 namespace psx {
-	void Gpu::CheckIfDrawNeeded() {
-		//If this is true, batching becomes
-		//impossible, since previous draw
-		//calls can immediately affect 
-		//others, for this reason, we
-		//need to always update the VRAM
-		//input texture after every draw
-		//command
-		if (m_stat.draw_over_mask_disable) {
-			FlushDrawOps();
-			m_renderer->SyncTextures();
-		}
-	}
+	static constexpr u32 MAX_VERTEX_X_DISTANCE = 1023;
+	static constexpr u32 MAX_VERTEX_Y_DISTANCE = 511;
 
 	void Gpu::FlushDrawOps() {
 		m_renderer->FlushCommands();
 	}
 
-	void Gpu::DrawFlatUntexturedOpaqueQuad() {
-		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
+	template <u8 NumVertices, bool Textured, 
+		bool Gouraud, bool Transparent, bool Raw>
+	void DrawPolygon(Gpu& gpu, PolygonCmd cmd) {
+		static_assert(NumVertices == 3 || NumVertices == 4);
 
-		u32 vertex_1 = m_cmd_fifo.deque();
-		u32 vertex_2 = m_cmd_fifo.deque();
-		u32 vertex_3 = m_cmd_fifo.deque();
-		u32 vertex_4 = m_cmd_fifo.deque();
+		auto& cmd_fifo = gpu.GetCmdFifo();
+		auto renderer = gpu.GetRenderer();
 
-		video::UntexturedOpaqueFlatVertex v1 = {};
-		video::UntexturedOpaqueFlatVertex v2 = {};
-		video::UntexturedOpaqueFlatVertex v3 = {};
-		video::UntexturedOpaqueFlatVertex v4 = {};
-
-		v1.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
-
-		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
-
-		v3.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
-
-		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF);
-		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF);
-
-		u32 r = color & 0xFF;
-		u32 g = (color >> 8) & 0xFF;
-		u32 b = (color >> 16) & 0xFF;
-
-		v1.r = r;
-		v1.g = g;
-		v1.b = b;
-
-		v2.r = r;
-		v2.g = g;
-		v2.b = b;
-
-		v3.r = r;
-		v3.g = g;
-		v3.b = b;
-
-		v4.r = r;
-		v4.g = g;
-		v4.b = b;
-
-		video::UntexturedOpaqueFlatTriangle triangle1 = {};
-		video::UntexturedOpaqueFlatTriangle triangle2 = {};
-
-		triangle1.v0 = v1;
-		triangle1.v1 = v2;
-		triangle1.v2 = v3;
-
-		triangle2.v0 = v2;
-		triangle2.v1 = v3;
-		triangle2.v2 = v4;
-
-		LOG_INFO("DRAW", "[GPU] DRAW QUAD");
-		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
-			r, g, b);
-		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
-			v1.x, v1.y);
-		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
-			v2.x, v2.y);
-		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
-			v3.x, v3.y);
-		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
-			v4.x, v4.y);
-
-		m_renderer->DrawFlatUntexturedOpaque(
-			triangle1
-		);
-
-		m_renderer->DrawFlatUntexturedOpaque(
-			triangle2
-		);
-	}
-
-	void Gpu::DrawBasicGouraudQuad() {
-		u32 color1 = m_cmd_fifo.deque() & 0xFFFFFF;
-
-		u32 vertex1 = m_cmd_fifo.deque();
-		u32 color2 = m_cmd_fifo.deque();
-		u32 vertex2 = m_cmd_fifo.deque();
-		u32 color3 = m_cmd_fifo.deque();
-		u32 vertex3 = m_cmd_fifo.deque();
-		u32 color4 = m_cmd_fifo.deque();
-		u32 vertex4 = m_cmd_fifo.deque();
-
-		video::BasicGouraudVertex v1 = {};
-		video::BasicGouraudVertex v2 = {};
-		video::BasicGouraudVertex v3 = {};
-		video::BasicGouraudVertex v4 = {};
-
-		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
-
-		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
-
-		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
-
-		v4.x = sign_extend<i32, 10>(vertex4 & 0xFFFF);
-		v4.y = sign_extend<i32, 10>((vertex4 >> 16) & 0xFFFF);
-
-		v1.color = color1;
-		v2.color = color2;
-		v3.color = color3;
-		v4.color = color4;
-
-		video::BasicGouraudTriangle triangle1 = {};
-		video::BasicGouraudTriangle triangle2 = {};
-
-		triangle1.v0 = v1;
-		triangle1.v1 = v2;
-		triangle1.v2 = v3;
-
-		triangle2.v0 = v2;
-		triangle2.v1 = v3;
-		triangle2.v2 = v4;
-
-		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD QUAD");
-		//LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
-			//r, g, b);
-		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
-			v1.x, v1.y);
-		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
-			v2.x, v2.y);
-		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
-			v3.x, v3.y);
-		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
-			v4.x, v4.y);
-
-		m_renderer->DrawBasicGouraud(triangle1);
-		m_renderer->DrawBasicGouraud(triangle2);
-	}
-
-	void Gpu::DrawBasicGouraudTriangle() {
-		u32 color1 = m_cmd_fifo.deque() & 0xFFFFFF;
-
-		u32 vertex1 = m_cmd_fifo.deque();
-		u32 color2 = m_cmd_fifo.deque();
-		u32 vertex2 = m_cmd_fifo.deque();
-		u32 color3 = m_cmd_fifo.deque();
-		u32 vertex3 = m_cmd_fifo.deque();
+		auto first_color = cmd.color();
 		
-		video::BasicGouraudVertex v1 = {};
-		video::BasicGouraudVertex v2 = {};
-		video::BasicGouraudVertex v3 = {};
+		video::GenericVertex vertices[NumVertices] = {};
 
-		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
+		u32 flags = 0;
 
-		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
-
-		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
-
-		v1.color = color1;
-		v2.color = color2;
-		v3.color = color3;
-
-		video::BasicGouraudTriangle triangle1 = {};
-
-		triangle1.v0 = v1;
-		triangle1.v1 = v2;
-		triangle1.v2 = v3;
-
-		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD TRIANGLE");
-
-		m_renderer->DrawBasicGouraud(triangle1);
-	}
-
-	void Gpu::DrawTexturedQuad() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		u32 gouraud = (cmd >> 28) & 1;
-		u32 semi_trans = (cmd >> 25) & 1;
-		u32 raw = (cmd >> 24) & 1;
-		u32 first_color = (cmd & 0xFFFFFF);
-
-		uint32_t flags{ 0 };
-
-		if (gouraud)
-			flags |= video::TexturedVertexFlags::GOURAUD;
-
-		if (semi_trans)
-			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
-
-		if (raw)
-			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
-
-		video::TexturedVertex vertices[4] = {};
-
-		u32 clut_and_page = 0;
-
-		for (u32 i = 0; i < 4; i++) {
-			if (gouraud && i != 0) {
-				vertices[i].color = m_cmd_fifo.deque() & 0xFFFFFF;
-			}
-			else {
-				vertices[i].color = first_color;
-			}
-
-			u32 vertex_pos = m_cmd_fifo.deque();
-
-			vertices[i].x = sign_extend<i32, 10>(vertex_pos & 0xFFFF);
-			vertices[i].y = sign_extend<i32, 10>((vertex_pos >> 16) & 0xFFFF);
-
-			u32 uv = m_cmd_fifo.deque();
-
-			if (i == 0) {
-				u32 clut = (uv >> 16) & 0xFFFF;
-				clut_and_page |= (clut << 16);
-			}
-			else if(i == 1) {
-				u32 page = (uv >> 16) & 0xFFFF;
-				clut_and_page |= page;
-			}
-
-			u32 u = uv & 0xFF;
-			u32 v = (uv >> 8) & 0xFF;
-			vertices[i].uv = (v << 16) | u;
-
-			vertices[i].flags = flags;
+		if constexpr (Gouraud) {
+			flags |= u32(video::TexturedVertexFlags::GOURAUD);
 		}
 
-		vertices[0].clut_page = clut_and_page;
-		vertices[1].clut_page = clut_and_page;
-		vertices[2].clut_page = clut_and_page;
-		vertices[3].clut_page = clut_and_page;
+		if constexpr (Transparent) {
+			flags |= u32(video::TexturedVertexFlags::SEMI_TRANSPARENT);
+		}
 
-		video::TexturedTriangle triangle1 = {};
-		video::TexturedTriangle triangle2 = {};
-
-		triangle1.v0 = vertices[0];
-		triangle1.v1 = vertices[1];
-		triangle1.v2 = vertices[2];
-
-		triangle2.v0 = vertices[1];
-		triangle2.v1 = vertices[2];
-		triangle2.v2 = vertices[3];
-
-		u16 page = (u16)clut_and_page;
-
-		TryUpdateTexpage(page);
-
-		LOG_INFO("DRAW", "[GPU] DRAW TEXTURED QUAD");
-
-		m_renderer->DrawTexturedTriangle(triangle1);
-		m_renderer->DrawTexturedTriangle(triangle2);
-	}
-
-	void Gpu::DrawTexturedTriangle() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		u32 gouraud = (cmd >> 28) & 1;
-		u32 semi_trans = (cmd >> 25) & 1;
-		u32 raw = (cmd >> 24) & 1;
-		u32 first_color = (cmd & 0xFFFFFF);
-
-		uint32_t flags{ 0 };
-
-		if (gouraud)
-			flags |= video::TexturedVertexFlags::GOURAUD;
-
-		if (semi_trans)
-			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
-
-		if (raw)
-			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
-
-		video::TexturedVertex vertices[3] = {};
+		if constexpr (Raw) {
+			flags |= u32(video::TexturedVertexFlags::RAW_TEXTURE);
+		}
 
 		u32 clut_and_page = 0;
 
-		for (u32 i = 0; i < 3; i++) {
-			if (gouraud && i != 0) {
-				vertices[i].color = m_cmd_fifo.deque() & 0xFFFFFF;
+		/*
+		*
+		Vertex     YYYYXXXX               - required, two signed 16 bits values
+		Color      xxBBGGRR               - optional, only present for gouraud shading
+		UV         ClutVVUU or PageVVUU   - optional, only present for textured polygons
+		*/
+
+		for (u8 curr_vertex = 0; curr_vertex < NumVertices; curr_vertex++) {
+			if constexpr (Gouraud) {
+				if (curr_vertex != 0) {
+					vertices[curr_vertex].color = ColorAttribute{ cmd_fifo.deque() }.rgb();
+				}
+				else {
+					vertices[curr_vertex].color = first_color;
+				}
 			}
 			else {
-				vertices[i].color = first_color;
+				vertices[curr_vertex].color = first_color;
 			}
 
-			u32 vertex_pos = m_cmd_fifo.deque();
+			auto vertex_pos = PositionAttribute{ cmd_fifo.deque() };
 
-			vertices[i].x = sign_extend<i32, 15>(vertex_pos & 0xFFFF);
-			vertices[i].y = sign_extend<i32, 15>((vertex_pos >> 16) & 0xFFFF);
+			vertices[curr_vertex].x = vertex_pos.x();
+			vertices[curr_vertex].y = vertex_pos.y();
 
-			u32 uv = m_cmd_fifo.deque();
+			if constexpr (Textured) {
+				auto uv = UVAttribute{cmd_fifo.deque()};
 
-			if (i == 0) {
-				u32 clut = (uv >> 16) & 0xFFFF;
-				clut_and_page |= (clut << 16);
+				if (curr_vertex == 0) {
+					u32 clut = uv.clut_or_page();
+					clut_and_page |= (clut << 16);
+				}
+				else if (curr_vertex == 1) {
+					u32 page = uv.clut_or_page();
+					clut_and_page |= page;
+				}
+
+				u32 u = uv.u();
+				u32 v = uv.v();
+
+				vertices[curr_vertex].uv = (v << 16) | u;
+				vertices[curr_vertex].flags = flags;
 			}
-			else if (i == 1) {
-				u32 page = (uv >> 16) & 0xFFFF;
-				clut_and_page |= page;
-			}
-
-			u32 u = uv & 0xFF;
-			u32 v = (uv >> 8) & 0xFF;
-			vertices[i].uv = (v << 16) | u;
-
-			vertices[i].flags = flags;
 		}
 
 		vertices[0].clut_page = clut_and_page;
 		vertices[1].clut_page = clut_and_page;
 		vertices[2].clut_page = clut_and_page;
 
-		video::TexturedTriangle triangle = {};
+		if constexpr (NumVertices == 4) {
+			vertices[3].clut_page = clut_and_page;
+		}
 
-		triangle.v0 = vertices[0];
-		triangle.v1 = vertices[1];
-		triangle.v2 = vertices[2];
+		video::GenericPrimitive prim{};
+		prim.vertex_count = 3;
+		prim.vertices[0] = vertices[0];
+		prim.vertices[1] = vertices[1];
+		prim.vertices[2] = vertices[2];
+		prim.semi_transparent = cmd.is_semi_transparent();
 
-		u16 page = (u16)clut_and_page;
+		if constexpr (Textured) {
+			prim.type = video::PipelineType::TEXTURED_TRIANGLE;
+		}
+		else if constexpr (Gouraud) {
+			prim.type = video::PipelineType::BASIC_GOURAUD_TRIANGLE;
+		}
+		else {
+			prim.type = video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
+		}
+		
+		if constexpr (Transparent) {
+			if constexpr (Textured) {
+				u16 page = u16(vertices[0].clut_page);
+				u8 semi_transparency = u8((page >> 5) & 0x3);
+				prim.semi_transparency_type = semi_transparency;
+			}
+			else {
+				auto transparency_type = u8(gpu.GetStat().semi_transparency);
+				prim.semi_transparency_type = transparency_type;
+			}
+		}
 
-		TryUpdateTexpage(page);
+		renderer->DrawPrimitive(prim);
 
-		LOG_INFO("DRAW", "[GPU] DRAW TEXTURED TRIANGLE");
+		if constexpr (NumVertices == 4) {
+			video::GenericPrimitive prim2{};
+			prim2.semi_transparency_type = prim.semi_transparency_type;
+			prim2.semi_transparent = prim.semi_transparent;
+			prim2.vertex_count = 3;
+			prim2.type = prim.type;
+			prim2.vertices[0] = vertices[1];
+			prim2.vertices[1] = vertices[2];
+			prim2.vertices[2] = vertices[3];
+			renderer->DrawPrimitive(prim2);
+		}
 
-		m_renderer->DrawTexturedTriangle(triangle);
+		if constexpr (Textured) {
+			gpu.TryUpdateTexpage(u16(vertices[0].clut_page));
+		}
 	}
 
-	void Gpu::DrawSemitransparentQuad() {
-		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
+	template <bool Textured, bool Transparent, bool Raw>
+	void DrawRectangle(Gpu& gpu, RectCmd cmd) {
+		auto& cmd_fifo = gpu.GetCmdFifo();
+		auto renderer = gpu.GetRenderer();
 
-		u32 vertex_1 = m_cmd_fifo.deque();
-		u32 vertex_2 = m_cmd_fifo.deque();
-		u32 vertex_3 = m_cmd_fifo.deque();
-		u32 vertex_4 = m_cmd_fifo.deque();
+		auto color = cmd.color();
 
-		video::UntexturedOpaqueFlatVertex v1 = {};
-		video::UntexturedOpaqueFlatVertex v2 = {};
-		video::UntexturedOpaqueFlatVertex v3 = {};
-		video::UntexturedOpaqueFlatVertex v4 = {};
+		//Manually form texpage attribute
+		u16 texpage = 0;
 
-		v1.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
+		if constexpr (Textured) {
+			auto& gpu_stat = gpu.GetStat();
+			texpage |= gpu_stat.texture_page_x_base;
+			texpage |= ((u16)gpu_stat.texture_page_y_base << 4);
+			texpage |= ((u16)gpu_stat.semi_transparency << 5);
+			texpage |= ((u16)gpu_stat.tex_page_colors << 7);
+			texpage |= ((u16)gpu_stat.texture_page_y_base2 << 11);
+		}
 
-		v2.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
+		u32 flags{ 0 };
 
-		v3.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
+		if constexpr (Transparent) {
+			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
+		}
 
-		v4.x = sign_extend<i32, 10>(vertex_4 & 0xFFFF);
-		v4.y = sign_extend<i32, 10>((vertex_4 >> 16) & 0xFFFF);
+		if constexpr (Raw) {
+			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
+		}
 
-		u32 r = color & 0xFF;
-		u32 g = (color >> 8) & 0xFF;
-		u32 b = (color >> 16) & 0xFF;
+		auto vertex1 = PositionAttribute{ cmd_fifo.deque() };
 
-		v1.r = r;
-		v1.g = g;
-		v1.b = b;
+		auto x1 = vertex1.x();
+		auto y1 = vertex1.y();
 
-		v2.r = r;
-		v2.g = g;
-		v2.b = b;
+		u32 tex_and_clut{};
+		u32 u1{}, v1{};
 
-		v3.r = r;
-		v3.g = g;
-		v3.b = b;
+		if constexpr (Textured) {
+			auto clutuv = UVAttribute{ cmd_fifo.deque() };
+			auto clut = clutuv.clut_or_page();
 
-		v4.r = r;
-		v4.g = g;
-		v4.b = b;
+			u1 = clutuv.u();
+			v1 = clutuv.v();
 
-		video::UntexturedOpaqueFlatTriangle triangle1 = {};
-		video::UntexturedOpaqueFlatTriangle triangle2 = {};
+			tex_and_clut = (clut << 16) | texpage;
+		}		
 
-		triangle1.v0 = v1;
-		triangle1.v1 = v2;
-		triangle1.v2 = v3;
+		u32 sizex = 0;
+		u32 sizey = 0;
+		std::tie(sizex, sizey) = cmd.get_size();
 
-		triangle2.v0 = v2;
-		triangle2.v1 = v3;
-		triangle2.v2 = v4;
+		if (sizex == u32(-1) || sizey == u32(-1)) {
+			//variable
+			auto wh = SizeAttribute{ cmd_fifo.deque() };
+			sizex = wh.sizex();
+			sizey = wh.sizey();
 
-		LOG_INFO("DRAW", "[GPU] DRAW QUAD");
-		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
-			r, g, b);
-		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
-			v1.x, v1.y);
-		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
-			v2.x, v2.y);
-		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
-			v3.x, v3.y);
-		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
-			v4.x, v4.y);
+			if (sizex > MAX_VERTEX_X_DISTANCE || sizey > MAX_VERTEX_Y_DISTANCE) {
+				return;
+			}
+		}
 
-		auto transparency_type = u8(m_stat.semi_transparency);
+		//Bottom left
+		i32 x2 = x1;
+		i32 y2 = y1 + sizey;
 
-		m_renderer->DrawTransparentUntexturedTriangle(
-			triangle1, transparency_type
-		);
+		u32 u2 = u1;
+		u32 v2 = v1 + sizey;
 
-		m_renderer->DrawTransparentUntexturedTriangle(
-			triangle2, transparency_type
-		);
+		//Top right
+		i32 x3 = x1 + sizex;
+		i32 y3 = y1;
+
+		u32 u3 = u1 + sizex;
+		u32 v3 = v1;
+
+		//Bottom right
+		i32 x4 = x1 + sizex;
+		i32 y4 = y1 + sizey;
+
+		u32 u4 = u1 + sizex;
+		u32 v4 = v1 + sizey;
+
+		if constexpr (Textured) {
+			if (gpu.GetXFlip()) {
+				u4 = u3 = (u32)std::max(0, i32(u1 + 1 - sizex));
+			}
+
+			if (gpu.GetYFlip()) {
+				v4 = v2 = (u32)std::max(0, i32(v1 + 1 - sizey));
+			}
+		}
+
+		video::GenericVertex vertices[4] = {};
+
+		vertices[0].clut_page = tex_and_clut;
+		vertices[0].color = color;
+		vertices[0].flags = flags;
+		vertices[0].x = x1;
+		vertices[0].y = y1;
+		vertices[0].uv = u1 | (v1 << 16);
+
+		vertices[1].clut_page = tex_and_clut;
+		vertices[1].color = color;
+		vertices[1].flags = flags;
+		vertices[1].x = x2;
+		vertices[1].y = y2;
+		vertices[1].uv = u2 | (v2 << 16);
+
+		vertices[2].clut_page = tex_and_clut;
+		vertices[2].color = color;
+		vertices[2].flags = flags;
+		vertices[2].x = x3;
+		vertices[2].y = y3;
+		vertices[2].uv = u3 | (v3 << 16);
+
+		vertices[3].clut_page = tex_and_clut;
+		vertices[3].color = color;
+		vertices[3].flags = flags;
+		vertices[3].x = x4;
+		vertices[3].y = y4;
+		vertices[3].uv = u4 | (v4 << 16);
+
+		video::GenericPrimitive triangle1 = {};
+		video::GenericPrimitive triangle2 = {};
+
+		triangle1.vertices[0] = vertices[0];
+		triangle1.vertices[1] = vertices[1];
+		triangle1.vertices[2] = vertices[2];
+
+		triangle2.vertices[0] = vertices[1];
+		triangle2.vertices[1] = vertices[2];
+		triangle2.vertices[2] = vertices[3];
+
+		triangle2.vertex_count = triangle1.vertex_count = 3;
+		
+		if constexpr (Transparent) {
+			u8 transparency_type = u8(gpu.GetStat().semi_transparency);
+			triangle2.semi_transparency_type = triangle1.semi_transparency_type = transparency_type;
+			triangle2.semi_transparent = triangle1.semi_transparent = true;
+		}
+		
+		if constexpr (Textured) {
+			triangle2.type = triangle1.type = video::PipelineType::TEXTURED_TRIANGLE;
+		}
+		else {
+			triangle2.type = triangle1.type = video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
+		}
+
+		if (cmd_fifo.len() != 0) {
+			error::DebugBreak();
+		}
+
+		renderer->DrawPrimitive(triangle1);
+		renderer->DrawPrimitive(triangle2);
 	}
 
-	void Gpu::DrawSemiTransparentGouraudQuad() {
-		u32 color1 = m_cmd_fifo.deque() & 0xFFFFFF;
+	template <bool Gouraud, bool Polyline, bool Transparent>
+	void DrawLines(Gpu& gpu, LineCmd cmd) {
+		auto& cmd_fifo = gpu.GetCmdFifo();
+		auto renderer = gpu.GetRenderer();
 
-		u32 vertex1 = m_cmd_fifo.deque();
-		u32 color2 = m_cmd_fifo.deque();
-		u32 vertex2 = m_cmd_fifo.deque();
-		u32 color3 = m_cmd_fifo.deque();
-		u32 vertex3 = m_cmd_fifo.deque();
-		u32 color4 = m_cmd_fifo.deque();
-		u32 vertex4 = m_cmd_fifo.deque();
+		auto prev_color = cmd.color();
 
-		video::BasicGouraudVertex v1 = {};
-		video::BasicGouraudVertex v2 = {};
-		video::BasicGouraudVertex v3 = {};
-		video::BasicGouraudVertex v4 = {};
+		auto first_vertex = PositionAttribute{ cmd_fifo.deque() };
+		auto prev_x = first_vertex.x();
+		auto prev_y = first_vertex.y();
 
-		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
+		video::GenericPrimitive line{};
+		video::GenericVertex v0{};
+		video::GenericVertex v1{};
 
-		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
+		line.vertex_count = 2;
 
-		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
+		if constexpr (Gouraud) {
+			line.type = video::PipelineType::SHADED_LINE;
+		}
+		else {
+			line.type = video::PipelineType::MONO_LINE;
+		}
 
-		v4.x = sign_extend<i32, 10>(vertex4 & 0xFFFF);
-		v4.y = sign_extend<i32, 10>((vertex4 >> 16) & 0xFFFF);
+		if constexpr (Transparent) {
+			auto transparency_type = u8(gpu.GetStat().semi_transparency);
+			line.semi_transparency_type = transparency_type;
+			line.semi_transparent = true;
+		}
 
-		v1.color = color1;
-		v2.color = color2;
-		v3.color = color3;
-		v4.color = color4;
+		while (!cmd_fifo.empty()) {
+			u32 curr_color = prev_color;
+			if constexpr (Gouraud) {
+				curr_color = ColorAttribute{ cmd_fifo.deque() }.rgb();
+			}
+			
+			auto curr_vertex = PositionAttribute{ cmd_fifo.deque() };
+			i32 curr_x = curr_vertex.x();
+			i32 curr_y = curr_vertex.y();
 
-		video::BasicGouraudTriangle triangle1 = {};
-		video::BasicGouraudTriangle triangle2 = {};
+			v0.x = prev_x;
+			v0.y = prev_y;
+			v0.color = prev_color;
 
-		triangle1.v0 = v1;
-		triangle1.v1 = v2;
-		triangle1.v2 = v3;
+			v1.x = curr_x;
+			v1.y = curr_y;
+			v1.color = curr_color;
 
-		triangle2.v0 = v2;
-		triangle2.v1 = v3;
-		triangle2.v2 = v4;
+			line.vertices[0] = v0;
+			line.vertices[1] = v1;
 
-		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD QUAD");
-		//LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
-			//r, g, b);
-		LOG_INFO("DRAW", "      V0 X = {}, Y = {}",
-			v1.x, v1.y);
-		LOG_INFO("DRAW", "      V1 X = {}, Y = {}",
-			v2.x, v2.y);
-		LOG_INFO("DRAW", "      V2 X = {}, Y = {}",
-			v3.x, v3.y);
-		LOG_INFO("DRAW", "      V3 X = {}, Y = {}",
-			v4.x, v4.y);
+			renderer->DrawPrimitive(line);
 
-		u8 transparency_type = u8(m_stat.semi_transparency);
+			if constexpr (!Polyline) {
+				break;
+			}
 
-		m_renderer->DrawTransparentGouraud(triangle1, transparency_type);
-		m_renderer->DrawTransparentGouraud(triangle2, transparency_type);
-	}
-
-	void Gpu::DrawSemiTransparentGouraudTriangle() {
-		u32 color1 = m_cmd_fifo.deque() & 0xFFFFFF;
-
-		u32 vertex1 = m_cmd_fifo.deque();
-		u32 color2 = m_cmd_fifo.deque();
-		u32 vertex2 = m_cmd_fifo.deque();
-		u32 color3 = m_cmd_fifo.deque();
-		u32 vertex3 = m_cmd_fifo.deque();
-
-		video::BasicGouraudVertex v1 = {};
-		video::BasicGouraudVertex v2 = {};
-		video::BasicGouraudVertex v3 = {};
-
-		v1.x = sign_extend<i32, 10>(vertex1 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex1 >> 16) & 0xFFFF);
-
-		v2.x = sign_extend<i32, 10>(vertex2 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex2 >> 16) & 0xFFFF);
-
-		v3.x = sign_extend<i32, 10>(vertex3 & 0xFFFF);
-		v3.y = sign_extend<i32, 10>((vertex3 >> 16) & 0xFFFF);
-
-		v1.color = color1;
-		v2.color = color2;
-		v3.color = color3;
-
-		video::BasicGouraudTriangle triangle1 = {};
-
-		triangle1.v0 = v1;
-		triangle1.v1 = v2;
-		triangle1.v2 = v3;
-
-		LOG_INFO("DRAW", "[GPU] DRAW GOURAUD TRIANGLE");
-
-		u8 transparency_type = u8(m_stat.semi_transparency);
-
-		m_renderer->DrawTransparentGouraud(triangle1, transparency_type);
+			prev_x = curr_x;
+			prev_y = curr_y;
+			prev_color = curr_color;
+		}
 	}
 
 	void Gpu::DrawQuad() {
-		u32 cmd = m_cmd_fifo.peek();
+		auto cmd = PolygonCmd{ m_cmd_fifo.deque() };
 
-		bool tex = (cmd >> 26) & 1;
-		bool gouraud = (cmd >> 28) & 1;
-		bool transparent = (cmd >> 25) & 1;
-		bool raw = (cmd >> 24) & 1;
+		if (!cmd.is_quad()) {
+			LOG_ERROR("DRAW", "[DRAW] DRAW QUAD CALLED WITH NON-QUAD COMMAND");
+			LOG_FLUSH();
+			error::DebugBreak();
+		}
 
-		u32 params_vert = 1;
+		auto flags = cmd.get_flags();
 
-		u32 curr_params = m_required_params;
-
-		if (!tex && !transparent && !gouraud) {
-			DrawFlatUntexturedOpaqueQuad();
-		}
-		else if (gouraud && !tex && !transparent) {
-			DrawBasicGouraudQuad();
-		}
-		else if (tex) {
-			DrawTexturedQuad();
-		}
-		else if (gouraud) {
-			DrawSemiTransparentGouraudQuad();
-		}
-		else {
-			DrawSemitransparentQuad();
+		// gouraud | quad | textured | transparent | raw
+		// 01000 -> flat shaded/no texture/opaque
+		// 01001 -> flat shaded/no texture/opaque (should not make sense)
+		// 01010 -> flat shaded/no texture/transparent
+		// 01011 -> flat shaded/no texture/transparent (should not make sense)
+		// 01100 -> flat shaded/textured/opaque
+		// 01101 -> flat shaded/textured/opaque raw texture
+		// 01110 -> flat shaded/textured/transparent 
+		// 01111 -> flat shaded/textured/transparent raw texture
+		// 11000 -> gouraud shaded/no texture/opaque
+		// 11001 -> gouraud shaded/no texture/opaque (should not make sense)
+		// 11010 -> gouraud shaded/no texture/transparent
+		// 11011 -> gouraud shaded/no texture/transparent (should not make sense)
+		// 11100 -> gouraud shaded/textured/opaque
+		// 11101 -> gouraud shaded/textured/opaque raw texture
+		// 
+		// 11110 -> gouraud shaded/textured/transparent 
+		// 11111 -> gouraud shaded/textured/transparent raw texture
+		switch (flags)
+		{
+		case 0b01000:
+		case 0b01001:
+			DrawPolygon<4, false, false, false, false>(*this, cmd);
+			break;
+		case 0b01010:
+		case 0b01011:
+			DrawPolygon<4, false, false, true, false>(*this, cmd);
+			break;
+		case 0b01100:
+			DrawPolygon<4, true, false, false, false>(*this, cmd);
+			break;
+		case 0b01101:
+			DrawPolygon<4, true, false, false, true>(*this, cmd);
+			break;
+		case 0b01110:
+			DrawPolygon<4, true, false, true, false>(*this, cmd);
+			break;
+		case 0b01111:
+			DrawPolygon<4, true, false, true, true>(*this, cmd);
+			break;
+		case 0b11000:
+		case 0b11001:
+			DrawPolygon<4, false, true, false, false>(*this, cmd);
+			break;
+		case 0b11010:
+		case 0b11011:
+			DrawPolygon<4, false, true, true, false>(*this, cmd);
+			break;
+		case 0b11100:
+			DrawPolygon<4, true, true, false, false>(*this, cmd);
+			break;
+		case 0b11101:
+			DrawPolygon<4, true, true, false, true>(*this, cmd);
+			break;
+		case 0b11110:
+			DrawPolygon<4, true, true, true, false>(*this, cmd);
+			break;
+		case 0b11111:
+			DrawPolygon<4, true, true, true, true>(*this, cmd);
+			break;
+		default:
+			error::Unreachable();
+			break;
 		}
 	}
 
 	void Gpu::DrawTriangle() {
-		u32 cmd = m_cmd_fifo.peek();
+		auto cmd = PolygonCmd{ m_cmd_fifo.deque() };
 
-		bool tex = (cmd >> 26) & 1;
-		bool gouraud = (cmd >> 28) & 1;
-		bool transparent = (cmd >> 25) & 1;
-		bool raw = (cmd >> 24) & 1;
-
-		u32 params_vert = 1;
-
-		u32 curr_params = m_required_params;
-
-		if (gouraud && !tex) {
-			if (transparent) {
-				DrawSemiTransparentGouraudTriangle();
-			}
-			else {
-				DrawBasicGouraudTriangle();
-			}
+		if (cmd.is_quad()) {
+			LOG_ERROR("DRAW", "[DRAW] DRAW TRIANGLE CALLED WITH QUAD COMMAND");
+			LOG_FLUSH();
+			error::DebugBreak();
 		}
-		else if (tex) {
-			DrawTexturedTriangle();
-		}
-		else {
-			DrawNormalTriangle();
+
+		auto flags = cmd.get_flags();
+
+		// gouraud | quad | textured | transparent | raw
+		// 00000 -> flat shaded/no texture/opaque
+		// 00001 -> flat shaded/no texture/opaque (should not make sense)
+		// 00010 -> flat shaded/no texture/transparent
+		// 00011 -> flat shaded/no texture/transparent (should not make sense)
+		// 00100 -> flat shaded/textured/opaque
+		// 00101 -> flat shaded/textured/opaque raw texture
+		// 00110 -> flat shaded/textured/transparent 
+		// 00111 -> flat shaded/textured/transparent raw texture
+		// 10000 -> gouraud shaded/no texture/opaque
+		// 10001 -> gouraud shaded/no texture/opaque (should not make sense)
+		// 10010 -> gouraud shaded/no texture/transparent
+		// 10011 -> gouraud shaded/no texture/transparent (should not make sense)
+		// 10100 -> gouraud shaded/textured/opaque
+		// 10101 -> gouraud shaded/textured/opaque raw texture
+		// 10110 -> gouraud shaded/textured/transparent 
+		// 10111 -> gouraud shaded/textured/transparent raw texture
+		switch (flags)
+		{
+		case 0b00000:
+		case 0b00001:
+			DrawPolygon<3, false, false, false, false>(*this, cmd);
+			break;
+		case 0b00010:
+		case 0b00011:
+			DrawPolygon<3, false, false, true, false>(*this, cmd);
+			break;
+		case 0b00100:
+			DrawPolygon<3, true, false, false, false>(*this, cmd);
+			break;
+		case 0b00101:
+			DrawPolygon<3, true, false, false, true>(*this, cmd);
+			break;
+		case 0b00110:
+			DrawPolygon<3, true, false, true, false>(*this, cmd);
+			break;
+		case 0b00111:
+			DrawPolygon<3, true, false, true, true>(*this, cmd);
+			break;
+		case 0b10000:
+		case 0b10001:
+			DrawPolygon<3, false, true, false, false>(*this, cmd);
+			break;
+		case 0b10010:
+		case 0b10011:
+			DrawPolygon<3, false, true, true, false>(*this, cmd);
+			break;
+		case 0b10100:
+			DrawPolygon<3, true, true, false, false>(*this, cmd);
+			break;
+		case 0b10101:
+			DrawPolygon<3, true, true, false, true>(*this, cmd);
+			break;
+		case 0b10110:
+			DrawPolygon<3, true, true, true, false>(*this, cmd);
+			break;
+		case 0b10111:
+			DrawPolygon<3, true, true, true, true>(*this, cmd);
+			break;
+		default:
+			error::Unreachable();
+			break;
 		}
 	}
 
@@ -625,523 +553,73 @@ namespace psx {
 		m_renderer->Fill(x_off, y_off, w, h, color);
 	}
 
-	void Gpu::DrawTexturedRect() {
-		u32 cmd = m_cmd_fifo.deque();
-		u32 color = cmd & 0xFFFFFF;
-		//Manually form texpage attribute
-		u16 texpage = 0;
-
-		texpage |= m_stat.texture_page_x_base;
-		texpage |= ((u16)m_stat.texture_page_y_base << 4);
-		texpage |= ((u16)m_stat.semi_transparency << 5);
-		texpage |= ((u16)m_stat.tex_page_colors << 7);
-		texpage |= ((u16)m_stat.texture_page_y_base2 << 11);
-
-		uint32_t flags{ 0 };
-
-		bool semi_trans = bool((cmd >> 25) & 1);
-		bool raw = bool((cmd >> 24) & 1);
-
-		if (semi_trans) {
-			flags |= video::TexturedVertexFlags::SEMI_TRANSPARENT;
-		}
-
-		if (raw)
-			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
-
-		u32 vertex1 = m_cmd_fifo.deque();
-
-		i32 x1 = sign_extend<i32, 15>(vertex1 & 0xFFFF);
-		i32 y1 = sign_extend<i32, 15>((vertex1 >> 16) & 0xFFFF);
-
-		u32 clutuv = m_cmd_fifo.deque();
-		u16 clut = (clutuv >> 16) & 0xFFFF;
-
-		u32 u1 = clutuv & 0xFF;
-		u32 v1 = (clutuv >> 8) & 0xFF;
-
-		u32 tex_and_clut = (u32(clut) << 16) | texpage;
-
-		u8 size = (cmd >> 27) & 3;
-		u32 sizes[] = { 0, 1, 8, 16 };
-
-		u32 sizex = 0;
-		u32 sizey = 0;
-
-		if (size == 0) {
-			//variable
-			u32 wh = m_cmd_fifo.deque();
-			sizex = (wh & 0xFFFF);
-			sizey = (wh >> 16) & 0xFFFF;
-
-			if (sizex > 1023 || sizey > 511) {
-				return;
-			}
-		}
-		else {
-			sizex = sizes[size];
-			sizey = sizex;
-		}
-
-		//Bottom left
-		i32 x2 = x1;
-		i32 y2 = y1 + sizey;
-
-		u32 u2 = u1;
-		u32 v2 = v1 + sizey;
-
-		//Top right
-		i32 x3 = x1 + sizex;
-		i32 y3 = y1;
-
-		u32 u3 = u1 + sizex;
-		u32 v3 = v1;
-
-		//Bottom right
-		i32 x4 = x1 + sizex;
-		i32 y4 = y1 + sizey;
-
-		u32 u4 = u1 + sizex;
-		u32 v4 = v1 + sizey;
-
-		if (m_tex_x_flip) {
-			u4 = u3 = (u32)std::max(0, i32(u1 + 1 - sizex));
-		}
-
-		if (m_tex_y_flip) {
-			v4 = v2 = (u32)std::max(0, i32(v1 + 1 - sizey));
-		}
-
-		video::TexturedVertex vertices[4] = {};
-
-		vertices[0].clut_page = tex_and_clut;
-		vertices[0].color = color;
-		vertices[0].flags = flags;
-		vertices[0].x = x1;
-		vertices[0].y = y1;
-		vertices[0].uv = u1 | (v1 << 16);
-
-		vertices[1].clut_page = tex_and_clut;
-		vertices[1].color = color;
-		vertices[1].flags = flags;
-		vertices[1].x = x2;
-		vertices[1].y = y2;
-		vertices[1].uv = u2 | (v2 << 16);
-
-		vertices[2].clut_page = tex_and_clut;
-		vertices[2].color = color;
-		vertices[2].flags = flags;
-		vertices[2].x = x3;
-		vertices[2].y = y3;
-		vertices[2].uv = u3 | (v3 << 16);
-
-		vertices[3].clut_page = tex_and_clut;
-		vertices[3].color = color;
-		vertices[3].flags = flags;
-		vertices[3].x = x4;
-		vertices[3].y = y4;
-		vertices[3].uv = u4 | (v4 << 16);
-
-		video::TexturedTriangle triangle1 = {};
-		video::TexturedTriangle triangle2 = {};
-
-		triangle1.v0 = vertices[0];
-		triangle1.v1 = vertices[1];
-		triangle1.v2 = vertices[2];
-
-		triangle2.v0 = vertices[1];
-		triangle2.v1 = vertices[2];
-		triangle2.v2 = vertices[3];
-
-		LOG_INFO("DRAW", "[GPU] DRAW TEXTURED RECT");
-
-		m_renderer->DrawTexturedTriangle(triangle1);
-		m_renderer->DrawTexturedTriangle(triangle2);
-	}
-
-	void Gpu::DrawUntexturedRect() {
-		u32 cmd = m_cmd_fifo.deque();
-		u32 color = cmd & 0xFFFFFF;
-
-		bool semi_trans = bool((cmd >> 25) & 1);
-
-		u32 vertex1 = m_cmd_fifo.deque();
-
-		i32 x1 = sign_extend<i32, 15>(vertex1 & 0xFFFF);
-		i32 y1 = sign_extend<i32, 15>((vertex1 >> 16) & 0xFFFF);
-
-		u8 size = (cmd >> 27) & 3;
-		u32 sizes[] = { 0, 1, 8, 16 };
-
-		u32 sizex = 0;
-		u32 sizey = 0;
-
-		if (size == 0) {
-			//variable
-			u32 wh = m_cmd_fifo.deque();
-			sizex = (wh & 0xFFFF);
-			sizey = (wh >> 16) & 0xFFFF;
-
-			if (sizex > 1023 || sizey > 511) {
-				return;
-			}
-		}
-		else {
-			sizex = sizes[size];
-			sizey = sizex;
-		}
-
-		//Bottom left
-		i32 x2 = x1;
-		i32 y2 = y1 + sizey;
-
-		//Top right
-		i32 x3 = x1 + sizex;
-		i32 y3 = y1;
-
-		//Bottom right
-		i32 x4 = x1 + sizex;
-		i32 y4 = y1 + sizey;
-
-		video::UntexturedOpaqueFlatVertex vertices[4] = {};
-
-		vertices[0].x = x1;
-		vertices[0].y = y1;
-		vertices[0].r = (color & 0xFF);
-		vertices[0].g = ((color >> 8) & 0xFF);
-		vertices[0].b = ((color >> 16) & 0xFF);
-
-		vertices[1].x = x2;
-		vertices[1].y = y2;
-		vertices[1].r = (color & 0xFF);
-		vertices[1].g = ((color >> 8) & 0xFF);
-		vertices[1].b = ((color >> 16) & 0xFF);
-		
-		vertices[2].x = x3;
-		vertices[2].y = y3;
-		vertices[2].r = (color & 0xFF);
-		vertices[2].g = ((color >> 8) & 0xFF);
-		vertices[2].b = ((color >> 16) & 0xFF);
-		
-		vertices[3].x = x4;
-		vertices[3].y = y4;
-		vertices[3].r = (color & 0xFF);
-		vertices[3].g = ((color >> 8) & 0xFF);
-		vertices[3].b = ((color >> 16) & 0xFF);
-
-		video::UntexturedOpaqueFlatTriangle triangle1 = {};
-		video::UntexturedOpaqueFlatTriangle triangle2 = {};
-
-		triangle1.v0 = vertices[0];
-		triangle1.v1 = vertices[1];
-		triangle1.v2 = vertices[2];
-
-		triangle2.v0 = vertices[1];
-		triangle2.v1 = vertices[2];
-		triangle2.v2 = vertices[3];
-
-		LOG_INFO("DRAW", "[GPU] DRAW RECT");
-		LOG_INFO("DRAW", "      R = {}, G = {}, B = {}",
-			triangle1.v0.r, triangle1.v0.g, triangle1.v0.b);
-
-		if (semi_trans) {
-			u8 transparency_type = u8(m_stat.semi_transparency);
-			m_renderer->DrawTransparentUntexturedTriangle(triangle1, transparency_type);
-			m_renderer->DrawTransparentUntexturedTriangle(triangle2, transparency_type);
-		}
-		else {
-			m_renderer->DrawFlatUntexturedOpaque(triangle1);
-			m_renderer->DrawFlatUntexturedOpaque(triangle2);
-		}
-		
-	}
-
 	void Gpu::DrawRect() {
-		u32 cmd = m_cmd_fifo.peek();
-		bool tex = (cmd >> 26) & 1;
+		auto cmd = RectCmd{ m_cmd_fifo.deque() };
+		auto flags = cmd.get_flags();
 
-		if (tex) {
-			DrawTexturedRect();
+		//textured | transparent | raw
+		switch (flags)
+		{
+		case 0b000:
+		case 0b001: //raw texture without texture?
+			DrawRectangle<false, false, false>(*this, cmd);
+			break;
+		case 0b010:
+		case 0b011: //raw texture without texture?
+			DrawRectangle<false, true, false>(*this, cmd);
+			break;
+		case 0b100:
+			DrawRectangle<true, false, false>(*this, cmd);
+			break;
+		case 0b101:
+			DrawRectangle<true, false, true>(*this, cmd);
+			break;
+		case 0b110:
+			DrawRectangle<true, true, false>(*this, cmd);
+			break;
+		case 0b111:
+			DrawRectangle<true, true, true>(*this, cmd);
+			break;
+		default:
+			error::Unreachable();
+			break;
 		}
-		else {
-			DrawUntexturedRect();
-		}
-
-		//CheckIfDrawNeeded();
 	}
 
 	void Gpu::DrawLine() {
-		u32 cmd = m_cmd_fifo.peek();
-		bool is_polyline = (cmd >> 27) & 1;
-		bool is_gouraud = (cmd >> 28) & 1;
+		auto cmd = LineCmd{ m_cmd_fifo.deque() };
+		auto flags = cmd.get_flags();
 
-		if (!is_polyline && !is_gouraud) {
-			DrawMonoLine();
-		}
-		else if (!is_polyline && is_gouraud) {
-			DrawShadedLine();
-		}
-		else if (is_polyline && !is_gouraud) {
-			DrawMonoPolyline();
-		} 
-		else {
-			DrawShadedPolyLine();
-		}
-	}
-
-	void Gpu::DrawMonoLine() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		if (m_cmd_fifo.len() != 2) {
-			LOG_ERROR("DRAW", "[GPU] INVALID NUMBER OF PARAMS FOR LINE RENDER");
-			m_cmd_fifo.clear();
-			return;
-		}
-
-		u32 vertex0_pos = m_cmd_fifo.deque();
-		u32 vertex1_pos = m_cmd_fifo.deque();
-
-		u32 color = (cmd & 0xFFFFFF);
-
-		video::MonoLine line{};
-
-		video::UntexturedOpaqueFlatVertex v0{};
-		video::UntexturedOpaqueFlatVertex v1{};
-
-		v0.x = sign_extend<i32, 15>(vertex0_pos & 0xFFFF);
-		v0.y = sign_extend<i32, 15>((vertex0_pos >> 16) & 0xFFFF);
-
-		v0.r = (color & 0xFF);
-		v0.g = ((color >> 8) & 0xFF);
-		v0.b = ((color >> 16) & 0xFF);
-
-		v1.x = sign_extend<i32, 15>(vertex1_pos & 0xFFFF);
-		v1.y = sign_extend<i32, 15>((vertex1_pos >> 16) & 0xFFFF);
-
-		v1.r = v0.r;
-		v1.g = v0.g;
-		v1.b = v0.b;
-
-		line.v0 = v0;
-		line.v1 = v1;
-
-		if ((cmd >> 25) & 1) {
-			LOG_DEBUG("DRAW", "[GPU] DRAW LINE MONO COLOR (TRANSPARENT)");
-			u8 transparency_type = u8(m_stat.semi_transparency);
-			m_renderer->DrawMonoTransparentLine(line, transparency_type);
-		}
-		else {
-			LOG_DEBUG("DRAW", "[GPU] DRAW LINE MONO COLOR (OPAQUE)");
-			m_renderer->DrawMonoLine(line);
-		}
-	}
-
-	void Gpu::DrawShadedLine() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		if (m_cmd_fifo.len() != 3) {
-			LOG_ERROR("DRAW", "[GPU] INVALID NUMBER OF PARAMS FOR SHADED LINE RENDER");
-			m_cmd_fifo.clear();
-			return;
-		}
-
-		video::ShadedLine line{};
-
-		video::BasicGouraudVertex v0{};
-		video::BasicGouraudVertex v1{};
-
-		u32 vertex0_color = cmd & 0xFFFFFF;
-		u32 vertex0_pos = m_cmd_fifo.deque();
-
-		u32 vertex1_color = m_cmd_fifo.deque() & 0xFFFFFF;
-		u32 vertex1_pos = m_cmd_fifo.deque();
-
-		v0.color = vertex0_color;
-		v1.color = vertex1_color;
-
-		v0.x = sign_extend<i32, 15>(vertex0_pos & 0xFFFF);
-		v0.y = sign_extend<i32, 15>((vertex0_pos >> 16) & 0xFFFF);
-
-		v1.x = sign_extend<i32, 15>(vertex1_pos & 0xFFFF);
-		v1.y = sign_extend<i32, 15>((vertex1_pos >> 16) & 0xFFFF);
-
-		line.v0 = v0;
-		line.v1 = v1;
-
-		if ((cmd >> 25) & 1) {
-			LOG_DEBUG("DRAW", "[GPU] DRAW SHADED LINE (TRANSPARENT)");
-			u8 transparency_type = u8(m_stat.semi_transparency);
-			m_renderer->DrawShadedTransparentLine(line, transparency_type);
-		}
-		else {
-			LOG_DEBUG("DRAW", "[GPU] DRAW SHADED LINE (OPAQUE)");
-			m_renderer->DrawShadedLine(line);
-		}
-		
-	}
-
-	void Gpu::DrawMonoPolyline() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		if (m_cmd_fifo.len() < 2) {
-			LOG_ERROR("DRAW", "[GPU] POLYLINE RENDER REQUIRES AT LEAST TWO VERTICES");
-			m_cmd_fifo.clear();
-			return;
-		}
-
-		u32 color_packed = cmd & 0xFFFFFF;
-		u32 r = color_packed & 0xFF;
-		u32 g = (color_packed >> 8) & 0xFF;
-		u32 b = (color_packed >> 16) & 0xFF;
-
-		u32 first_vertex = m_cmd_fifo.deque();
-		i32 prev_x = sign_extend<i32, 15>(first_vertex & 0xFFFF);
-		i32 prev_y = sign_extend<i32, 15>((first_vertex >> 16) & 0xFFFF);
-
-		video::MonoLine line{};
-
-		video::UntexturedOpaqueFlatVertex v0{};
-		video::UntexturedOpaqueFlatVertex v1{};
-
-		u8 transparency_type = u8(m_stat.semi_transparency);
-		bool is_semi_transparent = (cmd >> 25) & 1;
-
-		while (!m_cmd_fifo.empty()) {
-			u32 curr_vertex = m_cmd_fifo.deque();
-			i32 curr_x = sign_extend<i32, 15>(curr_vertex & 0xFFFF);
-			i32 curr_y = sign_extend<i32, 15>((curr_vertex >> 16) & 0xFFFF);
-
-			v0.x = prev_x;
-			v0.y = prev_y;
-			v0.r = r;
-			v0.g = g;
-			v0.b = b;
-
-			v1.x = curr_x;
-			v1.y = curr_y;
-			v1.r = r;
-			v1.g = g;
-			v1.b = b;
-
-			line.v0 = v0;
-			line.v1 = v1;
-
-			if(is_semi_transparent) {
-				m_renderer->DrawMonoTransparentLine(line, transparency_type);
-			}
-			else {
-				m_renderer->DrawMonoLine(line);
-			}
-
-			prev_x = curr_x;
-			prev_y = curr_y;
-		}
-	}
-
-	void Gpu::DrawShadedPolyLine() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		if (m_cmd_fifo.len() < 3) {
-			LOG_ERROR("DRAW", "[GPU] SHADED POLYLINE RENDER REQUIRES AT LEAST TWO VERTICES");
-			m_cmd_fifo.clear();
-			return;
-		}
-
-		u32 prev_color = cmd & 0xFFFFFF;
-
-		u32 first_vertex = m_cmd_fifo.deque();
-		i32 prev_x = sign_extend<i32, 15>(first_vertex & 0xFFFF);
-		i32 prev_y = sign_extend<i32, 15>((first_vertex >> 16) & 0xFFFF);
-
-		video::ShadedLine line{};
-		video::BasicGouraudVertex v0{};
-		video::BasicGouraudVertex v1{};
-
-		u8 transparency_type = u8(m_stat.semi_transparency);
-		bool is_semi_transparent = (cmd >> 25) & 1;
-
-		while (!m_cmd_fifo.empty()) {
-			u32 curr_color = m_cmd_fifo.deque();
-			u32 curr_vertex = m_cmd_fifo.deque();
-			i32 curr_x = sign_extend<i32, 15>(curr_vertex & 0xFFFF);
-			i32 curr_y = sign_extend<i32, 15>((curr_vertex >> 16) & 0xFFFF);
-
-			v0.x = prev_x;
-			v0.y = prev_y;
-			v0.color = prev_color;
-
-			v1.x = curr_x;
-			v1.y = curr_y;
-			v1.color = curr_color;
-
-			line.v0 = v0;
-			line.v1 = v1;
-
-			if (is_semi_transparent) {
-				m_renderer->DrawShadedTransparentLine(line, transparency_type);
-			}
-			else {
-				m_renderer->DrawShadedLine(line);
-			}
-
-			prev_x = curr_x;
-			prev_y = curr_y;
-			prev_color = curr_color;
-		}
-	}
-
-	void Gpu::DrawNormalTriangle() {
-		u32 cmd = m_cmd_fifo.deque();
-
-		u32 color_packed = cmd & 0xFFFFFF;
-
-		video::UntexturedOpaqueFlatVertex v0{};
-		video::UntexturedOpaqueFlatVertex v1{};
-		video::UntexturedOpaqueFlatVertex v2{};
-		video::UntexturedOpaqueFlatTriangle triangle{};
-
-		u32 vertex_1 = m_cmd_fifo.deque();
-		u32 vertex_2 = m_cmd_fifo.deque();
-		u32 vertex_3 = m_cmd_fifo.deque();
-
-		u32 r = color_packed & 0xFF;
-		u32 g = (color_packed >> 8) & 0xFF;
-		u32 b = (color_packed >> 16) & 0xFF;
-
-		v0.x = sign_extend<i32, 10>(vertex_1 & 0xFFFF);
-		v0.y = sign_extend<i32, 10>((vertex_1 >> 16) & 0xFFFF);
-
-		v1.x = sign_extend<i32, 10>(vertex_2 & 0xFFFF);
-		v1.y = sign_extend<i32, 10>((vertex_2 >> 16) & 0xFFFF);
-
-		v2.x = sign_extend<i32, 10>(vertex_3 & 0xFFFF);
-		v2.y = sign_extend<i32, 10>((vertex_3 >> 16) & 0xFFFF);
-
-		v0.r = r;
-		v0.g = g;
-		v0.b = b;
-
-		v1.r = r;
-		v1.g = g;
-		v1.b = b;
-
-		v2.r = r;
-		v2.g = g;
-		v2.b = b;
-
-		triangle.v0 = v0;
-		triangle.v1 = v1;
-		triangle.v2 = v2;
-
-		bool transparent = (cmd >> 25) & 1;
-
-		if (transparent) {
-			u8 transparency_type = u8(m_stat.semi_transparency);
-			m_renderer->DrawTransparentUntexturedTriangle(triangle,
-				transparency_type);
-		}
-		else {
-			m_renderer->DrawFlatUntexturedOpaque(triangle);
+		//gouraud | polyline | transparent
+		switch (flags)
+		{
+		case 0b000:
+			DrawLines<false, false, false>(*this, cmd);
+			break;
+		case 0b001:
+			DrawLines<false, false, true>(*this, cmd);
+			break;
+		case 0b010:
+			DrawLines<false, true, false>(*this, cmd);
+			break;
+		case 0b011:
+			DrawLines<false, true, true>(*this, cmd);
+			break;
+		case 0b100:
+			DrawLines<true, false, false>(*this, cmd);
+			break;
+		case 0b101:
+			DrawLines<true, false, true>(*this, cmd);
+			break;
+		case 0b110:
+			DrawLines<true, true, false>(*this, cmd);
+			break;
+		case 0b111:
+			DrawLines<true, true, true>(*this, cmd);
+			break;
+		default:
+			error::Unreachable();
+			break;
 		}
 	}
 }

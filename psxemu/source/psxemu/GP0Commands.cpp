@@ -117,8 +117,8 @@ namespace psx {
 	void Gpu::CommandStart(u32 cmd) {
 		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
 
-		LOG_DEBUG("GPU", "[GPU] COMMAND TYPE {}, VALUE = {:#010x}", magic_enum::enum_name(cmd_type),
-			cmd);
+		//LOG_DEBUG("GPU", "[GPU] COMMAND TYPE {}, VALUE = {:#010x}", magic_enum::enum_name(cmd_type),
+		//	cmd);
 
 		m_stat.recv_cmd_word = false;
 		m_stat.recv_dma = false;

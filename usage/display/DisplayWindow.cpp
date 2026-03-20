@@ -10,24 +10,7 @@ DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::strin
 	m_blit24_shader = new psx::video::Shader(blit_loc, blit24_name);
 	m_blit24_shader->SetLabel(fmt::format("window_{}_blit24_shader", name));
 
-	glGenTextures(1, &m_24bit_tex);
-	glBindTexture(GL_TEXTURE_2D, m_24bit_tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 512, 0,
-		GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, 1024);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glPixelStorei(GL_PACK_ROW_LENGTH, 1024);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	m_24bit_buf.resize(1024ULL * 512 * 3);
 	m_temp_buf.resize(1024ULL * 512);
-
-	std::fill(m_24bit_buf.begin(), m_24bit_buf.end(), 0xFF);
 
 	////////////////////////
 
@@ -41,7 +24,6 @@ DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::strin
 
 DisplayWindow::~DisplayWindow() {
 	delete m_blit24_shader;
-	glDeleteTextures(1, &m_24bit_tex);
 	glDeleteBuffers(1, &m_ssbo_buf);
 }
 

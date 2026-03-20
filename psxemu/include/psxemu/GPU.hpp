@@ -202,7 +202,21 @@ namespace psx {
 			m_curr_vblank_count = 0;
 		}
 
+		FORCE_INLINE Queue<u32, 16>& GetCmdFifo() {
+			return m_cmd_fifo;
+		}
+
 		friend class DebugView;
+
+		void TryUpdateTexpage(u16 params);
+
+		FORCE_INLINE bool GetXFlip() const {
+			return m_tex_x_flip;
+		}
+
+		FORCE_INLINE bool GetYFlip() const {
+			return m_tex_y_flip;
+		}
 
 	private :
 		void CommandStart(u32 cmd);
@@ -232,31 +246,11 @@ namespace psx {
 
 		void PerformCpuVramBlit(u32 data);
 
-		void DrawFlatUntexturedOpaqueQuad();
-		void DrawBasicGouraudQuad();
-		void DrawBasicGouraudTriangle();
-		void DrawTexturedQuad();
-		void DrawTexturedTriangle();
-		void DrawTexturedRect();
-		void DrawUntexturedRect();
-		void DrawMonoLine();
-		void DrawShadedLine();
-		void DrawMonoPolyline();
-		void DrawShadedPolyLine();
-		void DrawNormalTriangle();
-		void DrawSemitransparentQuad();
-		void DrawSemiTransparentGouraudQuad();
-		void DrawSemiTransparentGouraudTriangle();
-
 		void QuickFill();
 
-		void CheckIfDrawNeeded();
 		void FlushDrawOps();
 
 		void FinalizeCpuVramBlit();
-
-		void TryUpdateTexpage(u16 params);
-
 	private :
 		Queue<u32, 16> m_cmd_fifo;
 		GpuStat m_stat;

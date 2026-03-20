@@ -18,7 +18,8 @@
 #include <fstream>
 
 namespace psx {
-	static constexpr inline u64 AUDIO_BUFFER_SIZE = 8192 * 3;
+	static constexpr inline u64 AUDIO_BUFFER_SIZE = 256;
+	static constexpr inline u64 AUDIO_BUFFER_SIZE_BACKEND = 2048;
 
 	void sample_callback(void*, u64);
 
@@ -46,7 +47,7 @@ namespace psx {
 		//	std::exit(1);
 		//}
 
-		m_backend = std::make_unique<AudioBackend>();
+		m_backend = std::make_unique<AudioBackend>(AUDIO_BUFFER_SIZE_BACKEND);
 		m_audio_buffer.resize(AUDIO_BUFFER_SIZE);
 		m_sound_ram.resize(RAM_SIZE);
 
@@ -586,9 +587,6 @@ namespace psx {
 
 	u32 SPU::WriteRamDirect8(u8 value, u32 address) {
 		address %= RAM_SIZE;
-		if (0x001000 < address && address < 0x001010) {
-			LOG_WARN("SPU", "[SPU] WRITING ADPCM SAMPLE [{:#010x}] = {:#04x}", address, value);
-		}
 		CheckRamIRQ(address);
 		m_sound_ram[address] = value;
 		return (address + 1) % u32(RAM_SIZE);
@@ -644,9 +642,6 @@ namespace psx {
 		WriteSoundRam(&m_fifo.peek(), m_fifo.len());
 		m_fifo.clear();
 	}
-
-#pragma optimize("", off)
-	volatile bool dump_ram = false;
 
 	void SPU::SampleCycle(u64 cycles_late) {
 		if (!m_regs.m_cnt.enable) {
@@ -717,19 +712,13 @@ namespace psx {
 		//	float(sum_right) / std::numeric_limits<int16_t>::max() 
 		//});
 
-		if (dump_ram) {
-			std::ofstream dump_file{ "spu_ram.bin", std::ios::binary };
-			dump_file.write(std::bit_cast<char*>(m_sound_ram.data()), RAM_SIZE);
-			dump_file.flush();
-			dump_file.close();
-		}
-
-		(void)m_sys_status->scheduler.Schedule(CYCLES_PER_SAMPLE, sample_callback,
+		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
+		u64 sample_time = (curr_time + CYCLES_PER_SAMPLE);
+		sample_time -= sample_time % CYCLES_PER_SAMPLE;
+		(void)m_sys_status->scheduler.ScheduleAbsolute(sample_time, sample_callback,
 			std::bit_cast<void*>(this));
 	}
-#pragma optimize("", on)
 
-#pragma optimize("", off)
 	void SPU::CheckRamIRQ(u32 ram_address) {
 		if (!m_regs.m_cnt.enable) {
 			return;
@@ -744,7 +733,6 @@ namespace psx {
 			m_sys_status->Interrupt(u32(Interrupts::SPU));
 		}
 	}
-#pragma optimize("", on)
 
 	void fifo_transfer_callback(void* spu, u64 cycles_late) {
 		std::bit_cast<SPU*>(spu)->FifoTransferComplete();

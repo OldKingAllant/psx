@@ -199,7 +199,7 @@ namespace psx {
 			ResponseTimings::READ;
 
 		m_read_event = m_sys_status->scheduler.Schedule(
-			ResponseTimings::GETSTAT_NORMAL + read_time,
+			read_time / 2,
 			read_callback, std::bit_cast<void*>(this));
 
 		LOG_DEBUG("CDROM", "[CDROM] ReadN() -> INT3({:#x})",

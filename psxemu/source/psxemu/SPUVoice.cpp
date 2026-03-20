@@ -39,7 +39,6 @@ namespace psx {
 	{
 	}
 
-#pragma optimize("", off)
 	void SPUVoice::SetVolLeft(SPU_VoiceVolume vol) {
 		m_config.m_volume_left = vol;
 
@@ -138,12 +137,17 @@ namespace psx {
 		m_pitch_counter.counter = 0;
 		std::fill_n(m_decoded_block.data(), m_decoded_block.size(), 0x0);
 		std::fill_n(m_old_decode_samples.data(), m_old_decode_samples.size(), 0x0);
+		std::fill_n(m_old_out_samples.data(), m_old_out_samples.size(), 0x0);
 		m_endx_flag = false;
+
+		LOG_DEBUG("SPU", "[SPU] VOICE {} KEY ON", m_voice_id);
 	}
 
 	void SPUVoice::KeyOff() {
 		StartAdsrPhase(AdsrPhase::RELEASE);
-		LOG_DEBUG("SPU", "[SPU] Voice {} current address {:#010x}", m_voice_id, m_curr_address);
+		if (!m_is_on) {
+			LOG_INFO("SPU", "[SPU] VOICE {} RELEASE STARTED EVEN IF VOICE WAS DISABLED", m_voice_id);
+		}
 	}
 
 	void SPUVoice::SetNoiseEnable(bool enable_noise) {
@@ -156,6 +160,9 @@ namespace psx {
 
 	std::pair<i16, i16> SPUVoice::Step() {
 		if (m_curr_adsr_phase == AdsrPhase::NONE) {
+			m_old_out_samples[0] = m_old_out_samples[1];
+			m_old_out_samples[1] = m_old_out_samples[2];
+			m_old_out_samples[2] = i16(0);
 			return { 0, 0 };
 		}
 
@@ -174,16 +181,15 @@ namespace psx {
 			curr_sample = m_noise.noise_level;
 		}
 		else {
-			curr_sample = m_decoded_block[m_pitch_counter.sample_index()];
-			curr_sample = InterpolateSamples(m_old_out_samples, curr_sample, m_pitch_counter.gauss_index());
+			i16 decoded_sample = m_decoded_block[m_pitch_counter.sample_index()];
+			curr_sample = InterpolateSamples(m_old_out_samples, decoded_sample, m_pitch_counter.gauss_index());
+			m_old_out_samples[0] = m_old_out_samples[1];
+			m_old_out_samples[1] = m_old_out_samples[2];
+			m_old_out_samples[2] = i16(decoded_sample);
 			if (CalculatePitch()) {
 				m_has_block = false;
 			}
 		}
-
-		m_old_out_samples[0] = m_old_out_samples[1];
-		m_old_out_samples[1] = m_old_out_samples[2];
-		m_old_out_samples[2] = i16(curr_sample);
 
 		curr_sample = (curr_sample * m_adsr_envelope.level) >> 15;
 
@@ -442,5 +448,4 @@ namespace psx {
 		enabled = envelope.Step();
 		level = envelope.level;
 	}
-#pragma optimize("", off)
 }

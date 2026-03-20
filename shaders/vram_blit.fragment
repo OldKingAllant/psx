@@ -10,7 +10,7 @@ uniform bool set_mask;
 
 in vec2 sample_coords;
 
-out vec4 color;
+layout(location = 0) out vec4 color;
 
 void main() {
     uint x = uint(sample_coords.x * 1024.0);

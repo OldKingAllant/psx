@@ -5,9 +5,13 @@
 #include <fmt/format.h>
 #include <array>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx::video {
 	Renderer::Renderer() :
-		m_vram{}, m_framebuffer{},
+		m_resolution_multiplier{1},
+		m_vram{}, m_framebuffer{m_resolution_multiplier},
 		m_need_gpu_to_host_copy{false},
 		m_need_host_to_gpu_copy{false}, 
 		m_processing_cmd{false},
@@ -35,6 +39,7 @@ namespace psx::video {
 		m_textured_pipeline.SetLabel("textured_pipeline");
 		m_blit_vertex_buf.SetLabel("vram_blit_vertex_buf");
 		m_uniform_buf.SetLabel("global_uniform_buffer");
+		m_uniform_buf.buffer.resolution_multiplier = m_resolution_multiplier;
 		m_uniform_buf.Bind();
 		m_uniform_buf.Upload();
 		m_uniform_buf.BindRange(2);
@@ -52,7 +57,7 @@ namespace psx::video {
 
 	void Renderer::SyncTextures() {
 		if (m_need_host_to_gpu_copy && m_need_gpu_to_host_copy) {
-			fmt::println("[RENDERER] Textures are out of sync!");
+			LOG_ERROR("RENDERER", "[RENDERER] Textures are out of sync!");
 			error::DebugBreak();
 		}
 
@@ -75,6 +80,198 @@ namespace psx::video {
 	void Renderer::VBlank() {
 		FlushCommands();
 		SyncTextures();
+	}
+
+	void Renderer::DrawPrimitive(GenericPrimitive const& primitive)	{
+		constexpr u32 MAX_VERTEX_X_DISTANCE = 1023;
+		constexpr u32 MAX_VERTEX_Y_DISTANCE = 511;
+
+		if (primitive.vertex_count > 3) {
+			LOG_ERROR("RENDERER", "[RENDERER] PRIMITIVE VERTEX COUNT > 3");
+			LOG_FLUSH();
+			error::DebugBreak();
+		}
+
+		for (size_t i = 0; i < primitive.vertex_count - 1; i++) {
+			auto const& v0 = primitive.vertices[i];
+			auto const& v1 = primitive.vertices[i + 1];
+
+			if (std::abs(v0.x - v1.x) > MAX_VERTEX_X_DISTANCE ||
+				std::abs(v0.y - v1.y) > MAX_VERTEX_Y_DISTANCE) {
+				return;
+			}
+		}
+
+		u32 vertex_count = 3;
+		switch (primitive.type)
+		{
+		case PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE: {
+			if (m_untextured_opaque_flat_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
+				FlushCommands();
+			}
+			UntexturedOpaqueFlatVertex v0{}, v1{}, v2{};
+
+			v0.x = primitive.vertices[0].x;
+			v0.y = primitive.vertices[0].y;
+
+			v1.x = primitive.vertices[1].x;
+			v1.y = primitive.vertices[1].y;
+
+			v2.x = primitive.vertices[2].x;
+			v2.y = primitive.vertices[2].y;
+
+			u32 r = primitive.vertices[0].color & 0xFF;
+			u32 g = (primitive.vertices[0].color >> 8) & 0xFF;
+			u32 b = (primitive.vertices[0].color >> 16) & 0xFF;
+
+			v0.r = r;
+			v0.g = g;
+			v0.b = b;
+
+			v1.r = r;
+			v1.g = g;
+			v1.b = b;
+
+			v2.r = r;
+			v2.g = g;
+			v2.b = b;
+
+			m_untextured_opaque_flat_pipeline.PushVertex(v0);
+			m_untextured_opaque_flat_pipeline.PushVertex(v1);
+			m_untextured_opaque_flat_pipeline.PushVertex(v2);
+			m_untextured_opaque_flat_pipeline.AddPrimitiveData({});
+		} break;
+		case PipelineType::BASIC_GOURAUD_TRIANGLE: {
+			if (m_basic_gouraud_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
+				FlushCommands();
+			}
+			BasicGouraudVertex v0{}, v1{}, v2{};
+
+			v0.x = primitive.vertices[0].x;
+			v0.y = primitive.vertices[0].y;
+
+			v1.x = primitive.vertices[1].x;
+			v1.y = primitive.vertices[1].y;
+
+			v2.x = primitive.vertices[2].x;
+			v2.y = primitive.vertices[2].y;
+
+			v0.color = primitive.vertices[0].color;
+			v1.color = primitive.vertices[1].color;
+			v2.color = primitive.vertices[2].color;
+
+			m_basic_gouraud_pipeline.PushVertex(v0);
+			m_basic_gouraud_pipeline.PushVertex(v1);
+			m_basic_gouraud_pipeline.PushVertex(v2);
+
+			m_basic_gouraud_pipeline.AddPrimitiveData({});
+		} break;
+		case PipelineType::TEXTURED_TRIANGLE: {
+			if (m_textured_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
+				FlushCommands();
+			}
+			TexturedVertex v0{}, v1{}, v2{};
+
+			v0.x = primitive.vertices[0].x;
+			v0.y = primitive.vertices[0].y;
+
+			v1.x = primitive.vertices[1].x;
+			v1.y = primitive.vertices[1].y;
+
+			v2.x = primitive.vertices[2].x;
+			v2.y = primitive.vertices[2].y;
+
+			v0.color = primitive.vertices[0].color;
+			v1.color = primitive.vertices[1].color;
+			v2.color = primitive.vertices[2].color;
+
+			v0.clut_page = primitive.vertices[0].clut_page;
+			v1.clut_page = primitive.vertices[1].clut_page;
+			v2.clut_page = primitive.vertices[2].clut_page;
+
+			v0.uv = primitive.vertices[0].uv;
+			v1.uv = primitive.vertices[1].uv;
+			v2.uv = primitive.vertices[2].uv;
+
+			v0.flags = primitive.vertices[0].flags;
+			v1.flags = primitive.vertices[1].flags;
+			v2.flags = primitive.vertices[2].flags;
+
+			m_textured_pipeline.PushVertex(v0);
+			m_textured_pipeline.PushVertex(v1);
+			m_textured_pipeline.PushVertex(v2);
+			m_textured_pipeline.AddPrimitiveData({});
+		} break;
+		case PipelineType::MONO_LINE: {
+			if (m_mono_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
+				FlushCommands();
+			}
+			vertex_count = 2;
+
+			UntexturedOpaqueFlatVertex v0{}, v1{};
+
+			v0.x = primitive.vertices[0].x;
+			v0.y = primitive.vertices[0].y;
+
+			v1.x = primitive.vertices[1].x;
+			v1.y = primitive.vertices[1].y;
+
+			u32 r = primitive.vertices[0].color & 0xFF;
+			u32 g = (primitive.vertices[0].color >> 8) & 0xFF;
+			u32 b = (primitive.vertices[0].color >> 16) & 0xFF;
+
+			v0.r = r;
+			v0.g = g;
+			v0.b = b;
+
+			v1.r = r;
+			v1.g = g;
+			v1.b = b;
+
+			m_mono_line_pipeline.PushVertex(v0);
+			m_mono_line_pipeline.PushVertex(v1);
+			m_mono_line_pipeline.AddPrimitiveData({});
+		} break;
+		case PipelineType::SHADED_LINE: {
+			if (m_shaded_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
+				FlushCommands();
+			}
+			vertex_count = 2;
+
+			BasicGouraudVertex v0{}, v1{};
+
+			v0.x = primitive.vertices[0].x;
+			v0.y = primitive.vertices[0].y;
+
+			v1.x = primitive.vertices[1].x;
+			v1.y = primitive.vertices[1].y;
+
+			v0.color = primitive.vertices[0].color;
+			v1.color = primitive.vertices[1].color;
+			
+			m_shaded_line_pipeline.PushVertex(v0);
+			m_shaded_line_pipeline.PushVertex(v1);
+			m_shaded_line_pipeline.AddPrimitiveData({});
+		} break;
+		default:
+			error::Unreachable();
+			break;
+		}
+
+		if (vertex_count != primitive.vertex_count) {
+			LOG_ERROR("RENDERER", "[RENDERER] PRIMITIVE VERTEX COUNT != EXPECTED");
+			LOG_FLUSH();
+			error::DebugBreak();
+		}
+
+		DrawCommand cmd = {};
+
+		cmd.vertex_count = vertex_count;
+		cmd.type = primitive.type;
+		cmd.semi_transparent = primitive.semi_transparent;
+		cmd.semi_transparency_type = primitive.semi_transparency_type;
+
+		AppendCommand(cmd);
 	}
 
 	void Renderer::AppendCommand(DrawCommand cmd) {
@@ -100,188 +297,13 @@ namespace psx::video {
 		}
 	}
 
-	void Renderer::DrawFlatUntexturedOpaque(UntexturedOpaqueFlatTriangle triangle) {
-		if (m_untextured_opaque_flat_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-		
-		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v0);
-		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v1);
-		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v2);
-
-		m_untextured_opaque_flat_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 3;
-		cmd.type = PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
-		cmd.semi_transparent = false;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawBasicGouraud(BasicGouraudTriangle triangle) {
-		if (m_basic_gouraud_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_basic_gouraud_pipeline.PushVertex(triangle.v0);
-		m_basic_gouraud_pipeline.PushVertex(triangle.v1);
-		m_basic_gouraud_pipeline.PushVertex(triangle.v2);
-
-		m_basic_gouraud_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 3;
-		cmd.type = PipelineType::BASIC_GOURAUD_TRIANGLE;
-		cmd.semi_transparent = false;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawTexturedTriangle(TexturedTriangle triangle) {
-		if (m_textured_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_textured_pipeline.PushVertex(triangle.v0);
-		m_textured_pipeline.PushVertex(triangle.v1);
-		m_textured_pipeline.PushVertex(triangle.v2);
-
-		m_textured_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 3;
-		cmd.type = PipelineType::TEXTURED_TRIANGLE;
-		cmd.semi_transparent = (triangle.v0.flags & TexturedVertexFlags::SEMI_TRANSPARENT) != 0;
-
-		u16 page = u16(triangle.v0.clut_page);
-		u8 semi_transparency = u8((page >> 5) & 0x3);
-		cmd.semi_transparency_type = semi_transparency;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawTransparentUntexturedTriangle(UntexturedOpaqueFlatTriangle triangle, u8 transparency_type) {
-		if (m_untextured_opaque_flat_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v0);
-		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v1);
-		m_untextured_opaque_flat_pipeline.PushVertex(triangle.v2);
-
-		m_untextured_opaque_flat_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 3;
-		cmd.type = PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
-		cmd.semi_transparent = true;
-		cmd.semi_transparency_type = transparency_type;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawMonoLine(MonoLine line) {
-		if (m_mono_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_mono_line_pipeline.PushVertex(line.v0);
-		m_mono_line_pipeline.PushVertex(line.v1);
-
-		m_mono_line_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 2;
-		cmd.type = PipelineType::MONO_LINE;
-		cmd.semi_transparent = false;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawMonoTransparentLine(MonoLine line, u8 transparency_type) {
-		if (m_mono_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_mono_line_pipeline.PushVertex(line.v0);
-		m_mono_line_pipeline.PushVertex(line.v1);
-
-		m_mono_line_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 2;
-		cmd.type = PipelineType::MONO_LINE;
-		cmd.semi_transparent = true;
-		cmd.semi_transparency_type = transparency_type;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawShadedLine(ShadedLine line) {
-		if (m_shaded_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_shaded_line_pipeline.PushVertex(line.v0);
-		m_shaded_line_pipeline.PushVertex(line.v1);
-
-		m_shaded_line_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 2;
-		cmd.type = PipelineType::SHADED_LINE;
-		cmd.semi_transparent = false;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawShadedTransparentLine(ShadedLine line, u8 transparency_type) {
-		if (m_shaded_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_shaded_line_pipeline.PushVertex(line.v0);
-		m_shaded_line_pipeline.PushVertex(line.v1);
-
-		m_shaded_line_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 2;
-		cmd.type = PipelineType::SHADED_LINE;
-		cmd.semi_transparent = true;
-		cmd.semi_transparency_type = transparency_type;
-
-		AppendCommand(cmd);
-	}
-
-	void Renderer::DrawTransparentGouraud(BasicGouraudTriangle triangle, u8 transparency_type) {
-		if (m_basic_gouraud_pipeline.VertexCount() >= MAX_VERTEX_COUNT)
-			FlushCommands();
-
-		m_basic_gouraud_pipeline.PushVertex(triangle.v0);
-		m_basic_gouraud_pipeline.PushVertex(triangle.v1);
-		m_basic_gouraud_pipeline.PushVertex(triangle.v2);
-
-		m_basic_gouraud_pipeline.AddPrimitiveData({});
-
-		DrawCommand cmd = {};
-
-		cmd.vertex_count = 3;
-		cmd.type = PipelineType::BASIC_GOURAUD_TRIANGLE;
-		cmd.semi_transparent = true;
-		cmd.semi_transparency_type = transparency_type;
-
-		AppendCommand(cmd);
-	}
-
 	void Renderer::DrawBatch() {
 		if (m_commands.empty())
 			return;
 
 		UpdateUbo();
 
-		glViewport(0, 0, 1024, 512);
+		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
@@ -289,9 +311,9 @@ namespace psx::video {
 		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
 			0, 0, 0, GL_READ_WRITE, GL_R8);
 
-		glScissor(m_scissor.top_x, m_scissor.top_y,
-			m_scissor.bottom_x - m_scissor.top_x + 1,
-			m_scissor.bottom_y - m_scissor.top_y + 1);
+		glScissor(m_scissor.top_x * m_resolution_multiplier, m_scissor.top_y * m_resolution_multiplier,
+			(m_scissor.bottom_x - m_scissor.top_x + 1) * m_resolution_multiplier,
+			(m_scissor.bottom_y - m_scissor.top_y + 1) * m_resolution_multiplier);
 
 		glEnable(GL_SCISSOR_TEST);
 
@@ -313,7 +335,7 @@ namespace psx::video {
 
 				blend_enabled = true;
 
-				if(cmd.semi_transparency_type == 2)
+				if(cmd.semi_transparency_type == 2 /*&& cmd.type != PipelineType::TEXTURED_TRIANGLE*/)
 					glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
 				else 
 					glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
@@ -499,7 +521,7 @@ namespace psx::video {
 		SyncTextures();
 
 		glDisable(GL_SCISSOR_TEST);
-		glViewport(0, 0, 1024, 512);
+		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
 
 		m_framebuffer.Bind();
 		m_blit_vertex_buf.Bind();
@@ -547,7 +569,7 @@ namespace psx::video {
 		SyncTextures();
 
 		glDisable(GL_SCISSOR_TEST);
-		glViewport(0, 0, 1024, 512);
+		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
 
 		m_framebuffer.Bind();
 		m_vram_blit_vertex_buf.Bind();
@@ -606,17 +628,25 @@ namespace psx::video {
 
 		glEnable(GL_SCISSOR_TEST);
 
-		glViewport(0, 0, 1024, 512);
+		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
 		glClearColor(r, g, b, 0.0);
 
 		if (xoff + w > 1024 && yoff + h > 512) {
-			glScissor(xoff, yoff, 1024 - (GLsizei)xoff, 512 - (GLsizei)yoff);
+			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier,
+				(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
+				(512 - (GLsizei)yoff) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(0, 0, (xoff + w) - 1024, (yoff + h) - 512);
+			glScissor(0, 0, 
+				((xoff + w) - 1024) * m_resolution_multiplier, 
+				((yoff + h) - 512) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(0, yoff, (xoff + w) - 1024, 512 - (GLsizei)yoff);
+			glScissor(0, yoff * m_resolution_multiplier, 
+				((xoff + w) - 1024) * m_resolution_multiplier, 
+				(512 - (GLsizei)yoff) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(xoff, 0, 1024 - (GLsizei)xoff, (yoff + h) - 512);
+			glScissor(xoff * m_resolution_multiplier, 0, 
+				(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
+				((yoff + h) - 512) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 			
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
@@ -633,9 +663,13 @@ namespace psx::video {
 				m_blank_image.data());
 		}
 		else if (xoff + w > 1024) {
-			glScissor(xoff, yoff, 1024 - (GLsizei)xoff, (GLsizei)h);
+			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier, 
+				(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
+				((GLsizei)h) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(0, yoff, (xoff + w) - 1024, (GLsizei)h);
+			glScissor(0, yoff * m_resolution_multiplier, 
+				((xoff + w) - 1024) * m_resolution_multiplier, 
+				((GLsizei)h) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
@@ -646,9 +680,13 @@ namespace psx::video {
 				m_blank_image.data());
 		}
 		else if (yoff + h > 512) {
-			glScissor(xoff, yoff, (GLsizei)w, 512 - (GLsizei)yoff);
+			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier, 
+				((GLsizei)w) * m_resolution_multiplier, 
+				(512 - (GLsizei)yoff) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(xoff, 0, (GLsizei)w, (yoff + h) - 512);
+			glScissor(xoff * m_resolution_multiplier, 0, 
+				((GLsizei)w) * m_resolution_multiplier, 
+				((yoff + h) - 512) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
@@ -659,7 +697,9 @@ namespace psx::video {
 				m_blank_image.data());
 		}
 		else {
-			glScissor(xoff, yoff, (GLsizei)w, (GLsizei)h);
+			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier, 
+				((GLsizei)w) * m_resolution_multiplier, 
+				((GLsizei)h) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),

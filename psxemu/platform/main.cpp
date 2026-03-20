@@ -273,9 +273,9 @@ int main(int argc, char* argv[]) {
 		auto& gpu = sys.GetStatus()
 			.sysbus->GetGPU();
 
-		auto handle = gpu.GetRenderer()
-			->GetFramebuffer()
-			.GetInternalTexture();
+		auto& framebuf = gpu.GetRenderer()->GetFramebuffer();
+		auto& vram = gpu.GetRenderer()->GetVram();
+		auto handle = framebuf.GetUpscaledTexture().value_or(framebuf.GetInternalTexture());
 
 		vram_view.Blit(handle);
 		vram_view.Present();
@@ -297,7 +297,7 @@ int main(int argc, char* argv[]) {
 					psx::video::Rect{ .w = disp_range.xsize, .h = disp_range.ysize },
 					psx::video::Rect{ .w = 1024, .h = 512 }
 				);
-				display.Blit24(handle);
+				display.Blit24(vram.GetTextureHandle());
 			}
 			else {
 				display.SetTextureWindow(

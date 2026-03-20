@@ -4,11 +4,12 @@
 #include <common/Macros.hpp>
 
 #include <string_view>
+#include <optional>
 
 namespace psx::video {
 	class FrameBuffer {
 	public :
-		FrameBuffer();
+		FrameBuffer(u32 resolution_multiplier);
 
 		void UpdateInternalTexture(u32 blit_tex);
 		void CopyToTexture(u32 dest);
@@ -28,6 +29,18 @@ namespace psx::video {
 			return m_mask_texture;
 		}
 
+		FORCE_INLINE u32 GetResolutionMultiplier() const {
+			return m_resolution_multiplier;
+		}
+
+		FORCE_INLINE std::optional<u32> GetUpscaledFbo() const {
+			return m_upscaled_fbo;
+		}
+
+		FORCE_INLINE std::optional<u32> GetUpscaledTexture() const {
+			return m_upscaled_tex;
+		}
+
 		void Bind();
 		void Unbind();
 
@@ -39,5 +52,8 @@ namespace psx::video {
 		u32 m_fbo;
 		u32 m_fbo_tex;
 		u32 m_mask_texture;
+		u32 m_resolution_multiplier;
+		std::optional<u32> m_upscaled_tex;
+		std::optional<u32> m_upscaled_fbo;
 	};
 }

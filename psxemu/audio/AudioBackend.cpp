@@ -15,23 +15,38 @@ namespace psx {
 		len /= 2;
 		std::fill_n(dest, len, 0x00);
 
-		auto to_read = std::min<size_t>(device->m_audio_buffer.size(), len);
+		auto to_read = std::min<size_t>(device->m_audio_buffer.readAvailable(), len);
 		
-		for (size_t i = 0; i < to_read; i++) {
-			auto sample = device->m_audio_buffer.front();
-			device->m_audio_buffer.pop_front();
-			dest[i] = sample;
+		for (size_t i = 0; i < to_read; i += 2) {
+			i16 l, r{};
+			device->m_audio_buffer.remove(&l);
+			device->m_audio_buffer.remove(&r);
+
+			l = device->m_left_lpf.Filter(l);
+			r = device->m_right_lpf.Filter(r);
+
+			dest[i] = l;
+			dest[i + 1] = r;
 		}
+
+		device->m_cv.notify_one();
 	}
 
-	AudioBackend::AudioBackend() {
+	AudioBackend::AudioBackend(size_t buffer_limit) : m_buffer_limit{ buffer_limit }, m_sync_to_audio{true},
+		m_left_lpf{ AudioBackend::AUDIO_FREQUENCY, 42000 },
+		m_right_lpf{ AudioBackend::AUDIO_FREQUENCY, 42000 } {
+		if (buffer_limit >= m_audio_buffer.writeAvailable()) {
+			LOG_ERROR("AUDIO", "[AUDIO] (SDL) REQUESTED BUFFER SIZE IS GREATER THAN RINGBUFFER MAX");
+			std::exit(1);
+		}
+
 		SDL_AudioSpec wanted{};
-		wanted.freq = 44100;
+		wanted.freq = AUDIO_FREQUENCY;
 		wanted.format = AUDIO_S16;
 		wanted.callback = audio_callback;
-		wanted.channels = 2;
+		wanted.channels = AUDIO_CHANNELS;
 		wanted.userdata = std::bit_cast<void*>(this);
-		wanted.samples = 512;
+		wanted.samples = (Uint16)buffer_limit / 2;
 
 		m_dev_id = SDL_OpenAudioDevice(nullptr, 0, &wanted, &m_dev_specs, 0);
 
@@ -48,16 +63,17 @@ namespace psx {
 	}
 
 	void AudioBackend::PushSamples(i16* buf, size_t len) {
-		constexpr size_t MAX_AUDIO_BUFFER_SIZE = 8192;
 		std::unique_lock lk{ m_mux };
-		if (m_audio_buffer.size() != 0) {
-			LOG_WARN("AUDIO", "[AUDIO] Non-empty audio buffer");
+
+		if (m_sync_to_audio) {
+			if (m_audio_buffer.writeAvailable() < len || m_audio_buffer.readAvailable() >= m_buffer_limit) {
+				m_cv.wait(lk, [this, len]() {
+					return m_audio_buffer.writeAvailable() >= len && m_audio_buffer.readAvailable() < m_buffer_limit; 
+				});
+			}
 		}
-		if (m_audio_buffer.size() >= MAX_AUDIO_BUFFER_SIZE) {
-			m_audio_buffer.clear();
-		}
-		std::copy_n(buf, len, std::back_inserter(m_audio_buffer));
-		m_cv.notify_one();
+		
+		m_audio_buffer.writeBuff(buf, len);
 	}
 
 	AudioBackend::~AudioBackend() {
