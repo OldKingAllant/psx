@@ -297,14 +297,12 @@ namespace psx {
 	void Gpu::InitEvents() {
 		m_last_even_timestamp = ACTIVE_CLOCKS;
 		(void)m_sys_status->scheduler.ScheduleAbsolute(ACTIVE_CLOCKS, hblank_callback, this);
-		//(void)m_sys_status->scheduler.Schedule(CLOCKS_SCANLINE, hblank_end_callback, this);
 	}
 
 	void Gpu::HBlank(u64 cycles_late) {
-		(void)cycles_late;
 		m_sys_status->sysbus->GetCounter0().HBlank();
 		m_sys_status->sysbus->GetCounter1().UpdateFromTimestamp();
-		m_last_even_timestamp += (CLOCKS_SCANLINE - ACTIVE_CLOCKS) - cycles_late;
+		m_last_even_timestamp += (CLOCKS_SCANLINE - ACTIVE_CLOCKS);
 		(void)m_sys_status->scheduler.ScheduleAbsolute(
 			m_last_even_timestamp, 
 			hblank_end_callback, 
@@ -342,9 +340,9 @@ namespace psx {
 			}
 		}
 
-		m_last_even_timestamp += ACTIVE_CLOCKS - cycles_late;
+		m_last_even_timestamp += ACTIVE_CLOCKS;
 		(void)m_sys_status->scheduler.ScheduleAbsolute(m_last_even_timestamp, 
-			hblank_end_callback, this);
+			hblank_callback, this);
 	}
 
 	Gpu::~Gpu() {
