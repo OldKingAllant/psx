@@ -256,6 +256,8 @@ namespace psx::video {
 			return m_renderdoc;
 		}
 
+		void SetResolutionMultiplier(u32 mult);
+
 		~Renderer();
 
 	private :

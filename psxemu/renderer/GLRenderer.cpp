@@ -11,7 +11,7 @@
 namespace psx::video {
 	Renderer::Renderer() :
 		m_resolution_multiplier{1},
-		m_vram{}, m_framebuffer{m_resolution_multiplier},
+		m_vram{}, m_framebuffer{1024, 512},
 		m_need_gpu_to_host_copy{false},
 		m_need_host_to_gpu_copy{false}, 
 		m_processing_cmd{false},
@@ -33,6 +33,7 @@ namespace psx::video {
 		m_blank_image{}
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
+		m_framebuffer.RebuildUpscaledFbo(m_resolution_multiplier);
 		m_blit_shader.SetLabel("vram_blit_shader");
 		m_untextured_opaque_flat_pipeline.SetLabel("untextured_opaque_flat_pipeline");
 		m_basic_gouraud_pipeline.SetLabel("basic_gouraud_pipeline");
@@ -710,6 +711,13 @@ namespace psx::video {
 		glDisable(GL_SCISSOR_TEST);
 
 		m_framebuffer.Unbind();
+	}
+
+	void Renderer::SetResolutionMultiplier(u32 mult) {
+		FlushCommands();
+		SyncTextures();
+		m_framebuffer.RebuildUpscaledFbo(mult);
+		m_resolution_multiplier = mult;
 	}
 
 	Renderer::~Renderer() {

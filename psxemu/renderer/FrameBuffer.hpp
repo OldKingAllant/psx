@@ -5,11 +5,14 @@
 
 #include <string_view>
 #include <optional>
+#include <string>
 
 namespace psx::video {
 	class FrameBuffer {
 	public :
-		FrameBuffer(u32 resolution_multiplier);
+		FrameBuffer(u32 vram_x_size, u32 vram_y_size);
+
+		void RebuildUpscaledFbo(u32 resolution_multiplier);
 
 		void UpdateInternalTexture(u32 blit_tex);
 		void CopyToTexture(u32 dest);
@@ -45,10 +48,14 @@ namespace psx::video {
 		void Unbind();
 
 		void SetLabel(std::string_view label);
+		void SetUpscaledFboLabel();
 
 		~FrameBuffer();
 
 	private :
+		u32 m_x_size;
+		u32 m_y_size;
+		std::string m_base_label;
 		u32 m_fbo;
 		u32 m_fbo_tex;
 		u32 m_mask_texture;

@@ -28,6 +28,7 @@ namespace psx {
 		m_renderer{ nullptr }, m_disp_conf{}, m_last_event_timestamp{},
 		m_curr_vblank_count{} {
 		m_renderer = new video::Renderer();
+		m_renderer->SetResolutionMultiplier(2);
 		m_cpu_vram = m_renderer->GetVramPtr();
 	}
 
