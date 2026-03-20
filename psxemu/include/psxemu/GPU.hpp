@@ -218,6 +218,8 @@ namespace psx {
 			return m_tex_y_flip;
 		}
 
+		void SetResolutionMultiplier(u32 mult);
+
 	private :
 		void CommandStart(u32 cmd);
 		void CommandEnd();

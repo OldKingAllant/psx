@@ -52,6 +52,13 @@ namespace psx {
 			enable_syscall_hooks)
 	};
 
+	struct GpuConf {
+		std::uint32_t resolution_multiplier = 1;
+
+		NLOHMANN_DEFINE_TYPE_INTRUSIVE(GpuConf,
+			resolution_multiplier)
+	};
+
 	struct SystemConf {
 		std::string bios_path = "../programs/SCPH1001.BIN";
 
@@ -102,8 +109,10 @@ namespace psx {
 		std::string tty_program = "../x64/Release/TTY_Console.exe";
 
 		SystemConfAdvanced advanced_conf = {};
+		GpuConf gpu_conf = {};
 
 		NLOHMANN_DEFINE_TYPE_INTRUSIVE(SystemConf, 
+			gpu_conf,
 			enable_exe_patching,
 			force_run,
 			exe_args,

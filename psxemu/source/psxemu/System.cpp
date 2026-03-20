@@ -412,6 +412,8 @@ namespace psx {
 		m_kernel.SetHooksEnable(m_sys_conf->advanced_conf.enable_syscall_hooks);
 
 		SilenceSyscallsDefault();
+
+		m_sysbus.GetGPU().SetResolutionMultiplier(m_sys_conf->gpu_conf.resolution_multiplier);
 	}
 
 	bool System::InsertDisc(std::filesystem::path const& path) {
