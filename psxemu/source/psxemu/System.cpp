@@ -414,6 +414,7 @@ namespace psx {
 		SilenceSyscallsDefault();
 
 		m_sysbus.GetGPU().SetResolutionMultiplier(m_sys_conf->gpu_conf.resolution_multiplier);
+		m_sysbus.GetGPU().SetConsoleVideoMode(m_sys_conf->video_mode);
 	}
 
 	bool System::InsertDisc(std::filesystem::path const& path) {

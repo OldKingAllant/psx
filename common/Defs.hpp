@@ -13,6 +13,11 @@ namespace psx {
 	using i16 = int16_t;
 	using i8 = int8_t;
 
+	enum class ConsoleVideoMode {
+		NTSC,
+		PAL
+	};
+
 	/*
 	All timings based on no$psx ntsc 
 	consoles
@@ -20,8 +25,14 @@ namespace psx {
 	static constexpr u64 SYSTEM_CLOCK = 33'868'800;
 	static constexpr u64 VIDEO_CLOCK = 53'222'400;
 	static constexpr double VIDEO_TO_SYSTEM_CLOCK = (double)SYSTEM_CLOCK / VIDEO_CLOCK;
-	static constexpr u64 SCANLINES_FRAME = 263;
-	static constexpr u64 CLOCKS_SCANLINE = (u64)(3413 * VIDEO_TO_SYSTEM_CLOCK);
+
+	static constexpr double FRAMERATE_NTSC = 59.94;
+	static constexpr double FRAMERATE_PAL = 50.0;
+
+	static constexpr u64 SCANLINES_FRAME_NTSC = 263;
+	static constexpr u64 SCANLINES_FRAME_PAL = 314;
+	static constexpr u64 CLOCKS_SCANLINE_NTSC = (u64)(3413 * VIDEO_TO_SYSTEM_CLOCK);
+	static constexpr u64 CLOCKS_SCANLINE_PAL = u64(SYSTEM_CLOCK / FRAMERATE_PAL / SCANLINES_FRAME_PAL);
 
 	//Based on Vertical resolution
 	static constexpr u64 DOTCLOCKS[] = {

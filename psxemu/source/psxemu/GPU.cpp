@@ -26,7 +26,7 @@ namespace psx {
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
 		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{},
 		m_renderer{ nullptr }, m_disp_conf{}, m_last_event_timestamp{},
-		m_curr_vblank_count{} {
+		m_curr_vblank_count{}, m_video_mode{ConsoleVideoMode::NTSC} {
 		m_renderer = new video::Renderer();
 		m_cpu_vram = m_renderer->GetVramPtr();
 	}
@@ -299,14 +299,16 @@ namespace psx {
 	}
 
 	void Gpu::InitEvents() {
-		m_last_event_timestamp = ACTIVE_CLOCKS;
-		(void)m_sys_status->scheduler.ScheduleAbsolute(ACTIVE_CLOCKS, hblank_callback, this);
+		m_last_event_timestamp = m_video_mode == ConsoleVideoMode::NTSC ? ACTIVE_CLOCKS_NTSC :
+			ACTIVE_CLOCKS_PAL;
+		(void)m_sys_status->scheduler.ScheduleAbsolute(m_last_event_timestamp, hblank_callback, this);
 	}
 
 	void Gpu::HBlank(u64 cycles_late) {
 		m_sys_status->sysbus->GetCounter0().HBlank();
 		m_sys_status->sysbus->GetCounter1().UpdateFromTimestamp();
-		m_last_event_timestamp += (CLOCKS_SCANLINE - ACTIVE_CLOCKS);
+		m_last_event_timestamp += m_video_mode == ConsoleVideoMode::NTSC ? (CLOCKS_SCANLINE_NTSC - ACTIVE_CLOCKS_NTSC) :
+			(CLOCKS_SCANLINE_PAL - ACTIVE_CLOCKS_PAL);
 		(void)m_sys_status->scheduler.ScheduleAbsolute(
 			m_last_event_timestamp, 
 			hblank_end_callback, 
@@ -318,7 +320,19 @@ namespace psx {
 
 		m_scanline++;
 
-		if (m_scanline >= SCANLINES_FRAME) {
+		auto scanlines_frame = SCANLINES_FRAME_NTSC;
+		auto visible_lines_start = VISIBLE_LINE_START_NTSC;
+		auto visible_lines_end = VISIBLE_LINE_END_NTSC;
+		auto active_clocks = ACTIVE_CLOCKS_NTSC;
+
+		if (m_video_mode == ConsoleVideoMode::PAL) {
+			scanlines_frame = SCANLINES_FRAME_PAL;
+			visible_lines_start = VISIBLE_LINE_START_PAL;
+			visible_lines_end = VISIBLE_LINE_END_PAL;
+			active_clocks = ACTIVE_CLOCKS_PAL;
+		}
+
+		if (m_scanline >= scanlines_frame) {
 			m_curr_vblank_count += 1;
 			m_scanline = 0;
 			m_sys_status->sysbus->GetCounter1().VBlank();
@@ -328,13 +342,13 @@ namespace psx {
 			m_sys_status->vblank = true;
 			m_renderer->VBlank();
 		}
-		else if (m_scanline >= VISIBLE_LINE_START && m_scanline <= VISIBLE_LINE_END) {
+		else if (m_scanline >= visible_lines_start && m_scanline <= visible_lines_end) {
 			//With v-res 240, changes per scanline
 			if (m_stat.vertical_interlace && !m_stat.vertical_res) {
 				m_stat.drawing_odd = (m_scanline & 1) != 0;
 			}
 		}
-		else if (m_scanline == VISIBLE_LINE_START - 1) {
+		else if (m_scanline == visible_lines_start - 1) {
 			m_sys_status->sysbus->GetCounter1().VBlankEnd();
 			m_vblank = false;
 
@@ -344,7 +358,7 @@ namespace psx {
 			}
 		}
 
-		m_last_event_timestamp += ACTIVE_CLOCKS;
+		m_last_event_timestamp += active_clocks;
 		(void)m_sys_status->scheduler.ScheduleAbsolute(m_last_event_timestamp, 
 			hblank_callback, this);
 	}
@@ -508,7 +522,12 @@ namespace psx {
 	}
 
 	u64 Gpu::GetNextVBlankTime() const {
-		u64 rem_scanlines = (SCANLINES_FRAME - m_scanline) - 1;
+		auto scanlines_frame = m_video_mode == ConsoleVideoMode::NTSC ?
+			SCANLINES_FRAME_NTSC : SCANLINES_FRAME_PAL;
+		auto clocks_scanline = m_video_mode == ConsoleVideoMode::NTSC ?
+			CLOCKS_SCANLINE_NTSC : CLOCKS_SCANLINE_PAL;
+
+		u64 rem_scanlines = (scanlines_frame - m_scanline) - 1;
 		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 
 		if (curr_time > m_last_event_timestamp) {
@@ -518,7 +537,7 @@ namespace psx {
 		}
 
 		u64 total_time = (m_last_event_timestamp - curr_time) +
-			rem_scanlines * CLOCKS_SCANLINE;
+			rem_scanlines * clocks_scanline;
 
 		return total_time;
 	}

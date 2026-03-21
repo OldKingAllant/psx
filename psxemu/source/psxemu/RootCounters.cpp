@@ -76,7 +76,7 @@ namespace psx {
 				break;
 			case psx::ClockSource1::HBLANK1:
 			case psx::ClockSource1::HBLANK2:
-				return CLOCKS_SCANLINE;
+				return CLOCKS_SCANLINE_NTSC;
 				break;
 			default:
 				error::Unreachable();

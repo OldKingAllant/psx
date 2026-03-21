@@ -34,6 +34,14 @@ namespace psx {
 		)
 	}
 
+	NLOHMANN_JSON_SERIALIZE_ENUM(
+		ConsoleVideoMode,
+		{
+			{ConsoleVideoMode::NTSC, "NTSC"},
+			{ConsoleVideoMode::PAL, "PAL"}
+		}
+	)
+
 	using logger::from_json;
 	using logger::to_json;
 
@@ -86,6 +94,7 @@ namespace psx {
 
 		std::string cdrom_file = "";
 		std::string console_region = "AMERICA";
+		ConsoleVideoMode video_mode = ConsoleVideoMode::NTSC;
 
 		std::string exe_file = "";
 		std::string exe_args = "";
@@ -112,6 +121,7 @@ namespace psx {
 		GpuConf gpu_conf = {};
 
 		NLOHMANN_DEFINE_TYPE_INTRUSIVE(SystemConf, 
+			video_mode,
 			gpu_conf,
 			enable_exe_patching,
 			force_run,

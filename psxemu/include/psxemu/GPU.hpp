@@ -12,11 +12,19 @@ namespace psx {
 
 	static constexpr u64 VRAM_SIZE = (u64)1024 * 1024;
 
-	static constexpr u64 GPU_CLOCKS_FRAME = (u64)(VIDEO_CLOCK / (double)59.94);
-	static constexpr u64 VISIBLE_LINE_START = 16;
-	static constexpr u64 VISIBLE_LINE_END = 256;
-	static constexpr u64 ACTIVE_CLOCKS = 1812;
-	static constexpr u64 BLANKING_CLOCKS = 339;
+	//static constexpr u64 GPU_CLOCKS_FRAME = (u64)(VIDEO_CLOCK / (double)59.94);
+
+	static constexpr u64 VISIBLE_LINE_START_NTSC = 16;
+	static constexpr u64 VISIBLE_LINE_END_NTSC = 256;
+
+	static constexpr u64 VISIBLE_LINE_START_PAL = 18;
+	static constexpr u64 VISIBLE_LINE_END_PAL = VISIBLE_LINE_START_PAL + 288;
+
+	static constexpr u64 ACTIVE_CLOCKS_NTSC = 1812;
+	static constexpr u64 BLANKING_CLOCKS_NTSC = CLOCKS_SCANLINE_NTSC - ACTIVE_CLOCKS_NTSC;
+
+	static constexpr u64 ACTIVE_CLOCKS_PAL = 1812;
+	static constexpr u64 BLANKING_CLOCKS_PAL = CLOCKS_SCANLINE_PAL - ACTIVE_CLOCKS_PAL;
 
 	namespace video {
 		class Renderer;
@@ -219,6 +227,10 @@ namespace psx {
 		}
 
 		void SetResolutionMultiplier(u32 mult);
+		
+		FORCE_INLINE void SetConsoleVideoMode(ConsoleVideoMode video_mode) {
+			m_video_mode = video_mode;
+		}
 
 	private :
 		void CommandStart(u32 cmd);
@@ -303,5 +315,7 @@ namespace psx {
 
 		u64 m_last_event_timestamp;
 		u64 m_curr_vblank_count;
+
+		ConsoleVideoMode m_video_mode;
 	};
 }
