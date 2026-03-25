@@ -35,8 +35,8 @@ namespace config {
 			m_config_repr = json::parse(temp);
 			LoadConfig();
 		}
-		catch (...) {
-			fmt::println("[CONFIG] Error while loading {}", path);
+		catch (std::exception const& e) {
+			fmt::println("[CONFIG] Error while loading {}: {}", path, e.what());
 		}
 	}
 
