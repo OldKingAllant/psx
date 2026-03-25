@@ -9,6 +9,7 @@
 
 #include <array>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 namespace psx {
 	void CDDrive::Command_GetStat() {
