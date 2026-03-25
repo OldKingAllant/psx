@@ -3,6 +3,8 @@
 #include "Shader.hpp"
 #include "VertexBuffer.hpp"
 
+#include "GLContext.hpp"
+
 #include <any>
 #include <functional>
 #include <map>
@@ -48,8 +50,8 @@ namespace psx::video {
 		void DispatchEvent(SdlEvent ev, std::any data);
 		void ForwardEventHandler(std::function<void(SDL_Event*)> handler);
 
-		void* GetGlContext() const {
-			return m_gl_ctx;
+		GLContext* GetGlContext() {
+			return &m_gl_ctx;
 		}
 
 		void* GetWindowHandle() const {
@@ -64,11 +66,11 @@ namespace psx::video {
 
 		void SetSize(Rect sz);
 
-		void MakeContextCurrent() const;
+		void MakeContextCurrent();
 
 	protected :
 		void* m_win;
-		void* m_gl_ctx;
+		GLContext m_gl_ctx;
 		Shader* m_blit;
 		bool m_close;
 		VertexBuffer<HostVertex2D>* m_vert_buf;

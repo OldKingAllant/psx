@@ -52,8 +52,6 @@ namespace psx::logger {
 		m_log->logger = quill::Frontend::create_or_get_logger("main_logger", sinks, pattern_opts);
 		m_log->logger->set_log_level(quill::LogLevel::TraceL3);
 
-		
-
 		m_running = true;
 	}
 

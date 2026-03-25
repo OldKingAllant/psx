@@ -232,6 +232,7 @@
     <ClInclude Include="input\KeyboardManager.hpp" />
     <ClInclude Include="renderer\Buffer.hpp" />
     <ClInclude Include="renderer\FrameBuffer.hpp" />
+    <ClInclude Include="renderer\GLContext.hpp" />
     <ClInclude Include="renderer\GlLoad.hpp" />
     <ClInclude Include="renderer\GLRenderer.hpp" />
     <ClInclude Include="renderer\Pipeline.hpp" />
@@ -252,6 +253,7 @@
     <ClCompile Include="KernelExe.cpp" />
     <ClCompile Include="renderer\Buffer.cpp" />
     <ClCompile Include="renderer\FrameBuffer.cpp" />
+    <ClCompile Include="renderer\GLContext.cpp" />
     <ClCompile Include="renderer\GlLoad.cpp" />
     <ClCompile Include="renderer\GLRenderer.cpp" />
     <ClCompile Include="renderer\Pipeline.cpp" />

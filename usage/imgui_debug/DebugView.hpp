@@ -1,6 +1,7 @@
 #pragma once
 
 #include <psxemu/renderer/SdlWindow.hpp>
+#include <psxemu/renderer/GLContext.hpp>
 #include <psxemu/include/psxemu/MCFilesystem.hpp>
 #include <psxemu/include/psxemu/formats/GenericSaveFile.hpp>
 
@@ -59,7 +60,7 @@ private :
 private :
 	std::shared_ptr<Window> m_win;
 	psx::System* m_psx;
-	void* m_gl_ctx;
+	psx::video::GLContext* m_gl_ctx;
 
 	bool m_first_frame;
 	std::unordered_map<std::string, bool> m_enabled_opts;

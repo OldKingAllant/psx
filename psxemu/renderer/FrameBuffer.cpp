@@ -1,5 +1,5 @@
 #include "FrameBuffer.hpp"
-#include "GlLoad.hpp"
+#include "GLContext.hpp"
 
 #include <GL/glew.h>
 
@@ -18,7 +18,9 @@ namespace psx::video {
 		glGenTextures(1, &m_fbo_tex);
 
 		///////////////////////////////////////////////////////
-		glBindTexture(GL_TEXTURE_2D, m_fbo_tex);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->SetTextureSlot(GL_TEXTURE0);
+		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_fbo_tex });
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -32,12 +34,10 @@ namespace psx::video {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
 		glPixelStorei(GL_PACK_ROW_LENGTH, m_x_size);
 		glPixelStorei(GL_PACK_ALIGNMENT, 2);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
 		///////////////////////////////////////////////////////
 
 		glGenTextures(1, &m_mask_texture);
-		glBindTexture(GL_TEXTURE_2D, m_mask_texture);
+		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_mask_texture });
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -46,11 +46,9 @@ namespace psx::video {
 
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_R8, m_x_size, m_y_size);
 
-		glBindTexture(GL_TEXTURE_2D, 0);
-
 		///////////////////////////////////////////////////////
 
-		glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+		gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
 			GL_TEXTURE_2D, m_fbo_tex, 0);
@@ -59,9 +57,6 @@ namespace psx::video {
 			fmt::println("[RENDERER] Framebuffer creation failed!");
 			throw std::runtime_error("Framebuffer error");
 		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 		////////////////////////////////////////////////////
 	}
 
@@ -82,7 +77,8 @@ namespace psx::video {
 			glGenFramebuffers(1, &upscaled_fbo);
 			glGenTextures(1, &upscaled_tex);
 
-			glBindTexture(GL_TEXTURE_2D, upscaled_tex);
+			auto gl_ctx = GetCurrentGLContext();
+			gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = upscaled_tex });
 
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -94,9 +90,10 @@ namespace psx::video {
 				m_y_size * resolution_multiplier,
 				0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, nullptr);
 
-			glBindTexture(GL_TEXTURE_2D, 0);
+			////////////////////////////////////////
 
-			glBindFramebuffer(GL_FRAMEBUFFER, upscaled_fbo);
+			gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, upscaled_fbo);
+			
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
 				GL_TEXTURE_2D, upscaled_tex, 0);
 
@@ -105,7 +102,7 @@ namespace psx::video {
 				throw std::runtime_error("Framebuffer error");
 			}
 
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			////////////////////////////////////////
 
 			if (m_resolution_multiplier > 1) {
 				glBlitNamedFramebuffer(m_upscaled_fbo.value(), upscaled_fbo,
@@ -119,6 +116,8 @@ namespace psx::video {
 					0, 0, m_x_size * resolution_multiplier, m_y_size * resolution_multiplier,
 					GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			}
+
+			/////////////////////////////////////////
 
 			if (m_resolution_multiplier > 1) {
 				glDeleteFramebuffers(1, &m_upscaled_fbo.value());
@@ -148,16 +147,18 @@ namespace psx::video {
 	}
 
 	void FrameBuffer::Bind() {
+		auto gl_ctx = GetCurrentGLContext();
 		if (m_resolution_multiplier > 1) {
-			glBindFramebuffer(GL_FRAMEBUFFER, m_upscaled_fbo.value());
+			gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, m_upscaled_fbo.value());
 		}
 		else {
-			glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+			gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 		}
 	}
 
 	void FrameBuffer::Unbind() {
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 
 	void FrameBuffer::UpdateInternalTexture(u32 blit_tex) {
@@ -219,6 +220,7 @@ namespace psx::video {
 				GL_COLOR_BUFFER_BIT, GL_NEAREST);
 		}
 		u32 pointer_offset = ((yoff * m_x_size) + xoff) * 2;
+
 		glGetTextureSubImage(m_fbo_tex, 0, xoff, yoff, 0, w, h, 1,
 			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,
 			(u64)m_x_size * m_y_size * 2, dest_buf + pointer_offset);

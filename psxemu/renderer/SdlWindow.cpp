@@ -7,6 +7,9 @@
 #include <fmt/format.h>
 #include <string>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx::video {
 
 	void __stdcall DebugCallback(GLenum source,
@@ -16,16 +19,33 @@ namespace psx::video {
 		GLsizei length,
 		const GLchar* message,
 		const void* userParam) {
-		//if (type == GL_DEBUG_TYPE_ERROR) {
-		//	error::DebugBreak();
-		//}
-			
 		std::string msg{ message, (size_t)length };
-		fmt::println("[OPENGL] {}", msg);
+
+		if (!logger::Logger::get().is_running()) {
+			fmt::print("[OPENGL] {}\n", msg);
+		}
+		else {
+			switch (type) {
+			case GL_DEBUG_SEVERITY_LOW:
+				LOG_DEBUG("OPENGL", "[OPENGL] {}\n", msg);
+				break;
+			case GL_DEBUG_SEVERITY_NOTIFICATION:
+				LOG_INFO("OPENGL", "[OPENGL] {}\n", msg);
+				break;
+			case GL_DEBUG_SEVERITY_MEDIUM:
+				LOG_WARN("OPENGL", "[OPENGL] {}\n", msg);
+				break;
+			case GL_DEBUG_SEVERITY_HIGH:
+				LOG_ERROR("OPENGL", "[OPENGL] {}\n", msg);
+				break;
+			default:
+				LOG_DEBUG("OPENGL", "[OPENGL] {}\n", msg);
+			}
+		}
 	}
 
 	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize, bool enable_debug)
-		: m_win{ nullptr }, m_gl_ctx{ nullptr }, m_blit{ nullptr },
+		: m_win{ nullptr }, m_gl_ctx{}, m_blit{ nullptr },
 		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
 		m_forward_ev_handler{}, m_size{ size }, m_last_title_update_time{},
 		m_curr_frame_count{}, m_window_name{ name } {
@@ -44,17 +64,19 @@ namespace psx::video {
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 			(int)size.w, (int)size.h, flags);
 
-		m_gl_ctx = SDL_GL_CreateContext((SDL_Window*)m_win);
+		m_gl_ctx.m_handle = (void*)SDL_GL_CreateContext((SDL_Window*)m_win);
+		m_gl_ctx.SetCurrent(m_win);
 
 		if (!GlIsInit()) {
-			if (!m_gl_ctx) {
+			if (!m_gl_ctx.GetHandle()) {
 				fmt::println("[RENDERER] OpenGL context creation failed : {}",
 					SDL_GetError());
 				throw std::runtime_error("SDL_GL_CreateContext failed");
 			}
 
-			if (!GlInit())
+			if (!GlInit()) {
 				throw std::runtime_error("GlInit() failed");
+			}
 
 			int32_t major = {};
 			int32_t minor = {};
@@ -76,7 +98,7 @@ namespace psx::video {
 
 		if (!errors.empty()) {
 			for (auto const& err : errors)
-				fmt::println("[OPENGL] Error : {}",
+				fmt::println("[OPENGL] ERROR : {}",
 					(const char*)glewGetErrorString(err));
 		}
 
@@ -103,17 +125,12 @@ namespace psx::video {
 	}
 
 	void SdlWindow::Clear() {
-		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
-
-		int curr_viewport[4] = {};
-		glGetIntegerv(GL_VIEWPORT, curr_viewport);
-
-		glViewport(0, 0, (GLsizei)m_size.w, (GLsizei)m_size.h);
+		m_gl_ctx.SetCurrent(m_win);
+		m_gl_ctx.SetViewport(0, 0, m_size.w, m_size.h);
+		m_gl_ctx.BindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-
-		glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
 	}
 
 	void SdlWindow::Present() {
@@ -121,7 +138,7 @@ namespace psx::video {
 
 		if (!errors.empty()) {
 			for (auto const& err : errors)
-				fmt::println("[OPENGL] Error : {}",
+				fmt::println("[OPENGL] ERROR : {}",
 					(const char*)glewGetErrorString(err));
 		}
 
@@ -136,20 +153,20 @@ namespace psx::video {
 			m_last_title_update_time = std::chrono::system_clock::now();
 		}
 
-		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+		m_gl_ctx.SetCurrent(m_win);
 		SDL_GL_SwapWindow((SDL_Window*)m_win);
 	}
 
-	void SdlWindow::Blit(uint32_t m_texture_id) {
-		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+	void SdlWindow::Blit(uint32_t texture_id) {
+		m_gl_ctx.SetCurrent(m_win);
 
 		if (!m_blit || !m_vert_buf)
 			throw std::runtime_error("Window is not ready for blit ops");
 
-		int curr_viewport[4] = {};
-		glGetIntegerv(GL_VIEWPORT, curr_viewport);
-
-		glViewport(0, 0, (GLsizei)m_size.w, (GLsizei)m_size.h);
+		m_gl_ctx.ScissorDisable();
+		m_gl_ctx.BlendDisable();
+		m_gl_ctx.SetViewport(0, 0, m_size.w, m_size.h);
+		m_gl_ctx.BindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -157,14 +174,12 @@ namespace psx::video {
 		m_blit->BindProgram();
 		m_vert_buf->Bind();
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, m_texture_id);
+		m_gl_ctx.SetTextureSlot(GL_TEXTURE0);
+		m_gl_ctx.BindTexture({ .type = GL_TEXTURE_2D, .handle = texture_id });
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		m_vert_buf->Unbind();
-
-		glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
 	}
 
 	bool SdlWindow::HandleEvent(SDL_Event* ev) {
@@ -205,7 +220,6 @@ namespace psx::video {
 	SdlWindow::~SdlWindow() {
 		if(m_blit) delete m_blit;
 		if(m_vert_buf) delete m_vert_buf;
-		SDL_GL_DeleteContext(m_gl_ctx);
 		SDL_DestroyWindow((SDL_Window*)m_win);
 	}
 
@@ -273,8 +287,7 @@ namespace psx::video {
 		m_forward_ev_handler = handler;
 	}
 
-
-	void SdlWindow::MakeContextCurrent() const {
-		SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+	void SdlWindow::MakeContextCurrent() {
+		m_gl_ctx.SetCurrent(m_win);
 	}
 }

@@ -1,4 +1,5 @@
 #include "Shader.hpp"
+#include "GLContext.hpp"
 
 #include <fmt/format.h>
 
@@ -140,7 +141,7 @@ namespace psx::video {
 	}
 
 	std::optional<uint32_t> Shader::UniformLocation(std::string const& name) {
-		if (!m_uniforms.contains(std::string(name))) {
+		if (!m_uniforms.contains(name)) {
 			GLuint uniform_loc = glGetUniformLocation(m_program_id, name.c_str());
 
 			if (uniform_loc == GL_INVALID_INDEX) {
@@ -149,16 +150,18 @@ namespace psx::video {
 				return std::nullopt;
 			}
 
-			m_uniforms.insert(std::pair{ std::string(name), uniform_loc });
+			m_uniforms.insert(std::pair{ name, uniform_loc });
 		}
 
-		GLuint uniform_loc = m_uniforms.find(std::string(name))->second;
+		GLuint uniform_loc = m_uniforms.find(name)->second;
 
 		return uniform_loc;
 	}
 
 	void Shader::BindProgram() {
-		glUseProgram(m_program_id);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindProgram(m_program_id);
+		//glUseProgram(m_program_id);
 	}
 
 	Shader::~Shader() {

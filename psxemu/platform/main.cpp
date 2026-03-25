@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
 
 	psx::video::SdlWindow vram_view("Vram",
 		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_view_blit", true, true, true);
+		"../shaders", "vram_view_blit", false, true, true);
 
 	DisplayWindow display("PSX-Display",
 		psx::video::Rect{ .w = 640, .h = 480 },

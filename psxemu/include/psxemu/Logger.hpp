@@ -45,6 +45,10 @@ namespace psx::logger {
 
 		void flush();
 
+		bool is_running() const {
+			return m_running;
+		}
+
 		~Logger();
 
 	private :

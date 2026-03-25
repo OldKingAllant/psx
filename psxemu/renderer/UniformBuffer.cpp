@@ -1,4 +1,5 @@
 #include "UniformBuffer.hpp"
+#include "GLContext.hpp"
 
 #include <GL/glew.h>
 
@@ -10,9 +11,12 @@ namespace psx::video {
 		}
 		uint32_t id{ 0 };
 		glGenBuffers(1, &id);
-		glBindBuffer(GL_UNIFORM_BUFFER, id);
+
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindBuffer(GL_UNIFORM_BUFFER, id);
+		
 		glBufferData(GL_UNIFORM_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+		
 		return id;
 	}
 
@@ -22,11 +26,13 @@ namespace psx::video {
 
 	void UnbindUniformBuffer(uint32_t ubo) {
 		(void)ubo;
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
 
 	void BindUniformBuffer(uint32_t ubo) {
-		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindBuffer(GL_UNIFORM_BUFFER, ubo);
 	}
 
 	void BindUniformBufferRange(uint32_t ubo, uint32_t bind_point, uint32_t off, uint32_t size) {

@@ -30,7 +30,7 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 	ImGui_ImplSDL2_InitForOpenGL((SDL_Window*)m_win->GetWindowHandle(), 
-		m_gl_ctx);
+		m_gl_ctx->GetHandle());
 	ImGui_ImplOpenGL3_Init("#version 430");
 
 	m_win->ForwardEventHandler([this](SDL_Event* ev) {
@@ -66,6 +66,10 @@ DebugView::~DebugView() {
 void DebugView::Update() {
 	m_win->Clear();
 
+	m_gl_ctx->ScissorDisable();
+	m_gl_ctx->BlendDisable();
+	m_gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
@@ -94,7 +98,7 @@ void DebugView::Update() {
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 
-		SDL_GL_MakeCurrent((SDL_Window*)curr_window, gl_current);
+		m_gl_ctx->SetCurrent(curr_window);
 	}
 
 	m_win->Present();
@@ -1550,7 +1554,9 @@ void DebugView::ShowDriveCommand(psx::DriveCommand const* cmd) {
 std::optional<psx::u32> DebugView::CreateTextureFromIcon(std::vector<psx::u32> icon_data) {
 	GLuint tex_handle{};
 	glGenTextures(1, &tex_handle);
-	glBindTexture(GL_TEXTURE_2D, tex_handle);
+
+	m_gl_ctx->SetTextureSlot(GL_TEXTURE0);
+	m_gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = tex_handle });
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1560,8 +1566,6 @@ std::optional<psx::u32> DebugView::CreateTextureFromIcon(std::vector<psx::u32> i
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 16, 16, 0, GL_BGRA,
 		GL_UNSIGNED_INT_8_8_8_8, std::bit_cast<const void*>(icon_data.data()));
-
-	glBindTexture(GL_TEXTURE_2D, 0);
 
 	return (psx::u32)tex_handle;
 }

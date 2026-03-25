@@ -432,6 +432,9 @@
     <ClInclude Include="audio\FirstOrderLPF.hpp">
       <Filter>Header Files\audio</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\GLContext.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -661,6 +664,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\SPUDma.cpp">
       <Filter>Resource Files\dev\dma</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\GLContext.cpp">
+      <Filter>Resource Files\renderer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

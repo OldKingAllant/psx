@@ -73,14 +73,13 @@ namespace psx::video {
 	}
 
 	void Renderdoc::StartCapture() {
-		if (!m_loaded || m_capture_curr_frame)
+		if (!m_loaded || !m_capture_curr_frame)
 			return;
 
 		if (m_api_pointers->api->IsFrameCapturing())
 			return;
 
 		m_api_pointers->api->StartFrameCapture(m_curr_ctx, m_curr_win);
-		m_capture_curr_frame = true;
 	}
 
 	void Renderdoc::EndCapture() {

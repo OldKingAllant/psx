@@ -1,4 +1,5 @@
 #include "GLRenderer.hpp"
+#include "GLContext.hpp"
 
 #include <common/Errors.hpp>
 
@@ -304,19 +305,28 @@ namespace psx::video {
 
 		UpdateUbo();
 
-		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->SetViewport(0, 0, 1024ULL * m_resolution_multiplier, 512ULL * m_resolution_multiplier);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
+		gl_ctx->SetTextureSlot(GL_TEXTURE0);
+		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_vram.GetTextureHandle() });
 
-		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
-			0, 0, 0, GL_READ_WRITE, GL_R8);
+		gl_ctx->BindImage(3, {
+			.texture = m_framebuffer.GetMaskTexture(),
+			.level = 0,
+			.layered = false,
+			.layer = 0,
+			.access = GL_READ_WRITE,
+			.format = GL_R8
+		});
 
-		glScissor(m_scissor.top_x * m_resolution_multiplier, m_scissor.top_y * m_resolution_multiplier,
-			(m_scissor.bottom_x - m_scissor.top_x + 1) * m_resolution_multiplier,
-			(m_scissor.bottom_y - m_scissor.top_y + 1) * m_resolution_multiplier);
+		gl_ctx->SetScissor(
+			m_scissor.top_x * m_resolution_multiplier, m_scissor.top_y * m_resolution_multiplier,
+			size_t(m_scissor.bottom_x - m_scissor.top_x + 1) * m_resolution_multiplier,
+			size_t(m_scissor.bottom_y - m_scissor.top_y + 1) * m_resolution_multiplier
+		);
 
-		glEnable(GL_SCISSOR_TEST);
+		gl_ctx->ScissorEnable();
 
 		constexpr u32 PIPELINE_COUNT = (u32)PipelineType::ENUM_MAX;
 
@@ -325,16 +335,11 @@ namespace psx::video {
 
 		m_framebuffer.Bind();
 
-		bool blend_enabled = glIsEnabled(GL_BLEND);
-
 		while (!m_commands.empty()) {
 			auto const& cmd = m_commands.front();
 
 			if (cmd.semi_transparent) {
-				if (!blend_enabled)
-					glEnable(GL_BLEND);
-
-				blend_enabled = true;
+				gl_ctx->BlendEnable();
 
 				if(cmd.semi_transparency_type == 2 /*&& cmd.type != PipelineType::TEXTURED_TRIANGLE*/)
 					glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
@@ -368,10 +373,7 @@ namespace psx::video {
 				}
 			}
 			else {
-				if (blend_enabled)
-					glDisable(GL_BLEND);
-
-				blend_enabled = false;
+				gl_ctx->BlendDisable();
 			}
 
 			auto pipeline_id = cmd.type;
@@ -424,8 +426,6 @@ namespace psx::video {
 			}
 		}
 
-		m_framebuffer.Unbind();
-
 		m_basic_gouraud_pipeline.ClearPrimitiveData();
 		m_basic_gouraud_pipeline.ClearVertices();
 
@@ -440,11 +440,6 @@ namespace psx::video {
 
 		m_shaded_line_pipeline.ClearPrimitiveData();
 		m_shaded_line_pipeline.ClearVertices();
-
-		glDisable(GL_SCISSOR_TEST);
-
-		if (blend_enabled)
-			glDisable(GL_BLEND);
 
 		m_processing_cmd = true;
 	}
@@ -521,8 +516,10 @@ namespace psx::video {
 		CommandFenceSync();
 		SyncTextures();
 
-		glDisable(GL_SCISSOR_TEST);
-		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->ScissorDisable();
+		gl_ctx->BlendDisable();
+		gl_ctx->SetViewport(0, 0, 1024ULL * m_resolution_multiplier, 512ULL * m_resolution_multiplier);
 
 		m_framebuffer.Bind();
 		m_blit_vertex_buf.Bind();
@@ -545,12 +542,21 @@ namespace psx::video {
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
 		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
 
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetBlitTextureHandle());
-		glActiveTexture(GL_TEXTURE0);
-		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
-			0, 0, 0, GL_READ_WRITE, GL_R8);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->SetTextureSlot(GL_TEXTURE0);
+		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_vram.GetTextureHandle() });
+		gl_ctx->SetTextureSlot(GL_TEXTURE1);
+		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_vram.GetBlitTextureHandle() });
+		gl_ctx->SetTextureSlot(GL_TEXTURE0);
+
+		gl_ctx->BindImage(3, {
+			.texture = m_framebuffer.GetMaskTexture(),
+			.level = 0,
+			.layered = false,
+			.layer = 0,
+			.access = GL_READ_WRITE,
+			.format = GL_R8
+		});
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -560,8 +566,6 @@ namespace psx::video {
 	}
 
 	void Renderer::EndBlit() {
-		m_blit_vertex_buf.Unbind();
-		m_framebuffer.Unbind();
 		SyncTextures();
 	}
 
@@ -569,8 +573,10 @@ namespace psx::video {
 		FlushCommands();
 		SyncTextures();
 
-		glDisable(GL_SCISSOR_TEST);
-		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->ScissorDisable();
+		gl_ctx->BlendDisable();
+		gl_ctx->SetViewport(0, 0, 1024ULL * m_resolution_multiplier, 512ULL * m_resolution_multiplier);
 
 		m_framebuffer.Bind();
 		m_vram_blit_vertex_buf.Bind();
@@ -588,19 +594,22 @@ namespace psx::video {
 		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
 		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty, srcx + w, srcy });
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, m_vram.GetTextureHandle());
-
-		glBindImageTexture(3, m_framebuffer.GetMaskTexture(),
-			0, 0, 0, GL_READ_WRITE, GL_R8);
+		gl_ctx->SetTextureSlot(GL_TEXTURE0);
+		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_vram.GetTextureHandle() });
+		
+		gl_ctx->BindImage(3, {
+			.texture = m_framebuffer.GetMaskTexture(),
+			.level = 0,
+			.layered = false,
+			.layer = 0,
+			.access = GL_READ_WRITE,
+			.format = GL_R8
+		});
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		m_processing_cmd = true;
 		CommandFenceSync();
-
-		m_vram_blit_vertex_buf.Unbind();
-		m_framebuffer.Unbind();
 		SyncTextures();
 	}
 
@@ -627,27 +636,29 @@ namespace psx::video {
 
 		m_framebuffer.Bind();
 
-		glEnable(GL_SCISSOR_TEST);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->ScissorEnable();
+		gl_ctx->BlendDisable();
+		gl_ctx->SetViewport(0, 0, 1024ULL * m_resolution_multiplier, 512ULL * m_resolution_multiplier);
 
-		glViewport(0, 0, 1024 * m_resolution_multiplier, 512 * m_resolution_multiplier);
 		glClearColor(r, g, b, 0.0);
 
 		if (xoff + w > 1024 && yoff + h > 512) {
-			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier,
-				(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
-				(512 - (GLsizei)yoff) * m_resolution_multiplier);
+			gl_ctx->SetScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier,
+				size_t(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
+				size_t(512 - (GLsizei)yoff) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(0, 0, 
-				((xoff + w) - 1024) * m_resolution_multiplier, 
-				((yoff + h) - 512) * m_resolution_multiplier);
+			gl_ctx->SetScissor(0, 0,
+				size_t((xoff + w) - 1024) * m_resolution_multiplier, 
+				size_t((yoff + h) - 512) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(0, yoff * m_resolution_multiplier, 
-				((xoff + w) - 1024) * m_resolution_multiplier, 
-				(512 - (GLsizei)yoff) * m_resolution_multiplier);
+			gl_ctx->SetScissor(0, yoff * m_resolution_multiplier,
+				size_t((xoff + w) - 1024) * m_resolution_multiplier, 
+				size_t(512 - (GLsizei)yoff) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(xoff * m_resolution_multiplier, 0, 
-				(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
-				((yoff + h) - 512) * m_resolution_multiplier);
+			gl_ctx->SetScissor(xoff * m_resolution_multiplier, 0,
+				size_t(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
+				size_t((yoff + h) - 512) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 			
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
@@ -664,13 +675,13 @@ namespace psx::video {
 				m_blank_image.data());
 		}
 		else if (xoff + w > 1024) {
-			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier, 
-				(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
-				((GLsizei)h) * m_resolution_multiplier);
+			gl_ctx->SetScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier,
+				size_t(1024 - (GLsizei)xoff) * m_resolution_multiplier, 
+				size_t((GLsizei)h) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(0, yoff * m_resolution_multiplier, 
-				((xoff + w) - 1024) * m_resolution_multiplier, 
-				((GLsizei)h) * m_resolution_multiplier);
+			gl_ctx->SetScissor(0, yoff * m_resolution_multiplier,
+				size_t((xoff + w) - 1024) * m_resolution_multiplier, 
+				size_t((GLsizei)h) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
@@ -681,13 +692,13 @@ namespace psx::video {
 				m_blank_image.data());
 		}
 		else if (yoff + h > 512) {
-			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier, 
-				((GLsizei)w) * m_resolution_multiplier, 
-				(512 - (GLsizei)yoff) * m_resolution_multiplier);
+			gl_ctx->SetScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier,
+				size_t((GLsizei)w) * m_resolution_multiplier, 
+				size_t(512 - (GLsizei)yoff) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glScissor(xoff * m_resolution_multiplier, 0, 
-				((GLsizei)w) * m_resolution_multiplier, 
-				((yoff + h) - 512) * m_resolution_multiplier);
+			gl_ctx->SetScissor(xoff * m_resolution_multiplier, 0,
+				size_t((GLsizei)w) * m_resolution_multiplier, 
+				size_t((yoff + h) - 512) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
@@ -698,19 +709,15 @@ namespace psx::video {
 				m_blank_image.data());
 		}
 		else {
-			glScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier, 
-				((GLsizei)w) * m_resolution_multiplier, 
-				((GLsizei)h) * m_resolution_multiplier);
+			gl_ctx->SetScissor(xoff * m_resolution_multiplier, yoff * m_resolution_multiplier,
+				size_t((GLsizei)w) * m_resolution_multiplier, 
+				size_t((GLsizei)h) * m_resolution_multiplier);
 			glClear(GL_COLOR_BUFFER_BIT);
 
 			glTextureSubImage2D(m_framebuffer.GetMaskTexture(),
 				0, xoff, yoff, w, h, GL_RED, GL_UNSIGNED_BYTE,
 				m_blank_image.data());
 		}
-		
-		glDisable(GL_SCISSOR_TEST);
-
-		m_framebuffer.Unbind();
 	}
 
 	void Renderer::SetResolutionMultiplier(u32 mult) {

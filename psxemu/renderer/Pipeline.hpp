@@ -51,7 +51,7 @@ namespace psx::video {
 
 			PerformDraw(Prim, offset, vertex_count);
 			
-			m_buffer.Unbind();
+			//m_buffer.Unbind();
 		}
 
 		void PushVertex(Vert vertex) {

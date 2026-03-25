@@ -1,4 +1,5 @@
 #include "VertexBuffer.hpp"
+#include "GLContext.hpp"
 
 #include <GL/glew.h>
 
@@ -48,11 +49,15 @@ namespace psx::video {
 	}
 
 	void MakeCurrentVertexArray(u32 id) {
-		glBindVertexArray(id);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindVao(id);
+		//glBindVertexArray(id);
 	}
 
 	void MakeCurrentArrayBuffer(u32 id) {
-		glBindBuffer(GL_ARRAY_BUFFER, id);
+		auto gl_ctx = GetCurrentGLContext();
+		gl_ctx->BindBuffer(GL_ARRAY_BUFFER, id);
+		//glBindBuffer(GL_ARRAY_BUFFER, id);
 	}
 
 	void SetVertexAttributes(std::vector<VertexAttribute> const& attributes, u32 vert_size) {

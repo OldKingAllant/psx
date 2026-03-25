@@ -1,5 +1,7 @@
 #include "DisplayWindow.hpp"
 
+#include <psxemu/renderer/GLContext.hpp>
+
 #include <fmt/format.h>
 #include <SDL2/SDL.h>
 
@@ -15,11 +17,15 @@ DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::strin
 	////////////////////////
 
 	glGenBuffers(1, &m_ssbo_buf);
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, m_ssbo_buf);
+
+	m_gl_ctx.BindBuffer(GL_PIXEL_PACK_BUFFER, m_ssbo_buf);
+	//glBindBuffer(GL_PIXEL_PACK_BUFFER, m_ssbo_buf);
 	glBufferData(GL_PIXEL_PACK_BUFFER, 1024ULL * 512 * 2,
 		nullptr, GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	//glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_ssbo_buf);
+
+	m_gl_ctx.BindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 }
 
 DisplayWindow::~DisplayWindow() {
@@ -54,15 +60,15 @@ void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_siz
 }
 
 void DisplayWindow::Blit24(uint32_t texture_id) {
-	SDL_GL_MakeCurrent((SDL_Window*)m_win, m_gl_ctx);
+	m_gl_ctx.SetCurrent(m_win);
+	m_gl_ctx.ScissorDisable();
+	m_gl_ctx.BlendDisable();
+	m_gl_ctx.BindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	if (!m_blit || !m_vert_buf)
 		throw std::runtime_error("Window is not ready for blit ops");
 
-	int curr_viewport[4] = {};
-	glGetIntegerv(GL_VIEWPORT, curr_viewport);
-
-	glViewport(0, 0, (GLsizei)m_size.w, (GLsizei)m_size.h);
+	m_gl_ctx.SetViewport(0, 0, m_size.w, m_size.h);
 
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -70,8 +76,8 @@ void DisplayWindow::Blit24(uint32_t texture_id) {
 	m_blit24_shader->BindProgram();
 	m_vert_buf->Bind();
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture_id);
+	m_gl_ctx.SetTextureSlot(GL_TEXTURE0);
+	m_gl_ctx.BindTexture({ .type = GL_TEXTURE_2D, .handle = texture_id });
 
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA,
 		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT,
@@ -85,8 +91,4 @@ void DisplayWindow::Blit24(uint32_t texture_id) {
 	////////////////////////////////////////////////
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-
-	m_vert_buf->Unbind();
-
-	glViewport(curr_viewport[0], curr_viewport[1], curr_viewport[2], curr_viewport[3]);
 }
