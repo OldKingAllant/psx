@@ -159,21 +159,6 @@ int main(int argc, char* argv[]) {
 					"Fatal error", MB_OK | MB_ICONERROR);
 			});
 
-	//bool correct_event = false;
-	//kernel.InsertEnterHook(std::string("TestEvent"), [&sys, &correct_event](psx::u32 pc, psx::u32 id) {
-	//	if (sys.GetCPU().GetRegs().a0 == 0xF1000009) {
-	//		auto evs = sys.GetKernel().DumpEventControlBlocks();
-	//		if (evs[9].ev_class == psx::kernel::EventClass::SPU) {
-	//			correct_event = true;
-	//			fmt::println("Test event at {:#010x}", pc);
-	//		}
-	//	}
-	//});
-	//
-	kernel.InsertExitHook(std::string("OpenThread"), [&sys](psx::u32 pc, psx::u32 id) {
-		psx::LOG_DEBUG("SYSCALL", "[SYSCALL] OpenThread returned {:#010x}", sys.GetCPU().GetRegs().v0);
-	});
-
 	if (renderdoc) {
 		sys.GetStatus()
 			.sysbus->GetGPU()
@@ -192,9 +177,6 @@ int main(int argc, char* argv[]) {
 	if (!config->controller_1_map.empty()) {
 		input_manager->SetKeyMap(config->controller_1_map);
 	}
-
-	//sys.LoadExe(std::string("../programs/Cube.exe"), std::nullopt);
-	//sys.LoadExe(std::string("../programs/mdec/movie/movie-24bit.exe"), std::nullopt);
 
 	if (!config->cdrom_file.empty()) {
 		if (!sys.InsertDisc(std::filesystem::path(config->cdrom_file))) {
