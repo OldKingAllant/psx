@@ -158,11 +158,6 @@ namespace psx::kernel {
 			auto exe_sha = ComputeMemoryHash(header->dest_address, header->filesize).value();
 
 			LOG_INFO("KERNEL", "         Executable hash: {}", exe_sha);
-
-			//PatchInstruction(0x8003e668, NEXT_EVENT_INSTRUCTION);
-			//PatchInstruction(0x8003e6b0, GET_VBLANK_COUNT_INSTRUCTION);
-			PatchInstruction(0x8008e634, 0xFC000001);
-			//m_sys_status->sysbus->GetGPU().ResetVblankCount();
 		}
 
 		the_cpu.GetPc() += 0x4;
