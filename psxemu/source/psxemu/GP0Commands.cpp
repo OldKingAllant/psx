@@ -13,30 +13,30 @@
 namespace psx {
 
 	void Gpu::EnvCommand(u32 cmd) {
-		u8 upper_byte = (u8)(cmd >> 24);
+		auto type = EnvCommandType(cmd >> 24);
 
-		switch (upper_byte)
+		switch (type)
 		{
-		case 0xE1:
+		case EnvCommandType::TEXTURE_PAGE:
 			Texpage(cmd);
 			break;
-		case 0xE2:
+		case EnvCommandType::TEXTURE_WINDOW:
 			TexWindow(cmd);
 			break;
-		case 0xE3:
+		case EnvCommandType::SET_DRAW_TOP:
 			DrawAreaTopLeft(cmd);
 			break;
-		case 0xE4:
+		case EnvCommandType::SET_DRAW_BOTTOM:
 			DrawAreaBottomRight(cmd);
 			break;
-		case 0xE5:
+		case EnvCommandType::SET_DRAW_OFFSET:
 			DrawOffset(cmd);
 			break;
-		case 0xE6:
+		case EnvCommandType::MASK_BIT:
 			MaskSetting(cmd);
 			break;
 		default:
-			LOG_ERROR("GPU", "[GPU] Unimplemented ENV command 0x{:x}", (u32)upper_byte);
+			LOG_ERROR("GPU", "[GPU] Unimplemented ENV command 0x{:x}", (u32)type);
 			error::DebugBreak();
 			break;
 		}
@@ -79,6 +79,17 @@ namespace psx {
 		m_renderer->GetUniformBuffer()
 			.use_dither = m_stat.dither;
 		m_renderer->RequestUniformBufferUpdate();
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_PAGE;
+			cmd_copy.gp0.env.cmd = cmd;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::MiscCommand(u32 cmd) {
@@ -86,52 +97,80 @@ namespace psx {
 			LOG_ERROR("GPU", "[GPU] ********GPU-COMMAND DURING VRAM READ!*******");
 		}
 
-		u8 upper_byte = (u8)(cmd >> 24);
+		auto type = MiscCommandType(cmd >> 24);
 
-		switch (upper_byte)
+		switch (type)
 		{
-		case 0x0:
+		case MiscCommandType::NOP:
 			LOG_DEBUG("GPU", "[GPU] NOP");
+			if (m_recording_commands) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = m_curr_vblank_count;
+				cmd_copy.gp0.type = GP0CommandType::MISC;
+				cmd_copy.gp0.misc.type = MiscCommandType::NOP;
+				cmd_copy.gp0.misc.cmd = cmd;
+				m_recorded_cmds.emplace_back(cmd_copy);
+			}
 			break;
-		case 0x1:
+		case MiscCommandType::CLEAR_CACHE:
 			LOG_DEBUG("GPU", "[GPU] CLEAR TEXTURE CACHE");
 			FlushDrawOps();
 			m_renderer->SyncTextures();
+			if (m_recording_commands) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = m_curr_vblank_count;
+				cmd_copy.gp0.type = GP0CommandType::MISC;
+				cmd_copy.gp0.misc.type = MiscCommandType::CLEAR_CACHE;
+				cmd_copy.gp0.misc.cmd = cmd;
+				m_recorded_cmds.emplace_back(cmd_copy);
+			}
 			break;
-		case 0x2:
+		case MiscCommandType::QUICK_FILL:
 			m_cmd_fifo.queue(cmd);
 			m_required_params = 2;
 			m_rem_params = m_required_params;
 			m_cmd_status = Status::WAITING_PARAMETERS;
 			break;
-		case 0x3:
+		case MiscCommandType::NOP_FIFO:
 			LOG_DEBUG("GPU", "[GPU] NOP FIFO");
+			if (m_recording_commands) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = m_curr_vblank_count;
+				cmd_copy.gp0.type = GP0CommandType::MISC;
+				cmd_copy.gp0.misc.type = MiscCommandType::NOP_FIFO;
+				cmd_copy.gp0.misc.cmd = cmd;
+				m_recorded_cmds.emplace_back(cmd_copy);
+			}
 			break;
 		default:
-			LOG_ERROR("GPU", "[GPU] Unimplemented MISC command 0x{:x}", (u32)upper_byte);
+			LOG_ERROR("GPU", "[GPU] Unimplemented MISC command 0x{:x}", (u32)type);
 			error::DebugBreak();
 			break;
 		}
 	}
 
 	void Gpu::CommandStart(u32 cmd) {
-		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
-
-		//LOG_DEBUG("GPU", "[GPU] COMMAND TYPE {}, VALUE = {:#010x}", magic_enum::enum_name(cmd_type),
-		//	cmd);
+		GP0CommandType cmd_type = (GP0CommandType)((cmd >> 29) & 0x7);
 
 		m_stat.recv_cmd_word = false;
 		m_stat.recv_dma = false;
 	
 		switch (cmd_type)
 		{
-		case psx::CommandType::MISC:
+		case psx::GP0CommandType::MISC:
 			MiscCommand(cmd);
 			break;
-		case psx::CommandType::POLYGON: {
-			bool quad = (cmd >> 27) & 1;
-			bool tex = (cmd >> 26) & 1;
-			bool gouraud = (cmd >> 28) & 1;
+		case psx::GP0CommandType::POLYGON: {
+			auto polygon_cmd = PolygonCmd{ cmd };
+			bool quad = polygon_cmd.is_quad();
+			bool tex = polygon_cmd.is_textured();
+			bool gouraud = polygon_cmd.is_gouraud();
 
 			u32 num_vertex = quad ? 4 : 3;
 			u32 params_vert = 1;
@@ -154,9 +193,10 @@ namespace psx {
 			m_cmd_status = Status::WAITING_PARAMETERS;
 		}
 			break;
-		case psx::CommandType::LINE: {
-			bool gouraud = (cmd >> 28) & 1;
-			bool polyline = (cmd >> 27) & 1;
+		case psx::GP0CommandType::LINE: {
+			auto line_cmd = LineCmd{ cmd };
+			bool gouraud = line_cmd.is_gouraud();
+			bool polyline = line_cmd.is_polyline();
 
 			u32 words_per_vertex = gouraud ? 2 : 1;
 
@@ -178,7 +218,7 @@ namespace psx {
 			}
 		}
 			break;
-		case psx::CommandType::RECTANGLE: {
+		case psx::GP0CommandType::RECTANGLE: {
 			m_cmd_fifo.queue(cmd);
 			u8 rect_size = (cmd >> 27) & 3;
 			u32 tot_params = 1; //Add vertex1 x+y
@@ -192,28 +232,28 @@ namespace psx {
 			m_cmd_status = Status::WAITING_PARAMETERS;
 		}
 			break;
-		case psx::CommandType::VRAM_BLIT: {
+		case psx::GP0CommandType::VRAM_BLIT: {
 			m_cmd_fifo.queue(cmd);
 			m_cmd_status = Status::WAITING_PARAMETERS;
 			m_required_params = 3;
 			m_rem_params = 3;
 		}
 			break;
-		case psx::CommandType::CPU_VRAM_BLIT: {
+		case psx::GP0CommandType::CPU_VRAM_BLIT: {
 			m_cmd_fifo.queue(cmd);
 			m_cmd_status = Status::WAITING_PARAMETERS;
 			m_required_params = 2;
 			m_rem_params = 2;
 		}
 			break;
-		case psx::CommandType::VRAM_CPU_BLIT: {
+		case psx::GP0CommandType::VRAM_CPU_BLIT: {
 			m_cmd_fifo.queue(cmd);
 			m_cmd_status = Status::WAITING_PARAMETERS;
 			m_required_params = 2;
 			m_rem_params = 2;
 		}
 			break;
-		case psx::CommandType::ENV:
+		case psx::GP0CommandType::ENV:
 			EnvCommand(cmd);
 			break;
 		default:
@@ -241,6 +281,17 @@ namespace psx {
 			m_y_top_left);
 
 		m_renderer->SetScissorTop(m_x_top_left, m_y_top_left);
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_TOP;
+			cmd_copy.gp0.env.cmd = cmd;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::DrawAreaBottomRight(u32 cmd) {
@@ -262,6 +313,17 @@ namespace psx {
 			m_y_bot_right);
 
 		m_renderer->SetScissorBottom(m_x_bot_right, m_y_bot_right);
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_BOTTOM;
+			cmd_copy.gp0.env.cmd = cmd;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::DrawOffset(u32 cmd) {
@@ -290,6 +352,17 @@ namespace psx {
 		m_renderer->GetUniformBuffer()
 			.draw_y_off = m_y_off;
 		m_renderer->RequestUniformBufferUpdate();
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_OFFSET;
+			cmd_copy.gp0.env.cmd = cmd;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::TexWindow(u32 cmd) {
@@ -320,6 +393,17 @@ namespace psx {
 		uniforms.tex_window_off_x = m_tex_win.offset_x;
 		uniforms.tex_window_off_y = m_tex_win.offset_y;
 		m_renderer->RequestUniformBufferUpdate();
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_WINDOW;
+			cmd_copy.gp0.env.cmd = cmd;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::MaskSetting(u32 cmd) {
@@ -346,6 +430,17 @@ namespace psx {
 
 		if (m_stat.set_mask || m_stat.draw_over_mask_disable)
 			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::MASK_BIT;
+			cmd_copy.gp0.env.cmd = cmd;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::CommandEnd() {
@@ -354,13 +449,13 @@ namespace psx {
 
 		u32 cmd = m_cmd_fifo.peek();
 
-		CommandType cmd_type = (CommandType)((cmd >> 29) & 0x7);
+		GP0CommandType cmd_type = (GP0CommandType)((cmd >> 29) & 0x7);
 
 		switch (cmd_type)
 		{
-		case psx::CommandType::MISC: {
-			u8 upper = u8(cmd >> 24);
-			if (upper != 0x2) {
+		case psx::GP0CommandType::MISC: {
+			auto type = MiscCommandType(cmd >> 24);
+			if (type != MiscCommandType::QUICK_FILL) {
 				LOG_FLUSH();
 				error::DebugBreak();
 			}
@@ -370,28 +465,30 @@ namespace psx {
 			}
 		}
 			break;
-		case psx::CommandType::POLYGON: {
-			bool quad = (cmd >> 27) & 1;
+		case psx::GP0CommandType::POLYGON: {
+			bool quad = PolygonCmd{cmd}.is_quad();
 
-			if (quad)
+			if (quad) {
 				DrawQuad();
-			else
+			}
+			else {
 				DrawTriangle();
+			}
 
 			m_cmd_status = Status::IDLE;
 		}
 			break;
-		case psx::CommandType::LINE: {
+		case psx::GP0CommandType::LINE: {
 			DrawLine();
 			m_cmd_status = Status::IDLE;
 		}
 			break;
-		case psx::CommandType::RECTANGLE: {
+		case psx::GP0CommandType::RECTANGLE: {
 			DrawRect();
 			m_cmd_status = Status::IDLE;
 		}
 			break;
-		case psx::CommandType::VRAM_BLIT: {
+		case psx::GP0CommandType::VRAM_BLIT: {
 			u32 cmd = m_cmd_fifo.deque();
 			u32 src_coords = m_cmd_fifo.deque();
 			u32 dst_coords = m_cmd_fifo.deque();
@@ -440,9 +537,24 @@ namespace psx {
 
 			m_renderer->VramVramBlit(src_x, src_y, dst_x, dst_y,
 				w, h, m_stat.draw_over_mask_disable);
+
+			if (m_recording_commands) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = m_curr_vblank_count;
+				cmd_copy.gp0.type = GP0CommandType::VRAM_BLIT;
+				cmd_copy.params.vram_vram_blit.src_x = src_x;
+				cmd_copy.params.vram_vram_blit.src_y = src_y;
+				cmd_copy.params.vram_vram_blit.dst_x = dst_x;
+				cmd_copy.params.vram_vram_blit.dst_y = dst_y;
+				cmd_copy.params.vram_vram_blit.w = w;
+				cmd_copy.params.vram_vram_blit.h = h;
+				m_recorded_cmds.emplace_back(cmd_copy);
+			}
 		}
 			break;
-		case psx::CommandType::CPU_VRAM_BLIT: {
+		case psx::GP0CommandType::CPU_VRAM_BLIT: {
 			u32 cmd = m_cmd_fifo.deque();
 			u32 source = m_cmd_fifo.deque();
 			u32 size = m_cmd_fifo.deque();
@@ -481,9 +593,22 @@ namespace psx {
 			m_cmd_status = Status::CPU_VRAM_BLIT;
 
 			m_renderer->BeginCpuVramBlit();
+
+			if (m_recording_commands) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = m_curr_vblank_count;
+				cmd_copy.gp0.type = GP0CommandType::CPU_VRAM_BLIT;
+				cmd_copy.params.cpu_vram_blit.dst_x = m_cpu_vram_blit.curr_x;
+				cmd_copy.params.cpu_vram_blit.dst_y = m_cpu_vram_blit.curr_y;
+				cmd_copy.params.cpu_vram_blit.w = m_cpu_vram_blit.size_x;
+				cmd_copy.params.cpu_vram_blit.h = m_cpu_vram_blit.size_y;
+				m_recorded_cmds.emplace_back(cmd_copy);
+			}
 		}
 			break;
-		case psx::CommandType::VRAM_CPU_BLIT: {
+		case psx::GP0CommandType::VRAM_CPU_BLIT: {
 			u32 cmd = m_cmd_fifo.deque();
 			u32 source = m_cmd_fifo.deque();
 			u32 size = m_cmd_fifo.deque();
@@ -524,9 +649,22 @@ namespace psx {
 
 			m_renderer->VramCpuBlit(m_vram_cpu_blit.source_x, m_vram_cpu_blit.source_y,
 				m_vram_cpu_blit.size_x, m_vram_cpu_blit.size_y);
+
+			if (m_recording_commands) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = m_curr_vblank_count;
+				cmd_copy.gp0.type = GP0CommandType::VRAM_CPU_BLIT;
+				cmd_copy.params.vram_cpu_blit.src_x = m_vram_cpu_blit.curr_x;
+				cmd_copy.params.vram_cpu_blit.src_y = m_vram_cpu_blit.curr_y;
+				cmd_copy.params.vram_cpu_blit.w = m_vram_cpu_blit.size_x;
+				cmd_copy.params.vram_cpu_blit.h = m_vram_cpu_blit.size_y;
+				m_recorded_cmds.emplace_back(cmd_copy);
+			}
 		}
 			break;
-		case psx::CommandType::ENV:
+		case psx::GP0CommandType::ENV:
 			error::DebugBreak();
 			break;
 		default:

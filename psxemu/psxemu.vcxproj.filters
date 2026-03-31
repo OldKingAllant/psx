@@ -668,6 +668,9 @@
     <ClCompile Include="renderer\GLContext.cpp">
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
+    <ClCompile Include="source\psxemu\GPUCommandTracking.cpp">
+      <Filter>Resource Files\dev\gpu</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\vram_view_blit.fragment">

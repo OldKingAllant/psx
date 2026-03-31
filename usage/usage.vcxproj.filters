@@ -22,6 +22,12 @@
     <Filter Include="Source Files\imgui\misc">
       <UniqueIdentifier>{517dfb0b-2c7f-4c15-8179-939734fa9d12}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\debug">
+      <UniqueIdentifier>{4cebd2a3-fc84-4d4f-8582-c10f5e61e2b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\debug">
+      <UniqueIdentifier>{db2d781e-dd09-4690-a99b-3fcda21bad38}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp">
@@ -54,21 +60,21 @@
     <ClCompile Include="..\thirdparty\imgui\misc\cpp\imgui_stdlib.cpp">
       <Filter>Source Files\imgui\misc</Filter>
     </ClCompile>
-    <ClCompile Include="imgui_debug\DebugView.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="config\ConfigLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="display\DisplayWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="imgui_debug\DebugView.cpp">
+      <Filter>Source Files\debug</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui_debug\GPUDebug.cpp">
+      <Filter>Source Files\debug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tty\TTY_Console.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="imgui_debug\DebugView.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="config\ConfigLoader.hpp">
@@ -76,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="display\DisplayWindow.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_debug\DebugView.hpp">
+      <Filter>Header Files\debug</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

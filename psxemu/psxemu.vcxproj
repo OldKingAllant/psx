@@ -285,6 +285,7 @@
     <ClCompile Include="source\psxemu\GP0Commands.cpp" />
     <ClCompile Include="source\psxemu\GP1Commands.cpp" />
     <ClCompile Include="source\psxemu\GPU.cpp" />
+    <ClCompile Include="source\psxemu\GPUCommandTracking.cpp" />
     <ClCompile Include="source\psxemu\GpuDma.cpp" />
     <ClCompile Include="source\psxemu\GTE.cpp" />
     <ClCompile Include="source\psxemu\GTEOpcodes.cpp" />

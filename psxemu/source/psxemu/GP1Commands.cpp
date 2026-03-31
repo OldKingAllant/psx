@@ -1,4 +1,5 @@
 #include <psxemu/include/psxemu/GPU.hpp>
+#include <psxemu/include/psxemu/GPUCommands.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 
@@ -67,42 +68,85 @@ namespace psx {
 	}
 
 	void Gpu::DisplayAreaStart(u32 cmd) {
-		m_disp_x_start = cmd & 1023;
-		m_disp_y_start = (cmd >> 10) & 511;
+		DisplayAreaStartCmd cmd_copy{};
+		cmd_copy.reg = cmd;
+
+		m_disp_x_start = cmd_copy.x;
+		m_disp_y_start = cmd_copy.y;
 
 		m_disp_conf.disp_x = m_disp_x_start;
 		m_disp_conf.disp_y = m_disp_y_start;
 
 		LOG_DEBUG("GPU", "[GPU] Display address X: 0x{:x}, Y: 0x{:x}",
 			m_disp_x_start, m_disp_y_start);
+
+		if (m_recording_commands) {
+			GPUCommand gpu_cmd{};
+			gpu_cmd.value = cmd;
+			gpu_cmd.frame_of_recording = m_curr_vblank_count;
+			gpu_cmd.reg = CommandRegister::GP1;
+			gpu_cmd.gp1.type = GP1CommandType::DISPLAY_AREA_START;
+			gpu_cmd.gp1.disp_start = cmd_copy;
+			m_recorded_cmds.emplace_back(gpu_cmd);
+		}
 	}
 
 	void Gpu::HorizontalDispRange(u32 cmd) {
-		m_hoz_disp_start = cmd & 0xFFF;
-		m_hoz_disp_end = (cmd >> 12) & 0xFFF;
+		HorizontalDisplayRangeCmd cmd_copy{};
+		cmd_copy.reg = cmd;
+
+		m_hoz_disp_start = cmd_copy.x1;
+		m_hoz_disp_end = cmd_copy.x2;
 
 		LOG_DEBUG("GPU", "[GPU] Display X1: 0x{:x}, X2: 0x{:x}",
 			m_hoz_disp_start, m_hoz_disp_end);
+
+		if (m_recording_commands) {
+			GPUCommand gpu_cmd{};
+			gpu_cmd.frame_of_recording = m_curr_vblank_count;
+			gpu_cmd.value = cmd;
+			gpu_cmd.reg = CommandRegister::GP1;
+			gpu_cmd.gp1.type = GP1CommandType::HORIZONTAL_DISPLAY_RANGE;
+			gpu_cmd.gp1.hoz_disp_range = cmd_copy;
+			m_recorded_cmds.emplace_back(gpu_cmd);
+		}
 	}
 
 	void Gpu::VerticalDispRange(u32 cmd) {
-		m_vert_disp_start = cmd & 0x3FF;
-		m_vert_disp_end = (cmd >> 10) & 0x3FF;
+		VerticalDisplayRangeCmd cmd_copy{};
+		cmd_copy.reg = cmd;
+
+		m_vert_disp_start = cmd_copy.y1;
+		m_vert_disp_end = cmd_copy.y2;
 
 		LOG_DEBUG("GPU", "[GPU] Display Y1: 0x{:x}, Y2: 0x{:x}",
 			m_vert_disp_start, m_vert_disp_end);
+
+		if (m_recording_commands) {
+			GPUCommand gpu_cmd{};
+			gpu_cmd.frame_of_recording = m_curr_vblank_count;
+			gpu_cmd.value = cmd;
+			gpu_cmd.reg = CommandRegister::GP1;
+			gpu_cmd.gp1.type = GP1CommandType::VERTICAL_DISPLAY_RANGE;
+			gpu_cmd.gp1.vert_disp_range = cmd_copy;
+			m_recorded_cmds.emplace_back(gpu_cmd);
+		}
 	}
 
 	void Gpu::DisplayMode(u32 cmd) {
-		m_stat.hoz_res1 = cmd & 3;
-		m_stat.vertical_res = (cmd >> 2) & 1;
-		m_stat.video_mode = (VideMode)((cmd >> 3) & 1);
-		m_stat.disp_color_depth = (DisplayColorDepth)((cmd >> 4) & 1);
-		m_stat.vertical_interlace = (cmd >> 5) & 1;
-		m_stat.hoz_res_2 = (cmd >> 6) & 1;
-		m_stat.flip_screen_hoz = (cmd >> 7) & 1;
+		DisplayModeCmd cmd_copy{};
+		cmd_copy.reg = cmd;
+
+		m_stat.hoz_res1 = cmd_copy.horizontal_resolution_1;
+		m_stat.vertical_res = bool(cmd_copy.vertical_resolution);
+		m_stat.video_mode = (VideMode)(cmd_copy.video_mode);
+		m_stat.disp_color_depth = (DisplayColorDepth)(cmd_copy.color_depth);
+		m_stat.vertical_interlace = bool(cmd_copy.vertical_interlace);
+		m_stat.hoz_res_2 = bool(cmd_copy.horizontal_resolution_2);
+		m_stat.flip_screen_hoz = bool(cmd_copy.flip_screen_x_axis);
 
 		LOG_INFO("GPU", "[GPU] DISPMODE(0x{:x})", cmd & 0xFF);
+		m_raw_disp_conf = cmd;
 
 		if (m_stat.hoz_res_2) {
 			LOG_INFO("GPU", "        Horizontal res : 368");
@@ -159,6 +203,16 @@ namespace psx {
 			LOG_INFO("GPU", "        Color depth : 15 bits");
 
 		LOG_INFO("GPU", "        Vertical interlace : {}", m_stat.vertical_interlace);
+
+		if (m_recording_commands) {
+			GPUCommand gpu_cmd{};
+			gpu_cmd.frame_of_recording = m_curr_vblank_count;
+			gpu_cmd.value = cmd;
+			gpu_cmd.reg = CommandRegister::GP1;
+			gpu_cmd.gp1.type = GP1CommandType::DISPLAY_MODE;
+			gpu_cmd.gp1.disp_mode = cmd_copy;
+			m_recorded_cmds.emplace_back(gpu_cmd);
+		}
 	}
 
 	void Gpu::GpuReadInternal(u32 cmd) {

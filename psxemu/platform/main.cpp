@@ -300,6 +300,8 @@ int main(int argc, char* argv[]) {
 		
 	}
 
+	display.MakeContextCurrent();
+
 	server.Shutdown();
 	if(console) console->Close();
 

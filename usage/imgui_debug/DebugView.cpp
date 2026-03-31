@@ -12,26 +12,27 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 
+#include <psxemu/include/psxemu/GPUCommands.hpp>
+
 #include <GL/glew.h>
 
 DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sys) 
 	: m_win{ win }, m_psx{ sys }, m_gl_ctx{ nullptr }, 
 	m_first_frame{ true }, m_enabled_opts{}, 
 	m_except_init{ false }, m_except_init_hook{ 0xFFFFF },
-	m_tracked_mc_files{} {
+	m_tracked_mc_files{}, m_highlited_areas{},
+	m_gpu_saved_conf{} {
 	m_gl_ctx = m_win->GetGlContext();
 
 	ImGui::CreateContext();
 
 	auto& io = ImGui::GetIO();
 
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 	ImGui_ImplSDL2_InitForOpenGL((SDL_Window*)m_win->GetWindowHandle(), 
 		m_gl_ctx->GetHandle());
-	ImGui_ImplOpenGL3_Init("#version 430");
+	ImGui_ImplOpenGL3_Init("#version 460");
 
 	m_win->ForwardEventHandler([this](SDL_Event* ev) {
 		ImGui_ImplSDL2_ProcessEvent(ev);
@@ -66,6 +67,7 @@ DebugView::~DebugView() {
 void DebugView::Update() {
 	m_win->Clear();
 
+	m_gl_ctx->SetCurrent(m_win->GetWindowHandle());
 	m_gl_ctx->ScissorDisable();
 	m_gl_ctx->BlendDisable();
 	m_gl_ctx->BindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -73,18 +75,20 @@ void DebugView::Update() {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
-	ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+	//ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
-	CpuWindow();
-	DmaWindow();
-	MemoryConfigWindow();
-	TimersWindow();
-	GpuWindow();
-	KernelWindow();
-	DriveWindow();
-	MdecWindow();
-	MemcardWindow(m_psx->GetKernel().GetMC0Fs(), 0);
-	MemcardWindow(m_psx->GetKernel().GetMC1Fs(), 1);
+	//CpuWindow();
+	//DmaWindow();
+	//MemoryConfigWindow();
+	//TimersWindow();
+	//GpuWindow();
+	//KernelWindow();
+	//DriveWindow();
+	//MdecWindow();
+	//MemcardWindow(m_psx->GetKernel().GetMC0Fs(), 0);
+	//MemcardWindow(m_psx->GetKernel().GetMC1Fs(), 1);
+	GpuCommandWindow();
+	GpuVramWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -499,7 +503,10 @@ void DebugView::DmaWindow() {
 
 	bool& allow_mods = m_enabled_opts["allow_dma_state_mod"];
 
-	ImGui::Begin("DMA");
+	if (!ImGui::Begin("DMA")) {
+		ImGui::End();
+		return;
+	}
 
 	ImGui::Checkbox("Allow modifications", &allow_mods);
 
@@ -1027,89 +1034,6 @@ void DebugView::TimersWindow() {
 	ShowTimerImpl(0);
 	ShowTimerImpl(1);
 	ShowTimerImpl(2);
-
-	ImGui::EndTabBar();
-
-	ImGui::End();
-}
-
-void DebugView::GpuWindow() {
-	if (!ImGui::Begin("GPU")) {
-		ImGui::End();
-		return;
-	}
-
-	auto& gpu = m_psx->GetStatus()
-		.sysbus->m_gpu;
-
-	ImGui::Text("Currently in VBlank : %d", gpu.m_vblank);
-	ImGui::Text("Current scanline : %d", gpu.m_scanline);
-	ImGui::Text("Current CMD FIFO size : %d", gpu.m_cmd_fifo.len());
-
-	auto curr_cmd_status = magic_enum::enum_name(gpu.m_cmd_status);
-
-	ImGui::Text("Command mode : %s", curr_cmd_status.data());
-
-	auto curr_read_stat = magic_enum::enum_name(gpu.m_read_status);
-
-	ImGui::Text("Read mode : %s", curr_cmd_status.data());
-	ImGui::Text("Read latch : %08X", gpu.m_gpu_read_latch);
-
-	ImGui::BeginTabBar("##stat");
-
-	if (ImGui::BeginTabItem("Status")) {
-		auto& gpustat = gpu.m_stat;
-		ImGui::Text("Tex X page : %d", (int)gpustat.texture_page_x_base * 64);
-		ImGui::Text("Tex Y page : %d", (int)gpustat.texture_page_y_base * 256);
-		
-		auto semi_trans = magic_enum::enum_name(gpustat.semi_transparency);
-		ImGui::Text("Semi transparency : %s", semi_trans.data());
-		auto texpage_col = magic_enum::enum_name(gpustat.tex_page_colors);
-		ImGui::Text("Texpage colors : %s", texpage_col.data());
-
-		ImGui::Text("Dither          : %d", gpustat.dither);
-		ImGui::Text("Draw to display : %d", gpustat.draw_to_display);
-		ImGui::Text("Set mask        : %d", gpustat.set_mask);
-		ImGui::Text("Mask enable     : %d", gpustat.draw_over_mask_disable);
-		ImGui::Text("Interlace field : %d", gpustat.interlace_field);
-		ImGui::Text("Flip H          : %d", gpustat.flip_screen_hoz);
-		ImGui::Text("Tex Y page 2    : %d", (int)gpustat.texture_page_y_base2 * 512);
-		ImGui::Text("Vertical interlace : %d", gpustat.vertical_interlace);
-		ImGui::Text("Display enable  : %d", gpustat.disp_enable);
-		ImGui::Text("IRQ1            : %d", gpustat.irq1);
-		ImGui::Text("Dreq            : %d", gpustat.dreq);
-		ImGui::Text("Recv cmd word   : %d", gpustat.recv_cmd_word);
-		ImGui::Text("Ready for VRAM -> CPU  : %d", gpustat.send_vram_cpu);
-		ImGui::Text("Recv DMA        : %d", gpustat.recv_dma);
-
-		auto dma_dir = magic_enum::enum_name(gpustat.dma_dir);
-		ImGui::Text("Dma direction   : %s", dma_dir.data());
-		ImGui::Text("Drawing odd     : %d", gpustat.drawing_odd);
-
-		ImGui::EndTabItem();
-	}
-
-	if (ImGui::BeginTabItem("Tex window")) {
-		ImGui::Text("Mask X : %d", gpu.m_tex_win.mask_x);
-		ImGui::Text("Mask Y : %d", gpu.m_tex_win.mask_y);
-		ImGui::Text("Offset X : %d", gpu.m_tex_win.offset_x);
-		ImGui::Text("Offset Y : %d", gpu.m_tex_win.offset_y);
-		ImGui::EndTabItem();
-	}
-
-	if (ImGui::BeginTabItem("Other data")) {
-		ImGui::Text("Horizontal resolution : %d", gpu.m_disp_conf.hoz_res);
-		ImGui::Text("Vertical resolution   : %d", gpu.m_disp_conf.vert_res);
-		ImGui::Text("Draw area top left X : %d, Y : %d",
-			gpu.m_x_top_left, gpu.m_y_top_left);
-		ImGui::Text("Draw area bottom right X : %d, Y : %d",
-			gpu.m_x_bot_right, gpu.m_y_bot_right);
-		ImGui::Text("Draw offset X : %d", gpu.m_x_off);
-		ImGui::Text("Draw offset Y : %d", gpu.m_y_off);
-		ImGui::Text("Display start X : %d", gpu.m_disp_x_start);
-		ImGui::Text("Display start Y : %d", gpu.m_disp_y_start);
-		ImGui::EndTabItem();
-	}
 
 	ImGui::EndTabBar();
 

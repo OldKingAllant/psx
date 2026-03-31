@@ -4,6 +4,8 @@
 #include <common/Queue.hpp>
 #include <common/Macros.hpp>
 
+#include <vector>
+
 class DebugView;
 
 namespace psx {
@@ -158,6 +160,8 @@ namespace psx {
 
 	struct system_status;
 
+	struct GPUCommand;
+
 	class Gpu {
 	public :
 		Gpu(system_status* sys_status);
@@ -231,6 +235,44 @@ namespace psx {
 		FORCE_INLINE void SetConsoleVideoMode(ConsoleVideoMode video_mode) {
 			m_video_mode = video_mode;
 		}
+
+		FORCE_INLINE void SetRecordingCommands(bool recording) {
+			auto old = m_recording_commands;
+			m_recording_commands = recording;
+			if (!old && m_recording_commands) {
+				PushStateConfiguration(m_recorded_cmds);
+				StoreVram();
+			}
+		}
+
+		FORCE_INLINE void SetFramesToRecord(u32 frames) {
+			m_frames_to_record = frames;
+		}
+
+		FORCE_INLINE bool GetRecordingCommands() const {
+			return m_recording_commands;
+		}
+
+		FORCE_INLINE std::vector<GPUCommand> const& GetRecordedCommands() const {
+			return m_recorded_cmds;
+		}
+
+		FORCE_INLINE std::vector<GPUCommand>& GetRecordedCommands() {
+			return m_recorded_cmds;
+		}
+
+		FORCE_INLINE i32 GetXOffset() const {
+			return (i32)m_x_off;
+		}
+
+		FORCE_INLINE i32 GetYOffset() const {
+			return (i32)m_y_off;
+		}
+
+		void PushStateConfiguration(std::vector<GPUCommand>& commands) const;
+		void LoadStateConfiguration(std::vector<GPUCommand> const& commands);
+
+		void StoreVram();
 
 	private :
 		void CommandStart(u32 cmd);
@@ -312,10 +354,24 @@ namespace psx {
 		video::Renderer* m_renderer;
 
 		DisplayConfig m_disp_conf;
+		u32 m_raw_disp_conf;
 
 		u64 m_last_event_timestamp;
 		u64 m_curr_vblank_count;
 
 		ConsoleVideoMode m_video_mode;
+
+		bool m_recording_commands;
+		std::vector<GPUCommand> m_recorded_cmds;
+		u32 m_frames_to_record;
+		u32 m_recorded_frames;
+		std::vector<u8> m_copied_vram;
+
+		struct RegisterCommand {
+			u32 reg_index;
+			u32 value;
+		};
+
+		std::vector<RegisterCommand> m_recorded_gp_commands;
 	};
 }

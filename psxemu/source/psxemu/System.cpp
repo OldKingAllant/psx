@@ -319,8 +319,6 @@ namespace psx {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
 				.GetDevice1())->ConnectCard(memcard);
 			m_kernel.GetMC0Fs().SetMemoryCard(memcard, 0);
-			//BESLES-01734G00sr@GA
-			//auto savefile = kernel::GenericSaveFile::CreateSavefileHandle("BESLES-01734G00sr@GA", m_kernel.GetMC0Fs());
 		}
 		else {
 			dynamic_cast<SIOPadCardDriver*>(m_sysbus.GetSIO0()
@@ -415,6 +413,8 @@ namespace psx {
 
 		m_sysbus.GetGPU().SetResolutionMultiplier(m_sys_conf->gpu_conf.resolution_multiplier);
 		m_sysbus.GetGPU().SetConsoleVideoMode(m_sys_conf->video_mode);
+		m_sysbus.GetGPU().SetRecordingCommands(m_sys_conf->advanced_conf.record_gpu_commands);
+		m_sysbus.GetGPU().SetFramesToRecord(m_sys_conf->advanced_conf.recorded_gpu_frames);
 	}
 
 	bool System::InsertDisc(std::filesystem::path const& path) {

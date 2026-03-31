@@ -144,6 +144,53 @@ namespace psx {
 		if constexpr (Textured) {
 			gpu.TryUpdateTexpage(u16(vertices[0].clut_page));
 		}
+
+		if (gpu.GetRecordingCommands()) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd.cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = gpu.GetVblankCount();
+			cmd_copy.gp0.type = GP0CommandType::POLYGON;
+			cmd_copy.gp0.polygon = cmd;
+			cmd_copy.params.rendering.semi_transparent = Transparent;
+			cmd_copy.params.rendering.transparency_type = prim.semi_transparency_type;
+			cmd_copy.params.rendering.vertex_count = NumVertices;
+			cmd_copy.params.rendering.vertices[0].color.attribute = vertices[0].color;
+			cmd_copy.params.rendering.vertices[1].color.attribute = vertices[1].color;
+			cmd_copy.params.rendering.vertices[2].color.attribute = vertices[2].color;
+
+			cmd_copy.params.rendering.vertices[0].x = vertices[0].x + gpu.GetXOffset();
+			cmd_copy.params.rendering.vertices[1].x = vertices[1].x + gpu.GetXOffset();
+			cmd_copy.params.rendering.vertices[2].x = vertices[2].x + gpu.GetXOffset();
+
+			cmd_copy.params.rendering.vertices[0].y = vertices[0].y + gpu.GetYOffset();
+			cmd_copy.params.rendering.vertices[1].y = vertices[1].y + gpu.GetYOffset();
+			cmd_copy.params.rendering.vertices[2].y = vertices[2].y + gpu.GetYOffset();
+
+			//vertices[curr_vertex].uv = (v << 16) | u;
+			cmd_copy.params.rendering.vertices[0].u = vertices[0].uv & 0xFFFF;
+			cmd_copy.params.rendering.vertices[1].u = vertices[1].uv & 0xFFFF;
+			cmd_copy.params.rendering.vertices[2].u = vertices[2].uv & 0xFFFF;
+
+			cmd_copy.params.rendering.vertices[0].v = (vertices[0].uv >> 16) & 0xFFFF;
+			cmd_copy.params.rendering.vertices[1].v = (vertices[1].uv >> 16) & 0xFFFF;
+			cmd_copy.params.rendering.vertices[2].v = (vertices[2].uv >> 16) & 0xFFFF;
+
+			cmd_copy.params.rendering.vertices[0].clut_page = vertices[0].clut_page;
+			cmd_copy.params.rendering.vertices[1].clut_page = vertices[0].clut_page;
+			cmd_copy.params.rendering.vertices[2].clut_page = vertices[0].clut_page;
+
+			if constexpr (NumVertices == 4) {
+				cmd_copy.params.rendering.vertices[3].color.attribute = vertices[3].color;
+				cmd_copy.params.rendering.vertices[3].x = vertices[3].x + gpu.GetXOffset();
+				cmd_copy.params.rendering.vertices[3].y = vertices[3].y + gpu.GetYOffset();
+				cmd_copy.params.rendering.vertices[3].u = vertices[3].uv & 0xFFFF;
+				cmd_copy.params.rendering.vertices[3].v = (vertices[3].uv >> 16) & 0xFFFF;
+				cmd_copy.params.rendering.vertices[3].clut_page = vertices[3].clut_page;
+			}
+
+			gpu.GetRecordedCommands().emplace_back(cmd_copy);
+		}
 	}
 
 	template <bool Textured, bool Transparent, bool Raw>
@@ -295,12 +342,54 @@ namespace psx {
 			triangle2.type = triangle1.type = video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
 		}
 
-		if (cmd_fifo.len() != 0) {
-			error::DebugBreak();
-		}
-
 		renderer->DrawPrimitive(triangle1);
 		renderer->DrawPrimitive(triangle2);
+
+		if (gpu.GetRecordingCommands()) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd.cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = gpu.GetVblankCount();
+			cmd_copy.gp0.type = GP0CommandType::RECTANGLE;
+			cmd_copy.gp0.rect = cmd;
+			cmd_copy.params.rendering.semi_transparent = Transparent;
+			cmd_copy.params.rendering.transparency_type = triangle1.semi_transparency_type;
+			cmd_copy.params.rendering.vertex_count = 4;
+			cmd_copy.params.rendering.vertices[0].color.attribute = vertices[0].color;
+			cmd_copy.params.rendering.vertices[1].color.attribute = vertices[1].color;
+			cmd_copy.params.rendering.vertices[2].color.attribute = vertices[2].color;
+
+			cmd_copy.params.rendering.vertices[0].x = vertices[0].x + gpu.GetXOffset();
+			cmd_copy.params.rendering.vertices[1].x = vertices[1].x + gpu.GetXOffset();
+			cmd_copy.params.rendering.vertices[2].x = vertices[2].x + gpu.GetXOffset();
+
+			cmd_copy.params.rendering.vertices[0].y = vertices[0].y + gpu.GetYOffset();
+			cmd_copy.params.rendering.vertices[1].y = vertices[1].y + gpu.GetYOffset();
+			cmd_copy.params.rendering.vertices[2].y = vertices[2].y + gpu.GetYOffset();
+
+			//vertices[curr_vertex].uv = (v << 16) | u;
+			cmd_copy.params.rendering.vertices[0].u = vertices[0].uv & 0xFFFF;
+			cmd_copy.params.rendering.vertices[1].u = vertices[1].uv & 0xFFFF;
+			cmd_copy.params.rendering.vertices[2].u = vertices[2].uv & 0xFFFF;
+
+			cmd_copy.params.rendering.vertices[0].v = (vertices[0].uv >> 16) & 0xFFFF;
+			cmd_copy.params.rendering.vertices[1].v = (vertices[1].uv >> 16) & 0xFFFF;
+			cmd_copy.params.rendering.vertices[2].v = (vertices[2].uv >> 16) & 0xFFFF;
+
+			cmd_copy.params.rendering.vertices[0].clut_page = vertices[0].clut_page;
+			cmd_copy.params.rendering.vertices[1].clut_page = vertices[0].clut_page;
+			cmd_copy.params.rendering.vertices[2].clut_page = vertices[0].clut_page;
+
+			
+			cmd_copy.params.rendering.vertices[3].color.attribute = vertices[3].color;
+			cmd_copy.params.rendering.vertices[3].x = vertices[3].x + gpu.GetXOffset();
+			cmd_copy.params.rendering.vertices[3].y = vertices[3].y + gpu.GetYOffset();
+			cmd_copy.params.rendering.vertices[3].u = vertices[3].uv & 0xFFFF;
+			cmd_copy.params.rendering.vertices[3].v = (vertices[3].uv >> 16) & 0xFFFF;
+			cmd_copy.params.rendering.vertices[3].clut_page = vertices[3].clut_page;
+
+			gpu.GetRecordedCommands().emplace_back(cmd_copy);
+		}
 	}
 
 	template <bool Gouraud, bool Polyline, bool Transparent>
@@ -356,8 +445,42 @@ namespace psx {
 
 			renderer->DrawPrimitive(line);
 
+			if (gpu.GetRecordingCommands()) {
+				GPUCommand cmd_copy{};
+				cmd_copy.value = cmd.cmd;
+				cmd_copy.reg = CommandRegister::GP0;
+				cmd_copy.frame_of_recording = gpu.GetVblankCount();
+				cmd_copy.gp0.type = GP0CommandType::LINE;
+				cmd_copy.gp0.line = cmd;
+				cmd_copy.params.rendering.semi_transparent = Transparent;
+				cmd_copy.params.rendering.transparency_type = line.semi_transparency_type;
+				cmd_copy.params.rendering.vertex_count = 2;
+
+				cmd_copy.params.rendering.vertices[0].color.attribute = v0.color;
+				cmd_copy.params.rendering.vertices[1].color.attribute = v1.color;
+
+				cmd_copy.params.rendering.vertices[0].x = v0.x + gpu.GetXOffset();
+				cmd_copy.params.rendering.vertices[1].x = v1.x + gpu.GetXOffset();
+
+				cmd_copy.params.rendering.vertices[0].y = v0.y + gpu.GetYOffset();
+				cmd_copy.params.rendering.vertices[1].y = v1.y + gpu.GetYOffset();
+
+				gpu.GetRecordedCommands().emplace_back(cmd_copy);
+			}
+
 			if constexpr (!Polyline) {
 				break;
+			}
+			else {
+				if (cmd_fifo.empty() && gpu.GetRecordingCommands()) {
+					GPUCommand cmd_copy{};
+					cmd_copy.value = cmd.cmd;
+					cmd_copy.reg = CommandRegister::GP0;
+					cmd_copy.frame_of_recording = gpu.GetVblankCount();
+					cmd_copy.gp0.type = GP0CommandType::POLYLINE_END;
+					cmd_copy.gp0.end_marker = {};
+					gpu.GetRecordedCommands().emplace_back(cmd_copy);
+				}
 			}
 
 			prev_x = curr_x;
@@ -523,6 +646,8 @@ namespace psx {
 		FlushDrawOps();
 		m_renderer->SyncTextures();
 
+		u32 cmd = m_cmd_fifo.peek();
+
 		u32 color = m_cmd_fifo.deque() & 0xFFFFFF;
 		u32 top_left = m_cmd_fifo.deque();
 
@@ -551,6 +676,21 @@ namespace psx {
 		}
 			
 		m_renderer->Fill(x_off, y_off, w, h, color);
+
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::MISC;
+			cmd_copy.gp0.misc.type = MiscCommandType::QUICK_FILL;
+			cmd_copy.gp0.misc.cmd = cmd;
+			cmd_copy.params.quick_fill.x = x_off;
+			cmd_copy.params.quick_fill.y = y_off;
+			cmd_copy.params.quick_fill.w = w;
+			cmd_copy.params.quick_fill.h = h;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
 	}
 
 	void Gpu::DrawRect() {

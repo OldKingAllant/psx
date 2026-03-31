@@ -10,6 +10,12 @@ namespace psx {
 			m_curr_size{}, 
 			arr{} {}
 
+		constexpr auto& operator=(Queue<Ty, size> const& other) {
+			m_curr_size = other.m_curr_size;
+			std::copy_n(other.arr, size, arr);
+			return *this;
+		}
+
 		constexpr size_t len() const {
 			return m_curr_size;
 		}

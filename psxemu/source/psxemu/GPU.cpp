@@ -25,8 +25,12 @@ namespace psx {
 		m_raw_conf{}, m_tex_x_flip{}, m_tex_y_flip{}, m_sys_status{sys_state}, 
 		m_scanline{}, m_vblank{ false }, m_required_params{}, 
 		m_rem_params{}, m_cpu_vram_blit{}, m_vram_cpu_blit{},
-		m_renderer{ nullptr }, m_disp_conf{}, m_last_event_timestamp{},
-		m_curr_vblank_count{}, m_video_mode{ConsoleVideoMode::NTSC} {
+		m_renderer{ nullptr }, m_disp_conf{}, m_raw_disp_conf{},
+		m_last_event_timestamp {},
+		m_curr_vblank_count{}, m_video_mode{ConsoleVideoMode::NTSC},
+		m_recording_commands{}, m_recorded_cmds{},
+		m_frames_to_record{}, m_recorded_frames{},
+		m_copied_vram{}, m_recorded_gp_commands{} {
 		m_renderer = new video::Renderer();
 		m_cpu_vram = m_renderer->GetVramPtr();
 	}
@@ -41,15 +45,22 @@ namespace psx {
 			return;
 		}
 
+		if (m_recording_commands && GP0CommandType(value >> 29) != GP0CommandType::VRAM_CPU_BLIT) {
+			RegisterCommand cmd{};
+			cmd.reg_index = 0;
+			cmd.value = value;
+			m_recorded_gp_commands.push_back(cmd);
+		}
+
 		switch (m_cmd_status)
 		{
 		case psx::Status::IDLE:
 			if ((value & 0xFF00'0000) == 0) {
 				LOG_DEBUG("GPU", "[GPU] NOP");
-				return;
 			}
-
-			CommandStart(value);
+			else {
+				CommandStart(value);
+			}
 			break;
 		case psx::Status::WAITING_PARAMETERS: {
 			if (m_rem_params == 0)
@@ -104,42 +115,105 @@ namespace psx {
 	}
 
 	void Gpu::WriteGP1(u32 value) {
-		u32 upper = (value >> 24) & 0xFF;
+		
 
-		switch (upper)
+		auto cmd = GP1CommandType((value >> 24) & 0xFF);
+
+		if (m_recording_commands && cmd != GP1CommandType::READ_GPU_REGISTER) {
+			RegisterCommand cmd{};
+			cmd.reg_index = 1;
+			cmd.value = value;
+			m_recorded_gp_commands.push_back(cmd);
+		}
+		
+		switch (cmd)
 		{
-		case 0x0:
+		case GP1CommandType::RESET:
 			Reset();
+			if (m_recording_commands) {
+				GPUCommand gpu_cmd{};
+				gpu_cmd.value = value;
+				gpu_cmd.frame_of_recording = m_curr_vblank_count;
+				gpu_cmd.reg = CommandRegister::GP1;
+				gpu_cmd.gp1.type = GP1CommandType::RESET;
+				gpu_cmd.gp1.cmd = value;
+				m_recorded_cmds.emplace_back(gpu_cmd);
+			}
 			break;
-		case 0x1:
+		case GP1CommandType::RESET_CMD_FIFO:
 			ResetFifo();
+			if (m_recording_commands) {
+				GPUCommand gpu_cmd{};
+				gpu_cmd.value = value;
+				gpu_cmd.frame_of_recording = m_curr_vblank_count;
+				gpu_cmd.reg = CommandRegister::GP1;
+				gpu_cmd.gp1.type = GP1CommandType::RESET_CMD_FIFO;
+				gpu_cmd.gp1.cmd = value;
+				m_recorded_cmds.emplace_back(gpu_cmd);
+			}
 			break;
-		case 0x2:
+		case GP1CommandType::IRQ_ACK:
 			AckIrq();
+			if (m_recording_commands) {
+				GPUCommand gpu_cmd{};
+				gpu_cmd.value = value;
+				gpu_cmd.frame_of_recording = m_curr_vblank_count;
+				gpu_cmd.reg = CommandRegister::GP1;
+				gpu_cmd.gp1.type = GP1CommandType::IRQ_ACK;
+				gpu_cmd.gp1.cmd = value;
+				m_recorded_cmds.emplace_back(gpu_cmd);
+			}
 			break;
-		case 0x3:
+		case GP1CommandType::DISPLAY_ENABLE:
 			DispEnable(value & 1);
+			if (m_recording_commands) {
+				GPUCommand gpu_cmd{};
+				gpu_cmd.value = value;
+				gpu_cmd.frame_of_recording = m_curr_vblank_count;
+				gpu_cmd.reg = CommandRegister::GP1;
+				gpu_cmd.gp1.type = GP1CommandType::DISPLAY_ENABLE;
+				gpu_cmd.gp1.disp_enable.display_on = value & 1;
+				m_recorded_cmds.emplace_back(gpu_cmd);
+			}
 			break;
-		case 0x4:
+		case GP1CommandType::DMA_DIRECTION:
 			DmaDirection((DmaDir)(value & 3));
+			if (m_recording_commands) {
+				GPUCommand gpu_cmd{};
+				gpu_cmd.value = value;
+				gpu_cmd.frame_of_recording = m_curr_vblank_count;
+				gpu_cmd.reg = CommandRegister::GP1;
+				gpu_cmd.gp1.type = GP1CommandType::DMA_DIRECTION;
+				gpu_cmd.gp1.dma_dir.direction = value & 3;
+				m_recorded_cmds.emplace_back(gpu_cmd);
+			}
 			break;
-		case 0x5:
+		case GP1CommandType::DISPLAY_AREA_START:
 			DisplayAreaStart(value);
 			break;
-		case 0x6:
+		case GP1CommandType::HORIZONTAL_DISPLAY_RANGE:
 			HorizontalDispRange(value);
 			break;
-		case 0x7:
+		case GP1CommandType::VERTICAL_DISPLAY_RANGE:
 			VerticalDispRange(value);
 			break;
-		case 0x8:
+		case GP1CommandType::DISPLAY_MODE:
 			DisplayMode(value);
 			break;
-		case 0x10:
+		case GP1CommandType::READ_GPU_REGISTER:
 			GpuReadInternal(value);
+			if (m_recording_commands) {
+				GPUCommand gpu_cmd{};
+				gpu_cmd.value = value;
+				gpu_cmd.frame_of_recording = m_curr_vblank_count;
+				gpu_cmd.reg = CommandRegister::GP1;
+				gpu_cmd.gp1.type = GP1CommandType::READ_GPU_REGISTER;
+				gpu_cmd.gp1.cmd = value;
+				m_recorded_cmds.emplace_back(gpu_cmd);
+			}
 			break;
 		default:
-			LOG_ERROR("GPU", "[GPU] Unimplemented ENV command 0x{:x}", (u32)upper);
+			LOG_ERROR("GPU", "[GPU] Unimplemented ENV command 0x{:x}", (u32)cmd);
 			error::DebugBreak();
 			break;
 		}
@@ -319,6 +393,16 @@ namespace psx {
 		m_sys_status->sysbus->GetCounter0().HBlankEnd();
 
 		m_scanline++;
+
+		if (m_scanline == 1 && m_recording_commands) {
+			m_recorded_frames++;
+			if (m_recorded_frames >= m_frames_to_record) {
+				m_recorded_cmds.clear();
+				m_recorded_gp_commands.clear();
+				m_recorded_frames = 0;
+				PushStateConfiguration(m_recorded_cmds);
+			}
+		}
 
 		auto scanlines_frame = SCANLINES_FRAME_NTSC;
 		auto visible_lines_start = VISIBLE_LINE_START_NTSC;

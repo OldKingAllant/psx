@@ -51,8 +51,12 @@ namespace psx {
 		bool enable_kernel_callstack = true;
 		bool enable_syscall_hooks = true;
 		logger::LoggerConfig log_conf = {};
+		bool record_gpu_commands = false;
+		std::uint32_t recorded_gpu_frames = 0;
 
 		NLOHMANN_DEFINE_TYPE_INTRUSIVE(SystemConfAdvanced,
+			recorded_gpu_frames,
+			record_gpu_commands,
 			log_conf,
 			enable_breakpoints,
 			enable_hle,
