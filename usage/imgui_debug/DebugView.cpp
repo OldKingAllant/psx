@@ -21,7 +21,7 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	m_first_frame{ true }, m_enabled_opts{}, 
 	m_except_init{ false }, m_except_init_hook{ 0xFFFFF },
 	m_tracked_mc_files{}, m_highlited_areas{},
-	m_gpu_saved_conf{} {
+	m_gpu_saved_conf{}, m_texture_view_shader{} {
 	m_gl_ctx = m_win->GetGlContext();
 
 	ImGui::CreateContext();
@@ -136,7 +136,7 @@ void DebugView::CpuWindow() {
 		show_u32_hex("EPC", &cop0.registers.epc);
 		show_u32_hex("PRID", &cop0.registers.prid);
 
-		ImGui::BeginChild("Cause reg", ImVec2(0, 0), ImGuiChildFlags_Border);
+		ImGui::BeginChild("Cause reg", ImVec2(0, 0));
 
 		show_u32_hex("CAUSE", &cop0.registers.cause.reg);
 	
@@ -192,7 +192,7 @@ void DebugView::CpuWindow() {
 		show_u32_hex("EPC", &cop0.registers.epc);
 		show_u32_hex("PRID", &cop0.registers.prid);
 
-		ImGui::BeginChild("Cause reg", ImVec2(0, 0), ImGuiChildFlags_Border);
+		ImGui::BeginChild("Cause reg", ImVec2(0, 0));
 
 		show_u32_hex("CAUSE", &cop0.registers.cause.reg);
 
@@ -219,7 +219,7 @@ void DebugView::CpuWindow() {
 
 	////////////////////////////
 
-	ImGui::BeginChild("SR register", ImVec2(0, 0), ImGuiChildFlags_Border);
+	ImGui::BeginChild("SR register", ImVec2(0, 0));
 
 	if (allow_mods) {
 		auto show_bit_val = [&cop0](const char* name, uint32_t bitnum) {
@@ -299,7 +299,7 @@ void DebugView::CpuWindow() {
 
 	////////////////////////////
 
-	ImGui::BeginChild("DCIC", ImVec2(0, 0), ImGuiChildFlags_Border);
+	ImGui::BeginChild("DCIC", ImVec2(0, 0));
 
 	if (allow_mods) {
 		auto show_bit_val = [&cop0](const char* name, uint32_t bitnum) {
@@ -369,7 +369,7 @@ void DebugView::CpuWindow() {
 
 	////////////////////////////
 
-	ImGui::BeginChild("Iterrupt masks", ImVec2(0, 0), ImGuiChildFlags_Border);
+	ImGui::BeginChild("Iterrupt masks", ImVec2(0, 0));
 
 	if (allow_mods) {
 		auto show_bit_val = [](uint32_t& reg, const char* name, uint32_t bitnum) {
@@ -510,8 +510,7 @@ void DebugView::DmaWindow() {
 
 	ImGui::Checkbox("Allow modifications", &allow_mods);
 
-	ImGui::BeginChild("DPCR", ImVec2(0, 400),
-		ImGuiChildFlags_Border);
+	ImGui::BeginChild("DPCR", ImVec2(0, 400));
 
 	auto& dpcr = dma_control.m_control;
 
@@ -581,8 +580,7 @@ void DebugView::DmaWindow() {
 
 	auto& dicr = dma_control.m_int_control;
 
-	ImGui::BeginChild("DICR", ImVec2(0, 400),
-		ImGuiChildFlags_Border);
+	ImGui::BeginChild("DICR", ImVec2(0, 400));
 
 	if (allow_mods) {
 		ImGui::InputScalar("DICR", ImGuiDataType_U32,
@@ -705,8 +703,7 @@ void DebugView::DmaWindow() {
 	};
 
 	auto show_dma = [allow_mods](uint32_t id, DmaDesc& desc, const char* name) {
-		ImGui::BeginChild(name, ImVec2(0, 300),
-			ImGuiChildFlags_Border);
+		ImGui::BeginChild(name, ImVec2(0, 300));
 		{
 			ImGui::Text(name);
 
@@ -1330,7 +1327,7 @@ void DebugView::DriveWindow() {
 	}
 
 	if (ImGui::CollapsingHeader("Command history")) {
-		ImGui::BeginChild("#cmds", ImVec2(0, 400), ImGuiChildFlags_Border);
+		ImGui::BeginChild("#cmds", ImVec2(0, 400));
 		bool clear = ImGui::Button("Clear", ImVec2(60, 30));
 
 		if (clear) {

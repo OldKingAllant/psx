@@ -3,18 +3,32 @@
 #include <thirdparty/imgui/imgui.h>
 #include <thirdparty/imgui/imgui_internal.h>
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
+#include <thirdparty/ImGuiFileDialog/ImGuiFileDialog.h>
+#include <thirdparty/stb/stb_image_write.h>
 
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/GPUCommands.hpp>
 
 #include <psxemu/renderer/GLRenderer.hpp>
+#include <psxemu/renderer/Shader.hpp>
 
 #include <GL/glew.h>
 #include <algorithm>
 #include <cmath>
+#include <memory>
+#include <filesystem>
+#include <fstream>
 
 #define _USE_MATH_DEFINES
+
+static bool g_show_command_data_window{};
+static uint32_t g_command_data_index{};
+static uint64_t g_command_data_list_version{};
+
+static bool g_show_command_texture_window{};
+static uint32_t g_command_texture_index{};
+static uint64_t g_command_texture_list_version{};
 
 void DebugView::GpuCommandWindow() {
 	ImGui::Begin("GPU Commands");
@@ -30,6 +44,8 @@ void DebugView::GpuCommandWindow() {
 	ImGui::SameLine();
 	ImGui::InputInt("Frames to record", (int*)&gpu.m_frames_to_record);
 
+	auto cursor_pos = ImGui::GetCursorPos();
+
 	if (record_commands) {
 		auto const& commands = gpu.GetRecordedCommands();
 
@@ -38,10 +54,13 @@ void DebugView::GpuCommandWindow() {
 		}
 
 		ImGuiListClipper clipper{};
-		clipper.Begin(commands.size());
+		clipper.Begin((int)commands.size());
 
 		while (clipper.Step()) {
 			for (size_t cmd_index = clipper.DisplayStart; cmd_index < clipper.DisplayEnd; cmd_index++) {
+				if (cmd_index >= commands.size()) {
+					break;
+				}
 				auto const& cmd = commands[cmd_index];
 				auto has_details = GetGpuCommandHasDetails(&cmd);
 				auto is_open = ShowGpuCommandEntry(cmd_index, &cmd, has_details);
@@ -52,12 +71,12 @@ void DebugView::GpuCommandWindow() {
 				}
 
 				if (is_open && has_details) {
-					ShowGpuCommandDetails(&cmd, cmd_index);
+					ShowGpuCommandDetails(&cmd, cmd_index, false);
 					ImGui::Separator();
 				}
 				else if(is_hovered && has_details) {
 					ImGui::BeginTooltip();
-					ShowGpuCommandDetails(&cmd, cmd_index);
+					ShowGpuCommandDetails(&cmd, cmd_index, true);
 					ImGui::EndTooltip();
 				}
 			}
@@ -65,6 +84,24 @@ void DebugView::GpuCommandWindow() {
 	}
 
 	ImGui::End();
+
+	if (record_commands) {
+		auto const& commands = gpu.GetRecordedCommands();
+
+		if (g_show_command_data_window && (size_t)g_command_data_index < commands.size()) {
+			ShowGpuCmdData(&commands[g_command_data_index], g_command_data_index);
+		}
+		else {
+			g_show_command_data_window = false;
+		}
+
+		if (g_show_command_texture_window && (size_t)g_command_texture_index < commands.size()) {
+			ShowGpuCmdTexture(&commands[g_command_texture_index], g_command_texture_index);
+		}
+		else {
+			g_show_command_texture_window = false;
+		}
+	}
 }
 
 static void CallbackDisableBlending(const ImDrawList* parent_list, const ImDrawCmd* cmd) {
@@ -75,14 +112,17 @@ static void CallbackEnableBlending(const ImDrawList* parent_list, const ImDrawCm
 	glEnable(GL_BLEND);
 }
 
-static void ColorPicker(uint8_t r, uint8_t g, uint8_t b) {
+static void ColorPicker(uint8_t r, uint8_t g, uint8_t b, std::string const& id) {
+	static int64_t s_picker_id{};
 	float colorf[3] = {};
 	colorf[0] = r / 255.f;
 	colorf[1] = g / 255.f;
 	colorf[2] = b / 255.f;
-	ImGui::ColorEdit3("##colorpicker", colorf,
+	ImGui::PushID(ImGui::GetID(id.c_str()));
+	ImGui::ColorEdit3("", colorf,
 		ImGuiColorEditFlags_NoInputs |
 		ImGuiColorEditFlags_NoPicker);
+	ImGui::PopID();
 }
 
 void DebugView::GpuVramWindow() {
@@ -90,27 +130,30 @@ void DebugView::GpuVramWindow() {
 		.GetTextureHandle();
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
-	static float scale{ 1.f };
-	static float vram_offset_x{ 0.f };
-	static float vram_offset_y{ 0.f };
-	static float mouse_delta_x{ .0f };
-	static float mouse_delta_y{ .0f };
-
-	static uint8_t picked_r{};
-	static uint8_t picked_g{};
-	static uint8_t picked_b{};
-
-	static uint32_t picked_x{};
-	static uint32_t picked_y{};
-
-	static float highlight_color[3] = {};
-
 	constexpr float MIN_SCALE = 1.f;
 	constexpr float MAX_SCALE = 512.f;
 
-	static float SCALE_STEP = .25f;
+	static float s_scale{ 1.f };
+	static float s_vram_offset_x{ 0.f };
+	static float s_vram_offset_y{ 0.f };
+	static float s_mouse_delta_x{ .0f };
+	static float s_mouse_delta_y{ .0f };
 
-	static double blink_timer{};
+	static uint8_t s_picked_r{};
+	static uint8_t s_picked_g{};
+	static uint8_t s_picked_b{};
+	static uint32_t s_picked_x{};
+	static uint32_t s_picked_y{};
+
+	static float s_highlight_color[3] = {};
+	
+	static float s_scale_step = .25f;
+
+	static double s_blink_timer{};
+
+	static bool s_magnifying_glass_on{};
+	static float s_magnification{2.f};
+	static int s_mag_size{100};
 
 	auto old_item_spacing = ImGui::GetStyle().ItemSpacing;
 	auto new_item_spacing = ImVec2(old_item_spacing.x, 30.f);
@@ -123,19 +166,33 @@ void DebugView::GpuVramWindow() {
 	ImGui::Begin("VRAM", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
 
 	if (ImGui::Button("Reset view", ImVec2(.0f, 30.f))) {
-		scale = 1.0f;
-		vram_offset_x = .0f;
-		vram_offset_y = .0f;
+		s_scale = 1.0f;
+		s_vram_offset_x = .0f;
+		s_vram_offset_y = .0f;
 	}
 
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(80.f);
-	ImGui::InputFloat("Zoom step", &SCALE_STEP, .1f, .0f, "%.2f");
+	ImGui::InputFloat("Zoom step", &s_scale_step, .1f, .0f, "%.2f");
 	ImGui::SameLine(.0f, 20.f);
 	ImGui::Text("Picked color: "); ImGui::SameLine();
-	ColorPicker(picked_r, picked_g, picked_b);
+	ColorPicker(s_picked_r, s_picked_g, s_picked_b, "#picked_color");
 	ImGui::SameLine(.0f, 20.f);
-	ImGui::Text("X: %d, Y: %d", picked_x, picked_y);
+	ImGui::Text("X: %d, Y: %d", s_picked_x, s_picked_y);
+	ImGui::SameLine(.0f, 20.f);
+	ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.f);
+	ImGui::SameLine(.0f, 20.f);
+	ImGui::Checkbox("Magnifying glass", &s_magnifying_glass_on);
+
+	if (s_magnifying_glass_on) {
+		ImGui::SameLine(.0f, 20.f);
+		ImGui::SetNextItemWidth(60.f);
+		ImGui::InputFloat("Magnify", &s_magnification, .0f, .0f, "%.2f");
+		ImGui::SameLine(.0f, 20.f);
+		ImGui::SetNextItemWidth(80.f);
+		ImGui::InputInt("Glass size (radius)", &s_mag_size, 10);
+		s_mag_size = std::max(s_mag_size, 0);
+	}
 
 	auto offset = ImGui::GetCursorScreenPos();
 
@@ -146,17 +203,23 @@ void DebugView::GpuVramWindow() {
 	ImGui::ItemSize(bounding_box);
 	ImGui::ItemAdd(bounding_box, 0);
 	ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)vram_handle, begin,
-		end, ImVec2(std::floorf(vram_offset_x) / 1024.f, std::floorf(vram_offset_y) / 512.f),
-		ImVec2(std::floorf(vram_offset_x) / 1024.f + 1.f / scale, std::floorf(vram_offset_y) / 512.f + 1.f / scale),
+		end, ImVec2(std::floorf(s_vram_offset_x) / 1024.f, std::floorf(s_vram_offset_y) / 512.f),
+		ImVec2(std::floorf(s_vram_offset_x) / 1024.f + 1.f / s_scale, std::floorf(s_vram_offset_y) / 512.f + 1.f / s_scale),
 		ImGui::GetColorU32(ImVec4(1.f, 1.f, 1.f, 1.f)));
 	ImGui::GetWindowDrawList()->AddCallback(CallbackEnableBlending, nullptr);
 
 	ImGui::PopStyleVar();
 
 	//Thanks to Avocado
-	blink_timer += 0.001 * IM_PI;
-	ImColor blink_color_normal = ImColor::HSV(blink_timer, 1.f, 1.f, 0.75f);
+	s_blink_timer += 0.004 * IM_PI;
+	ImColor blink_color_normal = ImColor::HSV((float)s_blink_timer, 1.f, 1.f, 0.75f);
 	ImColor blink_color = {};
+
+	auto vram_offset_x_floored = std::floorf(s_vram_offset_x);
+	auto vram_offset_y_floored = std::floorf(s_vram_offset_y);
+
+	ImGui::GetWindowDrawList()->PushClipRect(begin, end, true);
+	bool current_win_has_focus = ImGui::IsWindowFocused();
 
 	for (auto const& area : m_highlited_areas) {
 		blink_color = blink_color_normal;
@@ -164,7 +227,7 @@ void DebugView::GpuVramWindow() {
 
 		if (color.has_value()) {
 			auto color_components = color.value();
-			blink_color = ImColor::HSV(color_components[0], std::fmodf(blink_timer, 100.f) / 100.f,
+			blink_color = ImColor::HSV(color_components[0], std::fmodf((float)s_blink_timer, 100.f) / 100.f,
 				1.f, .75f);
 		}
 
@@ -175,15 +238,15 @@ void DebugView::GpuVramWindow() {
 			float y_t{ (float)area.y[0] };
 			float y_b{ (float)area.y[2] };
 
-			x_l -= vram_offset_x;
-			x_r -= vram_offset_x;
-			y_t -= vram_offset_y;
-			y_b -= vram_offset_y;
+			x_l -= vram_offset_x_floored;
+			x_r -= vram_offset_x_floored;
+			y_t -= vram_offset_y_floored;
+			y_b -= vram_offset_y_floored;
 
-			x_l *= scale;
-			x_r *= scale;
-			y_t *= scale;
-			y_b *= scale;
+			x_l *= s_scale;
+			x_r *= s_scale;
+			y_t *= s_scale;
+			y_b *= s_scale;
 
 			x_l += begin.x;
 			x_r += begin.x;
@@ -217,7 +280,8 @@ void DebugView::GpuVramWindow() {
 					blink_color);
 			}
 
-			if (area.filled && ImGui::IsMouseHoveringRect(prim_begin, prim_end)) {
+			if (current_win_has_focus && area.filled && ImGui::IsMouseHoveringRect(prim_begin, prim_end) &&
+				!s_magnifying_glass_on) {
 				ImGui::BeginTooltip();
 				ImGui::Text("Command %d", area.cmd_index);
 				ImGui::Text("Description: %s", area.name.c_str());
@@ -225,7 +289,57 @@ void DebugView::GpuVramWindow() {
 			}
 		}
 		else if (area.num_vertices == 3) {
-			//
+			float x_0{ (float)area.x[0] };
+			float x_1{ (float)area.x[1] };
+			float x_2{ (float)area.x[2] };
+			float y_0{ (float)area.y[0] };
+			float y_1{ (float)area.y[1] };
+			float y_2{ (float)area.y[2] };
+
+			x_0 -= vram_offset_x_floored;
+			x_1 -= vram_offset_x_floored;
+			x_2 -= vram_offset_x_floored;
+
+			y_0 -= vram_offset_y_floored;
+			y_1 -= vram_offset_y_floored;
+			y_2 -= vram_offset_y_floored;
+
+			x_0 *= s_scale;
+			x_1 *= s_scale;
+			x_2 *= s_scale;
+
+			y_0 *= s_scale;
+			y_1 *= s_scale;
+			y_2 *= s_scale;
+
+			x_0 += begin.x;
+			x_1 += begin.x;
+			x_2 += begin.x;
+
+			y_0 += begin.y;
+			y_1 += begin.y;
+			y_2 += begin.y;
+
+			auto v0 = ImVec2(x_0, y_0);
+			auto v1 = ImVec2(x_1, y_1);
+			auto v2 = ImVec2(x_2, y_2);
+
+			if (area.filled) {
+				ImGui::GetWindowDrawList()->AddTriangleFilled(v0, v1, v2, 
+					blink_color);
+			}
+			else {
+				ImGui::GetWindowDrawList()->AddTriangle(v0, v1, v2,
+					blink_color);
+			}
+
+			if (current_win_has_focus && area.filled && ImTriangleContainsPoint(v0, v1, v2, ImGui::GetMousePos()) &&
+				!s_magnifying_glass_on) {
+				ImGui::BeginTooltip();
+				ImGui::Text("Command %d", area.cmd_index);
+				ImGui::Text("Description: %s", area.name.c_str());
+				ImGui::EndTooltip();
+			}
 		} 
 		else if (area.num_vertices == 2) {
 			float x0{ (float)area.x[0] };
@@ -233,15 +347,15 @@ void DebugView::GpuVramWindow() {
 			float y0{ (float)area.y[0] };
 			float y1{ (float)area.y[1] };
 
-			x0 -= vram_offset_x;
-			x1 -= vram_offset_x;
-			y0 -= vram_offset_y;
-			y1 -= vram_offset_y;
+			x0 -= vram_offset_x_floored;
+			x1 -= vram_offset_x_floored;
+			y0 -= vram_offset_y_floored;
+			y1 -= vram_offset_y_floored;
 
-			x0 *= scale;
-			x1 *= scale;
-			y0 *= scale;
-			y1 *= scale;
+			x0 *= s_scale;
+			x1 *= s_scale;
+			y0 *= s_scale;
+			y1 *= s_scale;
 
 			x0 += begin.x;
 			x1 += begin.x;
@@ -263,59 +377,84 @@ void DebugView::GpuVramWindow() {
 		}
 	}
 
-	ImGui::SetItemUsingMouseWheel();
-	if (ImGui::IsItemHovered()) {
-		auto pos_x = std::floorf(vram_offset_x) + (ImGui::GetMousePos().x - begin.x) / scale;
-		auto pos_y = std::floorf(vram_offset_y) + (ImGui::GetMousePos().y - begin.y) / scale;
+	ImGui::GetWindowDrawList()->PopClipRect();
 
-		if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-			bool dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+	if (ImGui::IsItemHovered()) {
+		auto mouse_x = ImGui::GetMousePos().x;
+		auto mouse_y = ImGui::GetMousePos().y;
+
+		auto pos_x = vram_offset_x_floored + (mouse_x - begin.x) / s_scale;
+		auto pos_y = vram_offset_y_floored + (mouse_y - begin.y) / s_scale;
+
+		if (s_magnifying_glass_on) {
+			ImGui::GetWindowDrawList()->AddCircleFilled(
+				ImVec2(mouse_x, mouse_y),
+				(float)s_mag_size + 1.f, IM_COL32(255, 255, 255, 255)
+			);
+
+			ImGui::GetWindowDrawList()->AddCallback(CallbackDisableBlending, nullptr);
+			ImGui::GetWindowDrawList()->AddImageRounded((ImTextureID)(intptr_t)vram_handle,
+				ImVec2(mouse_x - s_mag_size, mouse_y - s_mag_size),
+				ImVec2(mouse_x + s_mag_size, mouse_y + s_mag_size),
+				ImVec2(
+					(s_vram_offset_x + ((mouse_x - begin.x) / s_scale - s_mag_size / (s_magnification * s_scale))) / 1024.f,
+					(s_vram_offset_y + ((mouse_y - begin.y) / s_scale - s_mag_size / (s_magnification * s_scale))) / 512.f
+					),
+				ImVec2(
+					(s_vram_offset_x + ((mouse_x - begin.x) / s_scale + s_mag_size / (s_magnification * s_scale))) / 1024.f,
+					(s_vram_offset_y + ((mouse_y - begin.y) / s_scale + s_mag_size / (s_magnification * s_scale))) / 512.f
+				), IM_COL32(255, 255, 255, 1), (float)s_mag_size
+			);
+			ImGui::GetWindowDrawList()->AddCallback(CallbackEnableBlending, nullptr);
+		}
+
+		if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !s_magnifying_glass_on) {
+			bool dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left, .01f);
 			if (bounding_box.Contains(ImGui::GetIO().MouseClickedPos[0]) && dragging) {
-				//ImGui::GetCurrentWindow()->Flags |= ImGuiWindowFlags_NoMove;
 				auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
 
-				auto distance_x = std::abs(delta.x - mouse_delta_x);
-				auto distance_y = std::abs(delta.y - mouse_delta_y);
+				auto distance_x = std::abs(delta.x - s_mouse_delta_x);
+				auto distance_y = std::abs(delta.y - s_mouse_delta_y);
 
-				distance_x /= scale;
-				distance_y /= scale;
+				distance_x /= s_scale;
+				distance_y /= s_scale;
 
-				if (mouse_delta_x > delta.x) {
+				if (s_mouse_delta_x > delta.x) {
 					distance_x *= -1;
 				}
 
-				if (mouse_delta_y > delta.y) {
+				if (s_mouse_delta_y > delta.y) {
 					distance_y *= -1;
 				}
 
-				mouse_delta_x = delta.x;
-				mouse_delta_y = delta.y;
+				s_mouse_delta_x = delta.x;
+				s_mouse_delta_y = delta.y;
 				
-				vram_offset_x = vram_offset_x - distance_x;
-				vram_offset_y = vram_offset_y - distance_y;
+				s_vram_offset_x = s_vram_offset_x - distance_x;
+				s_vram_offset_y = s_vram_offset_y - distance_y;
 			}
 			else if(dragging) {
 				ImGui::GetCurrentWindow()->Flags &= ~ImGuiWindowFlags_NoMove;
 				ImGui::StartMouseMovingWindow(ImGui::GetCurrentWindow());
 				ImGui::GetCurrentWindow()->Flags |= ImGuiWindowFlags_NoMove;
-				mouse_delta_x = mouse_delta_y = .0f;
+				s_mouse_delta_x = s_mouse_delta_y = .0f;
 			}
 		}
 		else {
-			mouse_delta_x = mouse_delta_y = .0f;
+			s_mouse_delta_x = s_mouse_delta_y = .0f;
 		}
 
-		if (ImGui::GetIO().MouseWheel != 0) {
-			scale += ImGui::GetIO().MouseWheel * SCALE_STEP;
-			scale = std::clamp(scale, MIN_SCALE, MAX_SCALE);
+		if (ImGui::GetIO().MouseWheel != 0 && !s_magnifying_glass_on) {
+			s_scale += ImGui::GetIO().MouseWheel * s_scale_step;
+			s_scale = std::clamp(s_scale, MIN_SCALE, MAX_SCALE);
 
-			if (scale == 1.0) {
-				vram_offset_x = .0f;
-				vram_offset_y = .0f;
+			if (s_scale == 1.0) {
+				s_vram_offset_x = .0f;
+				s_vram_offset_y = .0f;
 			}
 			else {
-				vram_offset_x = pos_x - (512.f / scale);
-				vram_offset_y = pos_y - (256.f / scale);
+				s_vram_offset_x = pos_x - (512.f / s_scale);
+				s_vram_offset_y = pos_y - (256.f / s_scale);
 			}
 			
 		}
@@ -336,20 +475,20 @@ void DebugView::GpuVramWindow() {
 			uint8_t mask = (pixel >> 15) & 1;
 			ImGui::Text("Mask/transparent: %d", mask);
 			ImGui::Text("Color: "); ImGui::SameLine();
-			ColorPicker(r, g, b);
+			ColorPicker(r, g, b, "#hovered");
 			ImGui::Text("R: %d, G: %d, B: %d", r, g, b);
 			if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-				picked_r = r;
-				picked_g = g;
-				picked_b = b;
-				picked_x = uint32_t(pos_x);
-				picked_y = uint32_t(pos_y);
+				s_picked_r = r;
+				s_picked_g = g;
+				s_picked_b = b;
+				s_picked_x = uint32_t(pos_x);
+				s_picked_y = uint32_t(pos_y);
 			}
 			ImGui::EndTooltip();
 		}
 	}
 	else {
-		mouse_delta_x = mouse_delta_y = .0f;
+		s_mouse_delta_x = s_mouse_delta_y = .0f;
 	}
 
 	m_highlited_areas.clear();
@@ -405,7 +544,7 @@ static void ColorPicker(psx::ColorAttribute color) {
 		ImGuiColorEditFlags_NoPicker);
 }
 
-void DebugView::ShowGpuCommandDetails(psx::GPUCommand const* cmd, size_t cmd_index) {
+void DebugView::ShowGpuCommandDetails(psx::GPUCommand const* cmd, size_t cmd_index, bool is_popup) {
 	if (cmd->reg == psx::CommandRegister::GP1 && cmd->gp1.type == psx::GP1CommandType::DISPLAY_MODE) {
 		auto disp_mode = cmd->gp1.disp_mode;
 		uint32_t hoz_resolution{};
@@ -430,19 +569,17 @@ void DebugView::ShowGpuCommandDetails(psx::GPUCommand const* cmd, size_t cmd_ind
 		ImGui::Text("Color depth          : %s", disp_mode.color_depth ? "24BPP" : "15BPP");
 		ImGui::Text("Interlace            : %s", disp_mode.vertical_interlace ? "Yes" : "No");
 		ImGui::Text("Flip screen          : %s", disp_mode.flip_screen_x_axis ? "Yes" : "No");
-		return;
 	}
-	if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::MISC &&
+	else if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::MISC &&
 		cmd->gp0.misc.type == psx::MiscCommandType::QUICK_FILL) {
 		ImGui::Text("X: %d, Y: %d", cmd->params.quick_fill.x, cmd->params.quick_fill.y);
 		ImGui::Text("W: %d, H: %d", cmd->params.quick_fill.w, cmd->params.quick_fill.h);
 		ImGui::Text("Color: "); ImGui::SameLine();
 		ColorPicker(uint8_t(cmd->gp0.misc.quick_fill.r),
 			uint8_t(cmd->gp0.misc.quick_fill.g),
-			uint8_t(cmd->gp0.misc.quick_fill.b));
-		return;
+			uint8_t(cmd->gp0.misc.quick_fill.b), fmt::format("#cmd{}", cmd_index));
 	}
-	if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::ENV &&
+	else if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::ENV &&
 		cmd->gp0.env.type == psx::EnvCommandType::TEXTURE_PAGE) {
 		auto texpage = cmd->gp0.env.texpage;
 		auto ybase = texpage.y_base_1 | (texpage.y_base_2 << 1);
@@ -456,24 +593,151 @@ void DebugView::ShowGpuCommandDetails(psx::GPUCommand const* cmd, size_t cmd_ind
 		ImGui::Text("Draw to display    : %s", texpage.draw_to_display ? "Yes" : "No");
 		ImGui::Text("Texture X-Flip     : %s", texpage.texture_x_flip ? "Yes" : "No");
 		ImGui::Text("Texture Y-Flip     : %s", texpage.texture_y_flip ? "Yes" : "No");
-		return;
 	}
-	if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::POLYGON) {
+	else if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::POLYGON) {
 		ShowGpuCmdPolygon(cmd, cmd_index);
-		return;
 	}
-	if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::RECTANGLE) {
+	else if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::RECTANGLE) {
 		ShowGpuCmdRectangle(cmd, cmd_index);
+	}
+	else if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::LINE) {
+		ShowGpuCmdLine(cmd, cmd_index);
+	}
+	else if(is_popup && !cmd->from_prev_frame) {
+		ImGui::Text("Open node for command data");
+	}
+
+	if (is_popup || cmd->from_prev_frame) {
 		return;
 	}
-	if (cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::LINE) {
-		ShowGpuCmdLine(cmd, cmd_index);
-		return;
+
+	bool is_shown = g_show_command_data_window && g_command_data_index == cmd_index;
+	auto id = ImGui::GetID((int)cmd_index);
+	ImGui::PushID(id);
+	if (ImGui::Checkbox("Command data", &is_shown)) {
+		g_command_data_index = (uint32_t)cmd_index;
+		g_show_command_data_window = is_shown;
+		g_command_data_list_version = m_psx->GetStatus().sysbus->GetGPU().m_gp_commands_version;
+	}
+	ImGui::PopID();
+
+	if ((cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::POLYGON &&
+		cmd->gp0.polygon.is_textured()) || 
+		(cmd->reg == psx::CommandRegister::GP0 && cmd->gp0.type == psx::GP0CommandType::RECTANGLE &&
+		cmd->gp0.rect.is_textured())) {
+		bool is_shown = g_show_command_texture_window && g_command_texture_index == cmd_index;
+		auto name = fmt::format("#cmd{}_texture", cmd_index);
+		auto id = ImGui::GetID(name.c_str());
+
+		ImGui::PushID(id);
+		if (ImGui::Checkbox("View texture", &is_shown)) {
+			g_command_texture_index = (uint32_t)cmd_index;
+			g_show_command_texture_window = is_shown;
+			g_command_texture_list_version = m_psx->GetStatus().sysbus->GetGPU().m_gp_commands_version;
+		}
+		ImGui::PopID();
 	}
 }
 
-void DebugView::ShowGpuCmdPolygon(psx::GPUCommand const* cmd, size_t cmd_index)
-{
+void DebugView::ShowGpuCmdPolygon(psx::GPUCommand const* cmd, size_t cmd_index) {
+	auto polygon_cmd = cmd->gp0.polygon;
+
+	auto blending_string = polygon_cmd.is_textured() ? (
+		polygon_cmd.is_raw_texture() ? "raw texture" : "texture blended"
+		) : "";
+	auto final_string = fmt::format("{} {}{} {}",
+		polygon_cmd.is_quad() ? "Quad" : "Triangle",
+		polygon_cmd.is_textured() ? "textured " : "",
+		polygon_cmd.is_semi_transparent() ? "semi-transparent" : "opaque",
+		blending_string);
+	ImGui::Text("%s", final_string.c_str());
+
+	if (polygon_cmd.is_semi_transparent()) {
+		constexpr const char* SEMI_TRANSPARENCIES[] = { "B/2+F/2", "B+F", "B-F", "B+F/4" };
+		ImGui::Text("Semi-transparency  : %s", SEMI_TRANSPARENCIES[cmd->params.rendering.transparency_type]);
+	}
+
+	uint32_t color_depth = {};
+	uint32_t x_base = {};
+	uint32_t y_base = {};
+	uint32_t clut_x = {};
+	uint32_t clut_y = {};
+	if (polygon_cmd.is_textured()) {
+		auto texpage = cmd->params.rendering.vertices[0].clut_page & 0xFFFF;
+		color_depth = (texpage >> 7) & 0x3;
+		constexpr const char* TEXPAGE_COLORS[] = { "4BPP", "8BPP", "15BPP", "RESERVED" };
+		ImGui::Text("Texpage bit depth  : %s", TEXPAGE_COLORS[color_depth]);
+		x_base = (texpage & 0xF) * 64;
+		y_base = (((texpage >> 4) & 1) | (((texpage >> 11) & 1) << 1)) * 256;
+		auto clut = (cmd->params.rendering.vertices[0].clut_page >> 16) & 0xFFFF;
+		clut_x = (clut & 0x3F) * 16;
+		clut_y = (clut >> 6) & 0x1FF;
+		if (color_depth != 2) {
+			ImGui::Text("Clut X: %d, Y: %d", clut_x, clut_y);
+		}
+	}
+
+	HighlitArea area1{};
+	area1.filled = true;
+	area1.name = polygon_cmd.is_quad() ? "Quad" : "Triangle";
+	area1.num_vertices = 3;
+	area1.cmd_index = cmd_index;
+
+	HighlitArea area2{};
+	area2 = area1;
+
+	for (size_t vertex_index = 0; vertex_index < (polygon_cmd.is_quad() ? 4 : 3); vertex_index++) {
+		auto const& vertex = cmd->params.rendering.vertices[vertex_index];
+		ImGui::Text("X%d: %d, Y%d: %d", vertex_index, vertex.x, vertex_index, vertex.y);
+
+		area1.x[vertex_index] = vertex.x;
+		area1.y[vertex_index] = vertex.y;
+
+		if (polygon_cmd.is_textured()) {
+			uint32_t u = cmd->params.rendering.vertices[vertex_index].u;
+			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
+			u += x_base;
+			v += y_base;
+			ImGui::Text("U%d: %d, V%d: %d", vertex_index, u,
+				vertex_index, v);
+		}
+
+		if (polygon_cmd.is_gouraud() && (!polygon_cmd.is_textured() || !polygon_cmd.is_raw_texture())) {
+			ImGui::Text("Color: "); ImGui::SameLine();
+			ColorPicker(uint8_t(cmd->params.rendering.vertices[vertex_index].color.r()),
+				uint8_t(cmd->params.rendering.vertices[vertex_index].color.g()),
+				uint8_t(cmd->params.rendering.vertices[vertex_index].color.b()),
+				fmt::format("#cmd{}{}", cmd_index, vertex_index));
+		}
+	}
+
+	/*
+	prim2.vertices[0] = vertices[1];
+	prim2.vertices[1] = vertices[2];
+	prim2.vertices[2] = vertices[3];
+	*/
+	m_highlited_areas.push_back(area1);
+
+	if (polygon_cmd.is_quad()) {
+		area2.x[0] = area1.x[1];
+		area2.x[1] = area1.x[2];
+		area2.x[2] = area1.x[3];
+
+		area2.y[0] = area1.y[1];
+		area2.y[1] = area1.y[2];
+		area2.y[2] = area1.y[3];
+		m_highlited_areas.push_back(area2);
+	}
+
+	GpuCommandAppendClipRect(cmd);
+
+	if ((!polygon_cmd.is_textured() || !polygon_cmd.is_raw_texture()) && !polygon_cmd.is_gouraud()) {
+		ImGui::Text("Color: "); ImGui::SameLine();
+		ColorPicker(uint8_t(cmd->params.rendering.vertices[0].color.r()),
+			uint8_t(cmd->params.rendering.vertices[0].color.g()),
+			uint8_t(cmd->params.rendering.vertices[0].color.b()),
+			fmt::format("#cmd{}", cmd_index));
+	}
 }
 
 void DebugView::ShowGpuCmdRectangle(psx::GPUCommand const* cmd, size_t cmd_index) {
@@ -550,14 +814,18 @@ void DebugView::ShowGpuCmdRectangle(psx::GPUCommand const* cmd, size_t cmd_index
 		}
 	}
 
+	std::swap(area.y[1], area.y[2]);
 	m_highlited_areas.push_back(area);
 
 	if (!rect_cmd.is_textured() || !rect_cmd.is_raw_texture()) {
 		ImGui::Text("Color: "); ImGui::SameLine();
 		ColorPicker(uint8_t(cmd->params.rendering.vertices[0].color.r()),
 			uint8_t(cmd->params.rendering.vertices[0].color.g()),
-			uint8_t(cmd->params.rendering.vertices[0].color.b()));
+			uint8_t(cmd->params.rendering.vertices[0].color.b()),
+			fmt::format("#cmd{}", cmd_index));
 	}
+
+	GpuCommandAppendClipRect(cmd);
 }
 
 void DebugView::ShowGpuCmdLine(psx::GPUCommand const* cmd, size_t cmd_index) {
@@ -599,6 +867,385 @@ void DebugView::ShowGpuCmdLine(psx::GPUCommand const* cmd, size_t cmd_index) {
 	GpuCommandAppendClipRect(cmd);
 }
 
+void DebugView::ShowGpuCmdData(psx::GPUCommand const* cmd, size_t cmd_index) {
+	auto window_name = fmt::format("Command {} data", cmd_index);
+	ImGui::Begin(window_name.c_str(), &g_show_command_data_window);
+
+	auto& gpu = m_psx->GetStatus().sysbus->GetGPU();
+	if (gpu.m_gp_commands_version == g_command_data_list_version) {
+		if (cmd->start_index >= gpu.m_recorded_gp_commands.size() ||
+			cmd->start_index == UINT64_MAX) {
+			ImGui::Text("Invalid data index");
+		}
+		else {
+			auto curr_index = cmd->start_index;
+			auto reg_index = gpu.m_recorded_gp_commands[curr_index].reg_index;
+			size_t item_count{1};
+			while (curr_index < gpu.m_recorded_gp_commands.size()) {
+				curr_index++;
+				auto const& stored_cmd = gpu.m_recorded_gp_commands[curr_index];
+				if (stored_cmd.reg_index == reg_index && !stored_cmd.end_marker) {
+					item_count++;
+				} else if (stored_cmd.end_marker &&
+					(stored_cmd.reg_index == reg_index || stored_cmd.end_reg_independent)) {
+					break;
+				}
+			}
+
+			ImGui::Text("Total bytes: %u", item_count * 4);
+			ImGui::Text("Register index: %d", reg_index);
+			ImGui::Separator();
+
+			ImGuiListClipper clipper{};
+			clipper.Begin((int)item_count);
+
+			while (clipper.Step()) {
+				for (size_t index = clipper.DisplayStart; index < clipper.DisplayEnd; index++) {
+					if (gpu.m_recorded_gp_commands[cmd->start_index + index].reg_index != reg_index) {
+						continue;
+					}
+					auto text = fmt::format("{:#010x}", gpu.m_recorded_gp_commands[cmd->start_index + index].value);
+					ImGui::Text(text.c_str());
+				}
+			}
+		}
+	}
+	else {
+		g_show_command_data_window = false;
+	}
+
+	ImGui::End();
+}
+
+struct TextureViewData {
+	uint32_t color_depth = {};
+	uint32_t x_base = {};
+	uint32_t y_base = {};
+	uint32_t clut_x = {};
+	uint32_t clut_y = {};
+	psx::video::Shader* render_shader;
+};
+
+static void DecodeStoreTexture(uint32_t vram_handle, 
+	uint32_t x, uint32_t y, 
+	uint32_t w, uint32_t h,
+	uint32_t color_depth, 
+	uint32_t clut_x, uint32_t clut_y, 
+	std::string const& fpath) {
+	if (w & 1) {
+		w += 1;
+	}
+
+	if (h & 1) {
+		h += 1;
+	}
+
+	auto compressed = std::vector<uint16_t>{};
+	const auto compressed_texture_size_pixels = w * h;
+	const auto compressed_texture_size_bytes = compressed_texture_size_pixels * 2;
+	compressed.resize(compressed_texture_size_bytes);
+
+	glGetTextureSubImage(vram_handle, 0, x, y, 0, w, h, 1, GL_RGBA,
+		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, compressed_texture_size_bytes,
+		(void*)compressed.data());
+
+	constexpr uint32_t PIXELS_PER_ENTRY[] = { 4, 2, 1, 1 };
+
+	const auto current_pixels_per_entry = PIXELS_PER_ENTRY[color_depth];
+	const auto decompressed_texture_w = current_pixels_per_entry * w;
+	const auto decompressed_texture_h = h;
+	const auto decompressed_texture_size_pixels = decompressed_texture_w * decompressed_texture_h;
+	const auto decompressed_texture_size_bytes = decompressed_texture_size_pixels * 4;
+	auto decompressed = std::vector<uint8_t>{};
+	decompressed.resize(decompressed_texture_size_bytes);
+
+	auto clut_map = std::unordered_map<uint32_t, uint32_t>{};
+
+	auto get_clut_entry = [&clut_map, vram_handle, clut_x, clut_y](uint32_t index) {
+		auto absolute_pos = ((clut_y & 0x1FF) * 1024 + ((clut_x + index) & 0x3FF));
+		if (clut_map.contains(absolute_pos)) {
+			return clut_map[absolute_pos];
+		}
+
+		uint32_t value{};
+		glGetTextureSubImage(vram_handle, 0, (clut_x + index) & 0x3FF, clut_y, 0, 1, 1, 1,
+			GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, 4, (void*)&value);
+		value &= 0xFFFF;
+
+		uint32_t decompressed_value{};
+		decompressed_value |= uint32_t(((value & 0x1F) / 31.f) * 255);
+		decompressed_value |= uint32_t((((value >> 5) & 0x1F) / 31.f) * 255) << 8;
+		decompressed_value |= uint32_t((((value >> 10) & 0x1F) / 31.f) * 255) << 16;
+		decompressed_value |= uint32_t(255) << 24;
+
+		clut_map[absolute_pos] = decompressed_value;
+		return decompressed_value;
+	};
+
+	if (color_depth == 0) {//4 bpp
+		for (uint32_t curr_pixel = 0; curr_pixel < compressed_texture_size_pixels;
+			curr_pixel++) {
+			auto curr_decompressed_pixel = curr_pixel * current_pixels_per_entry;
+			auto entry = compressed[curr_pixel];
+
+			auto index_1 = entry & 0xF;
+			auto index_2 = (entry >> 4) & 0xF;
+			auto index_3 = (entry >> 8) & 0xF;
+			auto index_4 = (entry >> 12) & 0xF;
+
+			auto pixel_1 = get_clut_entry(index_1);
+			auto pixel_2 = get_clut_entry(index_2);
+			auto pixel_3 = get_clut_entry(index_3);
+			auto pixel_4 = get_clut_entry(index_4);
+
+			auto write_ptr = std::bit_cast<uint32_t*>(decompressed.data()) + curr_decompressed_pixel;
+			write_ptr[0] = pixel_1;
+			write_ptr[1] = pixel_2;
+			write_ptr[2] = pixel_3;
+			write_ptr[3] = pixel_4;
+		}
+	} 
+	else if (color_depth == 1) {//8 bpp
+		for (uint32_t curr_pixel = 0; curr_pixel < compressed_texture_size_pixels;
+			curr_pixel++) {
+			auto curr_decompressed_pixel = curr_pixel * current_pixels_per_entry;
+			auto entry = compressed[curr_pixel];
+
+			auto index_1 = entry & 0xFF;
+			auto index_2 = (entry >> 8) & 0xFF;
+
+			auto pixel_1 = get_clut_entry(index_1);
+			auto pixel_2 = get_clut_entry(index_2);
+
+			auto write_ptr = std::bit_cast<uint32_t*>(decompressed.data()) + curr_decompressed_pixel;
+			write_ptr[0] = pixel_1;
+			write_ptr[1] = pixel_2;
+		}
+	}
+	else if (color_depth == 2) {//16 bpp
+		for (uint32_t curr_pixel = 0; curr_pixel < compressed_texture_size_pixels;
+			curr_pixel++) {
+			auto curr_decompressed_pixel = curr_pixel;
+			auto entry = compressed[curr_pixel];
+
+			uint32_t decompressed_pixel{};
+			decompressed_pixel |= uint32_t(((entry & 0x1F) / 31.f) * 255);
+			decompressed_pixel |= uint32_t((((entry >> 5) & 0x1F) / 31.f) * 255) << 8;
+			decompressed_pixel |= uint32_t((((entry >> 10) & 0x1F) / 31.f) * 255) << 16;
+			decompressed_pixel |= uint32_t(255) << 24;
+
+			auto write_ptr = std::bit_cast<uint32_t*>(decompressed.data()) + curr_decompressed_pixel;
+			write_ptr[0] = decompressed_pixel;
+		}
+	}
+
+	auto fs_path = std::filesystem::path(fpath);
+	auto extension = fs_path.extension().string();
+
+	if (extension == ".bmp") {
+		stbi_write_bmp(fpath.c_str(), decompressed_texture_w, decompressed_texture_h,
+			4, (void*)decompressed.data());
+	}
+	else if (extension == ".png") {
+		stbi_write_png(fpath.c_str(), decompressed_texture_w, decompressed_texture_h,
+			4, (void*)decompressed.data(), decompressed_texture_w * 4);
+	}
+}
+
+void DebugView::ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index) {
+	auto window_name = fmt::format("Command {} texture", cmd_index);
+	ImGui::Begin(window_name.c_str(), &g_show_command_texture_window);
+
+	auto& gpu = m_psx->GetStatus().sysbus->GetGPU();
+	if (gpu.m_gp_commands_version == g_command_texture_list_version) {
+		if (!m_texture_view_shader) {
+			m_texture_view_shader = std::make_unique<psx::video::Shader>("../shaders", "imgui_image_shader");
+		}
+
+		static int s_scale{1};
+		ImGui::SetNextItemWidth(80.f);
+		ImGui::InputInt("Scale texture", &s_scale);
+		s_scale = std::max(0, s_scale);
+
+		uint32_t color_depth = {};
+		uint32_t x_base = {};
+		uint32_t y_base = {};
+		uint32_t clut_x = {};
+		uint32_t clut_y = {};
+
+		constexpr uint32_t COLOR_DEPTH_DENOMINATOR[] = { 4, 2, 1, 1 };
+
+		auto texpage = cmd->params.rendering.vertices[0].clut_page & 0xFFFF;
+		color_depth = (texpage >> 7) & 0x3;
+		constexpr const char* TEXPAGE_COLORS[] = { "4BPP", "8BPP", "15BPP", "RESERVED" };
+		ImGui::Text("Texpage bit depth  : %s", TEXPAGE_COLORS[color_depth]);
+		auto curr_color_depth_denom = COLOR_DEPTH_DENOMINATOR[color_depth];
+		x_base = (texpage & 0xF) * 64;
+		y_base = (((texpage >> 4) & 1) | (((texpage >> 11) & 1) << 1)) * 256;
+		auto clut = (cmd->params.rendering.vertices[0].clut_page >> 16) & 0xFFFF;
+		clut_x = (clut & 0x3F) * 16;
+		clut_y = (clut >> 6) & 0x1FF;
+		if (color_depth != 2) {
+			ImGui::Text("Clut X: %d, Y: %d", clut_x, clut_y);
+		}
+
+		int32_t x[4] = {};
+		int32_t y[4] = {};
+
+		uint32_t view_u[4] = {};
+		uint32_t view_v[4] = {};
+
+		size_t num_vertices = cmd->gp0.type == psx::GP0CommandType::RECTANGLE ?
+			4 : (cmd->gp0.polygon.is_quad() ? 4 : 3);
+
+		for (size_t vertex_index = 0; vertex_index < 4; vertex_index++) {
+			auto const& vertex = cmd->params.rendering.vertices[vertex_index];
+			ImGui::Text("X%d: %d, Y%d: %d", vertex_index, vertex.x, vertex_index, vertex.y);
+
+			x[vertex_index] = vertex.x;
+			y[vertex_index] = vertex.y;
+			
+			uint32_t u = cmd->params.rendering.vertices[vertex_index].u;
+			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
+
+			view_u[vertex_index] = u;
+			view_v[vertex_index] = v;
+
+			u += x_base;
+			v += y_base;
+			ImGui::Text("U%d: %d, V%d: %d", vertex_index, u,
+				vertex_index, v);
+		}
+
+		int32_t min_x{}, max_x{};
+		int32_t min_y{}, max_y{};
+
+		uint32_t min_u{}, max_u{};
+		uint32_t min_v{}, max_v{};
+
+		if (num_vertices == 4) {
+			min_x = std::min({ x[0], x[1], x[2], x[3] });
+			max_x = std::max({ x[0], x[1], x[2], x[3] });
+
+			min_y = std::min({ y[0], y[1], y[2], y[3] });
+			max_y = std::max({ y[0], y[1], y[2], y[3] });
+
+			min_u = std::min({ view_u[0], view_u[1], view_u[2], view_u[3] });
+			max_u = std::max({ view_u[0], view_u[1], view_u[2], view_u[3] });
+
+			min_v = std::min({ view_v[0], view_v[1], view_v[2], view_v[3] });
+			max_v = std::max({ view_v[0], view_v[1], view_v[2], view_v[3] });
+		}
+		else {
+			min_x = std::min({ x[0], x[1], x[2] });
+			max_x = std::max({ x[0], x[1], x[2] });
+
+			min_y = std::min({ y[0], y[1], y[2] });
+			max_y = std::max({ y[0], y[1], y[2] });
+
+			min_u = std::min({ view_u[0], view_u[1], view_u[2] });
+			max_u = std::max({ view_u[0], view_u[1], view_u[2] });
+
+			min_v = std::min({ view_v[0], view_v[1], view_v[2] });
+			max_v = std::max({ view_v[0], view_v[1], view_v[2] });
+		}
+
+		auto size_x = std::abs(max_x - min_x);
+		auto size_y = std::abs(max_y - min_y);
+
+		ImGui::Text("Size X: %d, Size Y: %d", size_x, size_y);
+
+		auto vram_handle = m_psx->GetStatus().sysbus->GetGPU().GetRenderer()->GetVram().GetTextureHandle();
+
+		if (ImGui::Button("Save")) {
+			ImGuiFileDialog::Instance()->OpenDialog("SaveTexture", "Save texture",
+				".bmp,.png");
+		}
+		if (ImGuiFileDialog::Instance()->Display("SaveTexture")) {
+			if (ImGuiFileDialog::Instance()->IsOk()) {
+				std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+				std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+				
+				DecodeStoreTexture(vram_handle, 
+					min_u / curr_color_depth_denom + x_base,
+					min_v + y_base, 
+					(max_u - min_u) / curr_color_depth_denom,
+					(max_v - min_v),
+					color_depth, clut_x, clut_y,
+					filePathName);
+			}
+
+			ImGuiFileDialog::Instance()->Close();
+		}
+
+		TextureViewData render_data{
+			.color_depth = color_depth,
+			.x_base = x_base,
+			.y_base = y_base,
+			.clut_x = clut_x,
+			.clut_y = clut_y,
+			.render_shader = m_texture_view_shader.get()
+		};
+
+		auto begin = ImGui::GetCursorScreenPos();
+		begin.y += 20.f;
+
+		auto draw_list = ImGui::GetWindowDrawList();
+		auto viewport_size = m_win->GetSize();
+		
+		GpuCommandAppendPossiblyOverflowedAreas(
+			min_u / curr_color_depth_denom + x_base, 
+			min_v + y_base,
+			(max_u - min_u) / curr_color_depth_denom,
+			(max_v - min_v), "Texture source", cmd_index);
+
+		HighlitArea texpage_indicator{};
+		texpage_indicator.num_vertices = 2;
+		texpage_indicator.x[0] = 512;
+		texpage_indicator.y[0] = 256;
+		texpage_indicator.x[1] = (min_u / curr_color_depth_denom + x_base) & 0x3FF;
+		texpage_indicator.y[1] = (min_v + y_base) & 0x1FF;
+		m_highlited_areas.push_back(texpage_indicator);
+
+		if (color_depth != 2) {
+			HighlitArea clut_indicator{};
+			clut_indicator.num_vertices = 2;
+			clut_indicator.x[0] = 512;
+			clut_indicator.y[0] = 256;
+			clut_indicator.x[1] = clut_x;
+			clut_indicator.y[1] = clut_y;
+			m_highlited_areas.push_back(clut_indicator);
+		}
+
+		draw_list->AddCallback([](const ImDrawList*, const ImDrawCmd* draw_cmd) {
+			TextureViewData render_data{};
+			std::copy_n((TextureViewData*)draw_cmd->UserCallbackData, 1, &render_data);
+			render_data.render_shader->BindProgram();
+			render_data.render_shader->UpdateUniform("x_base", render_data.x_base);
+			render_data.render_shader->UpdateUniform("y_base", render_data.y_base);
+			render_data.render_shader->UpdateUniform("clut_x", render_data.clut_x);
+			render_data.render_shader->UpdateUniform("clut_y", render_data.clut_y);
+			render_data.render_shader->UpdateUniform("texpage_colors", render_data.color_depth);
+			glDisable(GL_BLEND);
+		}, (void*)&render_data, sizeof(render_data));
+		draw_list->AddImage((ImTextureID)(intptr_t)vram_handle, 
+			ImVec2(begin.x / viewport_size.w, begin.y / viewport_size.h),
+			ImVec2((begin.x + size_x * s_scale) / viewport_size.w, (begin.y + size_y * s_scale) / viewport_size.h),
+			ImVec2(min_u / 1024.f, min_v / 512.f),
+			ImVec2(max_u / 1024.f, max_v / 512.f));
+		draw_list->AddCallback([](const ImDrawList*, const ImDrawCmd* draw_cmd) {
+			auto gl_ctx = psx::video::GetCurrentGLContext();
+			gl_ctx->BindProgram(0);
+		}, nullptr);
+		draw_list->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+	}
+	else {
+		g_show_command_texture_window = false;
+	}
+
+	ImGui::End();
+}
+
 std::string DebugView::GetGpuCommandName(psx::GPUCommand const* cmd) {
 	switch (cmd->reg)
 	{
@@ -621,11 +1268,22 @@ std::string DebugView::GetGpuCommandName(psx::GPUCommand const* cmd) {
 			}
 		} break;
 		case GP0Command::POLYGON:
-			return "POLYGON";
+			return fmt::format("POLYGON (QUAD: {}, TEXTURED: {}, GOURAUD: {}, TRANSPARENT: {}, RAW MAPPING: {})", 
+				cmd->gp0.polygon.is_quad() ? "Y" : "N",
+				cmd->gp0.polygon.is_textured() ? "Y" : "N",
+				cmd->gp0.polygon.is_gouraud() ? "Y" : "N",
+				cmd->gp0.polygon.is_semi_transparent() ? "Y" : "N",
+				cmd->gp0.polygon.is_raw_texture() ? "Y" : "N");
 		case GP0Command::LINE:
-			return "LINE";
+			return fmt::format("LINE (GORAUD: {}, TRANSPARENT: {}, POLYLINE: {})", 
+				cmd->gp0.line.is_gouraud() ? "Y" : "N", 
+				cmd->gp0.line.is_semi_transparent() ? "Y" : "N",
+				cmd->gp0.line.is_polyline() ? "Y" : "N");
 		case GP0Command::RECTANGLE:
-			return "RECTANGLE";
+			return fmt::format("RECTANGLE (TEXTURED: {}, TRANSPARENT: {}, RAW MAPPING: {})", 
+				cmd->gp0.rect.is_textured() ? "Y" : "N", 
+				cmd->gp0.rect.is_semi_transparent() ? "Y" : "N",
+				cmd->gp0.rect.is_raw_texture() ? "Y" : "N");
 		case GP0Command::POLYLINE_END:
 			return "POLYLINE END MARKER";
 		case GP0Command::VRAM_BLIT:
@@ -709,87 +1367,87 @@ std::string DebugView::GetGpuCommandName(psx::GPUCommand const* cmd) {
 }
 
 bool DebugView::GetGpuCommandHasDetails(psx::GPUCommand const* cmd) {
-	switch (cmd->reg)
-	{
-	case psx::CommandRegister::GP0:
-		using GP0Command = psx::GP0CommandType;
-		switch (cmd->gp0.type)
-		{
-		case GP0Command::MISC: {
-			switch (cmd->gp0.misc.type)
-			{
-			case psx::MiscCommandType::NOP:
-			case psx::MiscCommandType::NOP_FIFO:
-				return false;
-			case psx::MiscCommandType::CLEAR_CACHE:
-				return false;
-			case psx::MiscCommandType::QUICK_FILL:
-				return true;
-			}
-		} break;
-		case GP0Command::POLYGON:
-			return true;
-		case GP0Command::LINE:
-			return true;
-		case GP0Command::RECTANGLE:
-			return true;
-		case GP0Command::POLYLINE_END:
-			return false;
-		case GP0Command::VRAM_BLIT:
-			return false;
-		case GP0Command::CPU_VRAM_BLIT:
-			return false;
-		case GP0Command::VRAM_CPU_BLIT:
-			return false;
-		case GP0Command::ENV: {
-			switch (cmd->gp0.env.type)
-			{
-			case psx::EnvCommandType::TEXTURE_PAGE:
-				return true;
-			case psx::EnvCommandType::TEXTURE_WINDOW:
-				return false;
-			case psx::EnvCommandType::SET_DRAW_TOP:
-				return false;
-			case psx::EnvCommandType::SET_DRAW_BOTTOM:
-				return false;
-			case psx::EnvCommandType::SET_DRAW_OFFSET:
-				return false;
-			case psx::EnvCommandType::MASK_BIT:
-				return false;
-			}
-		}
-		}
-		break;
-	case psx::CommandRegister::GP1:
-		using GP1Command = psx::GP1CommandType;
-		switch (cmd->gp1.type) {
-		case GP1Command::RESET:
-			return false;
-		case GP1Command::RESET_CMD_FIFO:
-			return false;
-		case GP1Command::IRQ_ACK:
-			return false;
-		case GP1Command::DISPLAY_ENABLE:
-			return false;
-		case GP1Command::DMA_DIRECTION:
-			return false;
-		case GP1Command::DISPLAY_AREA_START:
-			return false;
-		case GP1Command::HORIZONTAL_DISPLAY_RANGE:
-			return false;
-		case GP1Command::VERTICAL_DISPLAY_RANGE:
-			return false;
-		case GP1Command::DISPLAY_MODE:
-			return true;
-		case GP1Command::READ_GPU_REGISTER:
-			return false;
-		case GP1Command::SET_VRAM_SIZE:
-			return false;
-		}
-		break;
-	}
+	//switch (cmd->reg)
+	//{
+	//case psx::CommandRegister::GP0:
+	//	using GP0Command = psx::GP0CommandType;
+	//	switch (cmd->gp0.type)
+	//	{
+	//	case GP0Command::MISC: {
+	//		switch (cmd->gp0.misc.type)
+	//		{
+	//		case psx::MiscCommandType::NOP:
+	//		case psx::MiscCommandType::NOP_FIFO:
+	//			return false;
+	//		case psx::MiscCommandType::CLEAR_CACHE:
+	//			return false;
+	//		case psx::MiscCommandType::QUICK_FILL:
+	//			return true;
+	//		}
+	//	} break;
+	//	case GP0Command::POLYGON:
+	//		return true;
+	//	case GP0Command::LINE:
+	//		return true;
+	//	case GP0Command::RECTANGLE:
+	//		return true;
+	//	case GP0Command::POLYLINE_END:
+	//		return false;
+	//	case GP0Command::VRAM_BLIT:
+	//		return false;
+	//	case GP0Command::CPU_VRAM_BLIT:
+	//		return false;
+	//	case GP0Command::VRAM_CPU_BLIT:
+	//		return false;
+	//	case GP0Command::ENV: {
+	//		switch (cmd->gp0.env.type)
+	//		{
+	//		case psx::EnvCommandType::TEXTURE_PAGE:
+	//			return true;
+	//		case psx::EnvCommandType::TEXTURE_WINDOW:
+	//			return false;
+	//		case psx::EnvCommandType::SET_DRAW_TOP:
+	//			return false;
+	//		case psx::EnvCommandType::SET_DRAW_BOTTOM:
+	//			return false;
+	//		case psx::EnvCommandType::SET_DRAW_OFFSET:
+	//			return false;
+	//		case psx::EnvCommandType::MASK_BIT:
+	//			return false;
+	//		}
+	//	}
+	//	}
+	//	break;
+	//case psx::CommandRegister::GP1:
+	//	using GP1Command = psx::GP1CommandType;
+	//	switch (cmd->gp1.type) {
+	//	case GP1Command::RESET:
+	//		return false;
+	//	case GP1Command::RESET_CMD_FIFO:
+	//		return false;
+	//	case GP1Command::IRQ_ACK:
+	//		return false;
+	//	case GP1Command::DISPLAY_ENABLE:
+	//		return false;
+	//	case GP1Command::DMA_DIRECTION:
+	//		return false;
+	//	case GP1Command::DISPLAY_AREA_START:
+	//		return false;
+	//	case GP1Command::HORIZONTAL_DISPLAY_RANGE:
+	//		return false;
+	//	case GP1Command::VERTICAL_DISPLAY_RANGE:
+	//		return false;
+	//	case GP1Command::DISPLAY_MODE:
+	//		return true;
+	//	case GP1Command::READ_GPU_REGISTER:
+	//		return false;
+	//	case GP1Command::SET_VRAM_SIZE:
+	//		return false;
+	//	}
+	//	break;
+	//}
 
-	return false;
+	return true;
 }
 
 void DebugView::GpuCommandAppendVramAreas(psx::GPUCommand const* cmd, size_t cmd_index) {

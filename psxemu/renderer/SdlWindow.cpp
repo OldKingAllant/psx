@@ -103,7 +103,7 @@ namespace psx::video {
 		}
 
 		m_last_title_update_time = std::chrono::system_clock::now();
-		SDL_GL_SetSwapInterval(0);
+		//SDL_GL_SetSwapInterval(0);
 	}
 
 	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize, bool enable_debug)
@@ -281,6 +281,13 @@ namespace psx::video {
 		m_size = sz;
 		SDL_SetWindowSize((SDL_Window*)m_win,
 			(int)sz.w, (int)sz.h);
+	}
+
+	Rect SdlWindow::GetSize() {
+		int w{}, h{};
+		SDL_GetWindowSize((SDL_Window*)m_win,
+			&w, &h);
+		return Rect{.w = (size_t)w, .h = (size_t)h};
 	}
 
 	void SdlWindow::ForwardEventHandler(std::function<void(SDL_Event*)> handler) {

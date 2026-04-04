@@ -1,0 +1,89 @@
+#version 460 core
+
+in vec2 Frag_UV;
+in vec4 Frag_Color;
+
+layout(binding = 0) uniform sampler2D vram_tex;
+uniform uint x_base;
+uniform uint y_base;
+uniform uint clut_x;
+uniform uint clut_y;
+uniform uint texpage_colors;
+
+layout (location = 0) out vec4 Out_Color;
+
+void vram_fetch(in uint x, in uint y, out vec4 vram_color) {
+	x = x & 0x3FF;
+	y = y & 0x1FF;
+	vram_color = texelFetch(vram_tex, ivec2(x, y), 0);
+}
+
+void vram_clut_index(in uint x, in uint y, out uint index) {
+	vec4 color;
+	vram_fetch(x, y, color);
+	index = 0;
+	index |= uint(floor(color.r * 31.0 + 0.5));
+	index |= (uint(floor(color.g * 31.0 + 0.5)) << 5);
+	index |= (uint(floor(color.b * 31.0 + 0.5)) << 10);
+	index |= (uint(floor(color.a + 0.5)) << 15);
+}
+
+void clut4(in uint texpage_x, in uint texpage_y, 
+           in uint u, in uint v, out uint index) {
+		   uint x = texpage_x + (u / 4);
+		   uint y = texpage_y + v;
+		   uint clut_index ;
+		   vram_clut_index(x, y, clut_index);
+		   uint x_affine = (texpage_x + u) & 3;
+		   index = (clut_index >> (4 * x_affine)) & 0xF;
+} 
+
+void clut8(in uint texpage_x, in uint texpage_y, 
+           in uint u, in uint v, out uint index) {
+		   uint x = texpage_x + (u / 2);
+		   uint y = texpage_y + v;
+		   uint clut_index ;
+		   vram_clut_index(x, y, clut_index);
+		   uint x_affine = (texpage_x + u) & 1;
+		   index = (clut_index >> (8 * x_affine)) & 0xFF;
+}
+
+void compute_uv(in vec2 uv, out vec2 effective_uv) {
+	uint u = uint(uv.x * 1024.0 + 0.5) & 0xFFFF;
+	uint v = uint(uv.y * 512.0 + 0.5) & 0xFFFF;
+	effective_uv = vec2(float(u), float(v));
+}
+
+void main()
+{
+	vec2 final_uv;
+	compute_uv(Frag_UV, final_uv);
+	uint u = uint(final_uv.x);
+	uint v = uint(final_uv.y);
+
+	uint texpage_x = x_base;
+	uint texpage_y = y_base;
+
+	uint clut_base_x = clut_x;
+	uint clut_base_y = clut_y;
+
+	uint clut_index_affine = 0;
+
+	if(texpage_colors == 0) {
+		clut4(texpage_x, texpage_y, u, v, 
+			clut_index_affine);
+		uint effective_clut_x = clut_base_x + clut_index_affine;
+		vram_fetch(effective_clut_x, clut_base_y, Out_Color);
+	} else if(texpage_colors == 1) {
+		clut8(texpage_x, texpage_y, u, v, 
+			clut_index_affine);
+		uint effective_clut_x = clut_base_x + clut_index_affine;
+		vram_fetch(effective_clut_x, clut_base_y, Out_Color);
+	} else if(texpage_colors == 2) {
+		uint effective_u = texpage_x + u;
+		uint effective_v = texpage_y + v;
+		vram_fetch(effective_u, effective_v, Out_Color);
+	} else {
+		Out_Color = vec4(1.0, 1.0, 0.0, 0.0);
+	}
+}

@@ -87,6 +87,7 @@ namespace psx {
 			gpu_cmd.reg = CommandRegister::GP1;
 			gpu_cmd.gp1.type = GP1CommandType::DISPLAY_AREA_START;
 			gpu_cmd.gp1.disp_start = cmd_copy;
+			gpu_cmd.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(gpu_cmd);
 		}
 	}
@@ -108,6 +109,7 @@ namespace psx {
 			gpu_cmd.reg = CommandRegister::GP1;
 			gpu_cmd.gp1.type = GP1CommandType::HORIZONTAL_DISPLAY_RANGE;
 			gpu_cmd.gp1.hoz_disp_range = cmd_copy;
+			gpu_cmd.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(gpu_cmd);
 		}
 	}
@@ -129,6 +131,7 @@ namespace psx {
 			gpu_cmd.reg = CommandRegister::GP1;
 			gpu_cmd.gp1.type = GP1CommandType::VERTICAL_DISPLAY_RANGE;
 			gpu_cmd.gp1.vert_disp_range = cmd_copy;
+			gpu_cmd.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(gpu_cmd);
 		}
 	}
@@ -211,6 +214,7 @@ namespace psx {
 			gpu_cmd.reg = CommandRegister::GP1;
 			gpu_cmd.gp1.type = GP1CommandType::DISPLAY_MODE;
 			gpu_cmd.gp1.disp_mode = cmd_copy;
+			gpu_cmd.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(gpu_cmd);
 		}
 	}

@@ -189,6 +189,8 @@ namespace psx {
 				cmd_copy.params.rendering.vertices[3].clut_page = vertices[3].clut_page;
 			}
 
+			cmd_copy.start_index = gpu.GetLatestIdleIndex();
+
 			gpu.GetRecordedCommands().emplace_back(cmd_copy);
 		}
 	}
@@ -388,6 +390,8 @@ namespace psx {
 			cmd_copy.params.rendering.vertices[3].v = (vertices[3].uv >> 16) & 0xFFFF;
 			cmd_copy.params.rendering.vertices[3].clut_page = vertices[3].clut_page;
 
+			cmd_copy.start_index = gpu.GetLatestIdleIndex();
+
 			gpu.GetRecordedCommands().emplace_back(cmd_copy);
 		}
 	}
@@ -421,6 +425,8 @@ namespace psx {
 			line.semi_transparency_type = transparency_type;
 			line.semi_transparent = true;
 		}
+
+		u64 curr_iteration{};
 
 		while (!cmd_fifo.empty()) {
 			u32 curr_color = prev_color;
@@ -465,6 +471,9 @@ namespace psx {
 				cmd_copy.params.rendering.vertices[0].y = v0.y + gpu.GetYOffset();
 				cmd_copy.params.rendering.vertices[1].y = v1.y + gpu.GetYOffset();
 
+				cmd_copy.start_index = gpu.GetLatestIdleIndex();
+
+
 				gpu.GetRecordedCommands().emplace_back(cmd_copy);
 			}
 
@@ -479,6 +488,7 @@ namespace psx {
 					cmd_copy.frame_of_recording = gpu.GetVblankCount();
 					cmd_copy.gp0.type = GP0CommandType::POLYLINE_END;
 					cmd_copy.gp0.end_marker = {};
+					cmd_copy.start_index = gpu.GetLatestIdleIndex();
 					gpu.GetRecordedCommands().emplace_back(cmd_copy);
 				}
 			}
@@ -486,6 +496,8 @@ namespace psx {
 			prev_x = curr_x;
 			prev_y = curr_y;
 			prev_color = curr_color;
+
+			curr_iteration++;
 		}
 	}
 
@@ -689,6 +701,7 @@ namespace psx {
 			cmd_copy.params.quick_fill.y = y_off;
 			cmd_copy.params.quick_fill.w = w;
 			cmd_copy.params.quick_fill.h = h;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}

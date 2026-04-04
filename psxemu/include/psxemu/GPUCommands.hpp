@@ -403,6 +403,7 @@ namespace psx {
 		u32 value;
 		u64 frame_of_recording;
 		bool from_prev_frame;
+		u64 start_index = UINT64_MAX;
 
 		union {
 			GP1Command gp1;

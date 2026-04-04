@@ -269,6 +269,10 @@ namespace psx {
 			return (i32)m_y_off;
 		}
 
+		FORCE_INLINE u64 GetLatestIdleIndex() const {
+			return m_latest_idle_index;
+		}
+			 
 		void PushStateConfiguration(std::vector<GPUCommand>& commands) const;
 		void LoadStateConfiguration(std::vector<GPUCommand> const& commands);
 
@@ -370,8 +374,12 @@ namespace psx {
 		struct RegisterCommand {
 			u32 reg_index;
 			u32 value;
+			bool end_marker;
+			bool end_reg_independent;
 		};
 
 		std::vector<RegisterCommand> m_recorded_gp_commands;
+		u64 m_gp_commands_version;
+		u64 m_latest_idle_index;
 	};
 }

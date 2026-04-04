@@ -69,10 +69,12 @@ private :
 	void ShowDriveCommand(psx::DriveCommand const* cmd);
 
 	bool ShowGpuCommandEntry(size_t index, psx::GPUCommand const* cmd, bool has_details);
-	void ShowGpuCommandDetails(psx::GPUCommand const* cmd, size_t cmd_index);
+	void ShowGpuCommandDetails(psx::GPUCommand const* cmd, size_t cmd_index, bool is_popup);
 	void ShowGpuCmdPolygon(psx::GPUCommand const* cmd, size_t cmd_index);
 	void ShowGpuCmdRectangle(psx::GPUCommand const* cmd, size_t cmd_index);
 	void ShowGpuCmdLine(psx::GPUCommand const* cmd, size_t cmd_index);
+	void ShowGpuCmdData(psx::GPUCommand const* cmd, size_t cmd_index);
+	void ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index);
 
 	std::string GetGpuCommandName(psx::GPUCommand const* cmd);
 	bool GetGpuCommandHasDetails(psx::GPUCommand const* cmd);
@@ -112,4 +114,6 @@ private :
 		uint32_t x_bot, y_bot;
 		int32_t x_off, y_off;
 	} m_gpu_saved_conf;
+
+	std::unique_ptr<psx::video::Shader> m_texture_view_shader;
 };

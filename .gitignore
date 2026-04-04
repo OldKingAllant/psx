@@ -13,5 +13,7 @@ config/*
 psxemu_log.txt
 hash/x64/*
 wave/x64/*
+stb/x64/*
+captures/*
 *.bin
 *.wav

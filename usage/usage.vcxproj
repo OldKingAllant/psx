@@ -117,7 +117,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)/x64/Debug/psxemu.lib;$(SolutionDir)/x64/Debug/hash.lib;$(SolutionDir)/x64/Debug/wave.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)/x64/Debug/psxemu.lib;$(SolutionDir)/x64/Debug/hash.lib;$(SolutionDir)/x64/Debug/wave.lib;$(SolutionDir)/x64/Debug/stb.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -137,12 +137,13 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)/x64/Release/psxemu.lib;$(SolutionDir)/x64/Release/hash.lib;$(SolutionDir)/x64/Release/wave.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)/x64/Release/psxemu.lib;$(SolutionDir)/x64/Release/hash.lib;$(SolutionDir)/x64/Release/wave.lib;$(SolutionDir)/x64/Release/stb.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\psxemu\platform\main.cpp" />
     <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp" />
+    <ClCompile Include="..\thirdparty\ImGuiFileDialog\ImGuiFileDialog.cpp" />
     <ClCompile Include="..\thirdparty\imgui\backends\imgui_impl_opengl3.cpp" />
     <ClCompile Include="..\thirdparty\imgui\backends\imgui_impl_sdl2.cpp" />
     <ClCompile Include="..\thirdparty\imgui\imgui.cpp" />
@@ -161,6 +162,10 @@
     <ClInclude Include="display\DisplayWindow.hpp" />
     <ClInclude Include="imgui_debug\DebugView.hpp" />
     <ClInclude Include="tty\TTY_Console.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shaders\imgui_image_shader.fragment" />
+    <None Include="..\shaders\imgui_image_shader.vertex" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

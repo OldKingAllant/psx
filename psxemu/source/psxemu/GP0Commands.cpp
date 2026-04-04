@@ -88,6 +88,7 @@ namespace psx {
 			cmd_copy.gp0.type = GP0CommandType::ENV;
 			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_PAGE;
 			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}
@@ -111,6 +112,7 @@ namespace psx {
 				cmd_copy.gp0.type = GP0CommandType::MISC;
 				cmd_copy.gp0.misc.type = MiscCommandType::NOP;
 				cmd_copy.gp0.misc.cmd = cmd;
+				cmd_copy.start_index = m_latest_idle_index;
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 			break;
@@ -126,6 +128,7 @@ namespace psx {
 				cmd_copy.gp0.type = GP0CommandType::MISC;
 				cmd_copy.gp0.misc.type = MiscCommandType::CLEAR_CACHE;
 				cmd_copy.gp0.misc.cmd = cmd;
+				cmd_copy.start_index = m_latest_idle_index;
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 			break;
@@ -145,6 +148,7 @@ namespace psx {
 				cmd_copy.gp0.type = GP0CommandType::MISC;
 				cmd_copy.gp0.misc.type = MiscCommandType::NOP_FIFO;
 				cmd_copy.gp0.misc.cmd = cmd;
+				cmd_copy.start_index = m_latest_idle_index;
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 			break;
@@ -290,6 +294,7 @@ namespace psx {
 			cmd_copy.gp0.type = GP0CommandType::ENV;
 			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_TOP;
 			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}
@@ -322,6 +327,7 @@ namespace psx {
 			cmd_copy.gp0.type = GP0CommandType::ENV;
 			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_BOTTOM;
 			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}
@@ -361,6 +367,7 @@ namespace psx {
 			cmd_copy.gp0.type = GP0CommandType::ENV;
 			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_OFFSET;
 			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}
@@ -402,6 +409,7 @@ namespace psx {
 			cmd_copy.gp0.type = GP0CommandType::ENV;
 			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_WINDOW;
 			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}
@@ -439,6 +447,7 @@ namespace psx {
 			cmd_copy.gp0.type = GP0CommandType::ENV;
 			cmd_copy.gp0.env.type = EnvCommandType::MASK_BIT;
 			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
 	}
@@ -550,6 +559,7 @@ namespace psx {
 				cmd_copy.params.vram_vram_blit.dst_y = dst_y;
 				cmd_copy.params.vram_vram_blit.w = w;
 				cmd_copy.params.vram_vram_blit.h = h;
+				cmd_copy.start_index = m_latest_idle_index;
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 		}
@@ -604,6 +614,7 @@ namespace psx {
 				cmd_copy.params.cpu_vram_blit.dst_y = m_cpu_vram_blit.curr_y;
 				cmd_copy.params.cpu_vram_blit.w = m_cpu_vram_blit.size_x;
 				cmd_copy.params.cpu_vram_blit.h = m_cpu_vram_blit.size_y;
+				cmd_copy.start_index = m_latest_idle_index;
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 		}
@@ -660,6 +671,7 @@ namespace psx {
 				cmd_copy.params.vram_cpu_blit.src_y = m_vram_cpu_blit.curr_y;
 				cmd_copy.params.vram_cpu_blit.w = m_vram_cpu_blit.size_x;
 				cmd_copy.params.vram_cpu_blit.h = m_vram_cpu_blit.size_y;
+				cmd_copy.start_index = m_latest_idle_index;
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 		}

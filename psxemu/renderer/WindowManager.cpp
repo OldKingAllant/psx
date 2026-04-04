@@ -42,6 +42,9 @@ namespace psx::video {
 
 		if (win_pointer == m_windows.end())
 			return;
+		if (m_unfiltered_windows.contains(win_pointer->second)) {
+			return;
+		}
 
 		win_pointer->second->HandleEvent(event);
 	}
@@ -49,6 +52,9 @@ namespace psx::video {
 	
 	void WindowManager::DeliverForceIgnoreID(SDL_Event* event) {
 		for (auto const& [id, window] : m_windows) {
+			if (m_unfiltered_windows.contains(window)) {
+				continue;
+			}
 			if (window->HandleEvent(event) && !m_opts.propagate_event)
 				break;
 		}

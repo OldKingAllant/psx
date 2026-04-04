@@ -28,6 +28,9 @@
     <Filter Include="Source Files\debug">
       <UniqueIdentifier>{db2d781e-dd09-4690-a99b-3fcda21bad38}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\ImGuiFileDialog">
+      <UniqueIdentifier>{35e3152f-cf5a-45a9-8cb1-42496036f195}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp">
@@ -72,6 +75,9 @@
     <ClCompile Include="imgui_debug\GPUDebug.cpp">
       <Filter>Source Files\debug</Filter>
     </ClCompile>
+    <ClCompile Include="..\thirdparty\ImGuiFileDialog\ImGuiFileDialog.cpp">
+      <Filter>Source Files\ImGuiFileDialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tty\TTY_Console.hpp">
@@ -86,5 +92,13 @@
     <ClInclude Include="imgui_debug\DebugView.hpp">
       <Filter>Header Files\debug</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\shaders\imgui_image_shader.vertex">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\shaders\imgui_image_shader.fragment">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

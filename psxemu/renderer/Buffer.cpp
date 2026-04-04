@@ -16,7 +16,6 @@ namespace psx::video {
 	void Buffer::Resize(u32 new_sz) {
 		auto gl_ctx = GetCurrentGLContext();
 		gl_ctx->BindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
 		
 		u32 prots = 0;
 
@@ -46,18 +45,13 @@ namespace psx::video {
 
 		if (m_persistent)
 			Map(0, new_sz);
-
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 	}
 
 	void Buffer::BufferSubData(const void* data, u64 off, u32 len) {
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
-
 		auto gl_ctx = GetCurrentGLContext();
 		gl_ctx->BindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
 		glBufferSubData(GL_COPY_WRITE_BUFFER, (GLintptr)off,
 			(GLsizeiptr)len, data);
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 	}
 
 	void* Buffer::Map(u32 start, u32 len) {
@@ -90,15 +84,12 @@ namespace psx::video {
 
 		auto gl_ctx = GetCurrentGLContext();
 		gl_ctx->BindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
 
 		auto ptr = glMapBufferRange(GL_COPY_WRITE_BUFFER, start, len,
 			(GLbitfield)prots);
 
 		m_buffer_ptr = ptr;
 		m_mapped = true;
-
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 
 		return m_buffer_ptr;
 	}
@@ -109,13 +100,9 @@ namespace psx::video {
 
 		glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
 
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
-
 		auto gl_ctx = GetCurrentGLContext();
 		gl_ctx->BindBuffer(GL_COPY_WRITE_BUFFER, m_buffer_id);
 		glUnmapBuffer(GL_COPY_WRITE_BUFFER);
-		
-		//glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 
 		m_mapped = false;
 		m_buffer_ptr = nullptr;

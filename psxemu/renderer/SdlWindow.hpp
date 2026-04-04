@@ -65,6 +65,7 @@ namespace psx::video {
 		bool HasInputFocus() const;
 
 		void SetSize(Rect sz);
+		Rect GetSize();
 
 		void MakeContextCurrent();
 
