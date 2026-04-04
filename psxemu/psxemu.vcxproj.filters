@@ -464,9 +464,6 @@
     <ClCompile Include="source\psxemu\Interpreter.cpp">
       <Filter>Resource Files\cpu</Filter>
     </ClCompile>
-    <ClCompile Include="source\MIPS1.cpp">
-      <Filter>Resource Files\cpu</Filter>
-    </ClCompile>
     <ClCompile Include="source\psxemu\MemoryControl.cpp">
       <Filter>Resource Files\memory</Filter>
     </ClCompile>
@@ -641,9 +638,6 @@
     <ClCompile Include="source\psxemu\KernelFs.cpp">
       <Filter>Resource Files\bios</Filter>
     </ClCompile>
-    <ClCompile Include="KernelExe.cpp">
-      <Filter>Resource Files\bios</Filter>
-    </ClCompile>
     <ClCompile Include="source\psxemu\MCFilesystem.cpp">
       <Filter>Resource Files\bios\hlefs</Filter>
     </ClCompile>
@@ -670,6 +664,12 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\GPUCommandTracking.cpp">
       <Filter>Resource Files\dev\gpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\KernelExe.cpp">
+      <Filter>Resource Files\bios</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\MIPS1.cpp">
+      <Filter>Resource Files\cpu</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

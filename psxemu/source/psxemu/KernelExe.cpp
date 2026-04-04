@@ -13,7 +13,7 @@ namespace psx::kernel {
 	void Kernel::LoadTest(VirtualAddress path_ptr, VirtualAddress headerbuf) {
 		if (path_ptr.addr == 0x0 || headerbuf.addr == 0x0) {
 			m_sys_status->cpu->GetRegs().v0 = 0x0;
-			LOG_ERROR("KERNEL", "[KERNELFS] Failed LoadTest({:#010x},{:#010x}): one address in nullptr", 
+			LOG_ERROR("KERNEL", "[KERNELFS] Failed LoadTest({:#010x},{:#010x}): one address is nullptr", 
 				path_ptr.addr, headerbuf.addr);
 			return;
 		}

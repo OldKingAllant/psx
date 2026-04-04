@@ -250,7 +250,6 @@
     <ClCompile Include="..\common\SetThreadName.cpp" />
     <ClCompile Include="audio\AudioBackend.cpp" />
     <ClCompile Include="input\KeyboardManager.cpp" />
-    <ClCompile Include="KernelExe.cpp" />
     <ClCompile Include="renderer\Buffer.cpp" />
     <ClCompile Include="renderer\FrameBuffer.cpp" />
     <ClCompile Include="renderer\GLContext.cpp" />
@@ -265,7 +264,6 @@
     <ClCompile Include="renderer\VertexBuffer.cpp" />
     <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="renderer\WindowManager.cpp" />
-    <ClCompile Include="source\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\ADPCM.cpp" />
     <ClCompile Include="source\psxemu\BiosHash.cpp" />
     <ClCompile Include="source\psxemu\CDDrive.cpp" />
@@ -290,6 +288,7 @@
     <ClCompile Include="source\psxemu\GTE.cpp" />
     <ClCompile Include="source\psxemu\GTEOpcodes.cpp" />
     <ClCompile Include="source\psxemu\HLEFilesystem.cpp" />
+    <ClCompile Include="source\psxemu\KernelExe.cpp" />
     <ClCompile Include="source\psxemu\KernelFs.cpp" />
     <ClCompile Include="source\psxemu\KernelHle.cpp" />
     <ClCompile Include="source\psxemu\Interpreter.cpp" />
@@ -304,6 +303,7 @@
     <ClCompile Include="source\psxemu\MDECOutDma.cpp" />
     <ClCompile Include="source\psxemu\MemoryControl.cpp" />
     <ClCompile Include="source\psxemu\MemoryMapper.cpp" />
+    <ClCompile Include="source\psxemu\MIPS1.cpp" />
     <ClCompile Include="source\psxemu\NullController.cpp" />
     <ClCompile Include="source\psxemu\NullMemcard.cpp" />
     <ClCompile Include="source\psxemu\OfficialMemcard.cpp" />
