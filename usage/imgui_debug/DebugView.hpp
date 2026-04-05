@@ -63,6 +63,7 @@ private :
 	void MemcardWindow(psx::kernel::MCFs& mcfs, psx::u32 slot);
 	void GpuCommandWindow();
 	void GpuVramWindow();
+	void GpuDumpVramWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
 

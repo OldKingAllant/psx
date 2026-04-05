@@ -81,7 +81,7 @@ void DebugView::Update() {
 	//DmaWindow();
 	//MemoryConfigWindow();
 	//TimersWindow();
-	//GpuWindow();
+	//
 	//KernelWindow();
 	//DriveWindow();
 	//MdecWindow();
@@ -89,6 +89,8 @@ void DebugView::Update() {
 	//MemcardWindow(m_psx->GetKernel().GetMC1Fs(), 1);
 	GpuCommandWindow();
 	GpuVramWindow();
+	GpuWindow();
+	GpuDumpVramWindow();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

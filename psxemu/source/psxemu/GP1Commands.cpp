@@ -33,6 +33,9 @@ namespace psx {
 
 	void Gpu::ResetFifo() {
 		m_cmd_fifo.clear();
+		m_cmd_status = Status::IDLE;
+		m_required_params = 0;
+		m_rem_params = 0;
 	}
 
 	void Gpu::DispEnable(bool enable) {

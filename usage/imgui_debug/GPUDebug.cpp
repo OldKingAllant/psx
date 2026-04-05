@@ -496,6 +496,71 @@ void DebugView::GpuVramWindow() {
 	ImGui::End();
 }
 
+static void DecodeStoreTexture(uint32_t vram_handle,
+	uint32_t x, uint32_t y,
+	uint32_t w, uint32_t h,
+	uint32_t color_depth,
+	uint32_t clut_x, uint32_t clut_y,
+	std::string const& fpath);
+
+void DebugView::GpuDumpVramWindow() {
+	static uint32_t s_x_off{};
+	static uint32_t s_y_off{};
+	static uint32_t s_w{};
+	static uint32_t s_h{};
+	static uint32_t s_clut_x{};
+	static uint32_t s_clut_y{};
+	static int32_t s_bpp{};
+
+	auto vram_handle = m_psx->GetStatus().sysbus->GetGPU().GetRenderer()->GetVram().GetTextureHandle();
+
+	ImGui::Begin("Dump Vram");
+
+	ImGui::InputScalar("Position X", ImGuiDataType_U32, (void*)&s_x_off);
+	ImGui::InputScalar("Position Y", ImGuiDataType_U32, (void*)&s_y_off);
+	ImGui::InputScalar("W         ", ImGuiDataType_U32, (void*)&s_w);
+	ImGui::InputScalar("H         ", ImGuiDataType_U32, (void*)&s_h);
+	ImGui::InputScalar("Clut X    ", ImGuiDataType_U32, (void*)&s_clut_x);
+	ImGui::InputScalar("Clut Y    ", ImGuiDataType_U32, (void*)&s_clut_y);
+
+	constexpr const char* BPP_STRINGS[] = { "4BPP", "8BPP", "15BPP" };
+	ImGui::Combo("Color bpp", &s_bpp, BPP_STRINGS, IM_ARRAYSIZE(BPP_STRINGS));
+
+	s_x_off = std::clamp<uint32_t>(s_x_off, 0, 1023);
+	s_y_off = std::clamp<uint32_t>(s_y_off, 0, 511);
+	s_w = std::clamp<uint32_t>(s_w, 0, 1024);
+	s_h = std::clamp<uint32_t>(s_h, 0, 512);
+	s_clut_x = std::clamp<uint32_t>(s_clut_x, 0, 1023);
+	s_clut_y = std::clamp<uint32_t>(s_clut_y, 0, 511);
+	s_bpp = std::clamp<int32_t>(s_bpp, 0, 2);
+
+	//constexpr uint32_t PIXELS_PER_ENTRY[] = { 4, 2, 1, 1 };
+	//const auto current_pixels_per_entry = PIXELS_PER_ENTRY[(uint32_t)s_bpp];
+
+	if (ImGui::Button("Dump")) {
+		ImGuiFileDialog::Instance()->OpenDialog("DumpVram", "Dump rectangle",
+			".bmp,.png");
+	}
+	if (ImGuiFileDialog::Instance()->Display("DumpVram")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+			std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+
+			DecodeStoreTexture(vram_handle,
+				s_x_off,
+				s_y_off,
+				s_w,
+				s_h,
+				(uint32_t)s_bpp, s_clut_x, s_clut_y,
+				filePathName);
+		}
+
+		ImGuiFileDialog::Instance()->Close();
+	}
+
+	ImGui::End();
+}
+
 bool DebugView::ShowGpuCommandEntry(size_t index, psx::GPUCommand const* cmd, bool has_details) {
 	ImVec4 color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 	if (cmd->reg == psx::CommandRegister::GP1) {
@@ -926,6 +991,131 @@ struct TextureViewData {
 	psx::video::Shader* render_shader;
 };
 
+static void DownloadPossiblyOverflowingTexture(uint32_t vram_handle,
+	uint32_t x, uint32_t y,
+	uint32_t w, uint32_t h,
+	std::vector<uint16_t>& out_data,
+	uint32_t buf_size) {
+	if (x + w < 1024 && y + h < 512) {
+		glGetTextureSubImage(vram_handle, 0, x, y, 0, w, h, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_data.data());
+	}
+	else if (x + w >= 1024 && y + h >= 512) {
+		uint16_t* out_buf_ptr = out_data.data();
+		//Top left
+		glGetTextureSubImage(vram_handle, 0, x, y, 0, 1024 - x, 512 - y, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		out_buf_ptr += (1024 - x) * (512 - y);
+
+		//Top right
+		glGetTextureSubImage(vram_handle, 0, 0, y, 0, (x + w) & 0x3FF, 512 - y, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		out_buf_ptr += ((x + w) & 0x3FF) * (512 - y);
+
+		//Bottom left
+		glGetTextureSubImage(vram_handle, 0, x, 0, 0, 1024 - x, (y + h) & 0x1FF, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		out_buf_ptr += (1024 - x) * ((y + h) & 0x1FF);
+
+		//Bottom right
+		glGetTextureSubImage(vram_handle, 0, 0, 0, 0, (x + w) & 0x3FF, (y + h) & 0x1FF, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		out_buf_ptr += ((x + w) & 0x3FF) * ((y + h) & 0x1FF);
+
+		const auto row_stride_pixels = w;
+		const auto second_part_offset = (1024 - x) * (512 - y);
+		const auto third_part_offset = second_part_offset + ((x + w) & 0x3FF) * (512 - y);
+		const auto fourth_part_offset = third_part_offset + (1024 - x) * ((y + h) & 0x1FF);
+
+		const auto left_side_stride_pixels = 1024 - x;
+		const auto right_side_stride_pixels = (x + w) & 0x3FF;
+
+		const auto rows_top = 512 - y;
+		const auto rows_bottom = (y + h) & 0x1FF;
+		
+		auto reorder_temp = std::vector<uint16_t>{};
+		reorder_temp.resize(out_data.size());
+		//Reorder top left and right
+		for (uint32_t curr_row = 0; curr_row < rows_top; curr_row++) {
+			const auto pos_in_unordered = left_side_stride_pixels * curr_row;
+			const auto pos_in_ordered = row_stride_pixels * curr_row;
+			std::copy_n(out_data.data() + pos_in_unordered, left_side_stride_pixels,
+				reorder_temp.data() + pos_in_ordered);
+		}
+		for (uint32_t curr_row = 0; curr_row < rows_top; curr_row++) {
+			const auto pos_in_unordered = second_part_offset + right_side_stride_pixels * curr_row;
+			const auto pos_in_ordered = (row_stride_pixels * curr_row) + left_side_stride_pixels;
+			std::copy_n(out_data.data() + pos_in_unordered, right_side_stride_pixels,
+				reorder_temp.data() + pos_in_ordered);
+		}
+
+		for (uint32_t curr_row = rows_top; curr_row < h; curr_row++) {
+			const auto pos_in_unordered = third_part_offset + left_side_stride_pixels * (curr_row - rows_top);
+			const auto pos_in_ordered = row_stride_pixels * curr_row;
+			std::copy_n(out_data.data() + pos_in_unordered, left_side_stride_pixels,
+				reorder_temp.data() + pos_in_ordered);
+		}
+		for (uint32_t curr_row = rows_top; curr_row < h; curr_row++) {
+			const auto pos_in_unordered = fourth_part_offset + right_side_stride_pixels * (curr_row - rows_top);
+			const auto pos_in_ordered = (row_stride_pixels * curr_row) + left_side_stride_pixels;
+			std::copy_n(out_data.data() + pos_in_unordered, right_side_stride_pixels,
+				reorder_temp.data() + pos_in_ordered);
+		}
+		std::copy_n(reorder_temp.begin(), reorder_temp.size(), out_data.data());
+	}
+	else if (x + w >= 1024) {
+		uint16_t* out_buf_ptr = out_data.data();
+		glGetTextureSubImage(vram_handle, 0, x, y, 0, 1024 - x, h, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		out_buf_ptr += (1024 - x) * h;
+		glGetTextureSubImage(vram_handle, 0, 0, y, 0, (x + w) & 0x3FF, h, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		//Reordering needed, pixels from the next row will
+		//be interpreted as part of the current row.
+		//The right part of the texture will end up
+		//at the bottom of the image, also with
+		//the same behavior as above
+		const auto row_stride_pixels = w;
+		const auto left_side_stride_pixels = 1024 - x;
+		const auto right_side_stride_pixels = (x + w) & 0x3FF;
+		const auto second_part_offset = (1024 - x) * h;
+		auto reorder_temp = std::vector<uint16_t>{};
+		reorder_temp.resize(out_data.size());
+		for (uint32_t curr_row = 0; curr_row < h; curr_row++) {
+			const auto pos_in_unordered = left_side_stride_pixels * curr_row;
+			const auto pos_in_ordered = row_stride_pixels * curr_row;
+			std::copy_n(out_data.data() + pos_in_unordered, left_side_stride_pixels,
+				reorder_temp.data() + pos_in_ordered);
+		}
+		for (uint32_t curr_row = 0; curr_row < h; curr_row++) {
+			const auto pos_in_unordered = second_part_offset + right_side_stride_pixels * curr_row;
+			const auto pos_in_ordered = (row_stride_pixels * curr_row) + left_side_stride_pixels;
+			std::copy_n(out_data.data() + pos_in_unordered, right_side_stride_pixels,
+				reorder_temp.data() + pos_in_ordered);
+		}
+		std::copy_n(reorder_temp.begin(), reorder_temp.size(), out_data.data());
+	}
+	else {
+		uint16_t* out_buf_ptr = out_data.data();
+		glGetTextureSubImage(vram_handle, 0, x, y, 0, w, 512 - y, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		out_buf_ptr += w * (512 - y);
+		glGetTextureSubImage(vram_handle, 0, x, 0, 0, w, (y + h) & 0x3FF, 1, GL_RGBA,
+			GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, buf_size,
+			(void*)out_buf_ptr);
+		//No reordering needed, bottom rectangle is already located
+		//in the correct position
+	}
+}
+
 static void DecodeStoreTexture(uint32_t vram_handle, 
 	uint32_t x, uint32_t y, 
 	uint32_t w, uint32_t h,
@@ -945,9 +1135,8 @@ static void DecodeStoreTexture(uint32_t vram_handle,
 	const auto compressed_texture_size_bytes = compressed_texture_size_pixels * 2;
 	compressed.resize(compressed_texture_size_bytes);
 
-	glGetTextureSubImage(vram_handle, 0, x, y, 0, w, h, 1, GL_RGBA,
-		GL_UNSIGNED_SHORT_1_5_5_5_REV_EXT, compressed_texture_size_bytes,
-		(void*)compressed.data());
+	DownloadPossiblyOverflowingTexture(vram_handle, x, y, w, h,
+		compressed, compressed_texture_size_bytes);
 
 	constexpr uint32_t PIXELS_PER_ENTRY[] = { 4, 2, 1, 1 };
 
@@ -1927,18 +2116,15 @@ void DebugView::GpuWindow() {
 	auto& gpu = m_psx->GetStatus()
 		.sysbus->m_gpu;
 
-	ImGui::Text("Currently in VBlank : %d", gpu.m_vblank);
-	ImGui::Text("Current scanline : %d", gpu.m_scanline);
+	ImGui::Text("Currently in VBlank   : %d", gpu.m_vblank);
+	ImGui::Text("Current scanline      : %d", gpu.m_scanline);
 	ImGui::Text("Current CMD FIFO size : %d", gpu.m_cmd_fifo.len());
-
-	auto curr_cmd_status = magic_enum::enum_name(gpu.m_cmd_status);
-
-	ImGui::Text("Command mode : %s", curr_cmd_status.data());
-
-	auto curr_read_stat = magic_enum::enum_name(gpu.m_read_status);
-
-	ImGui::Text("Read mode : %s", curr_cmd_status.data());
-	ImGui::Text("Read latch : %08X", gpu.m_gpu_read_latch);
+	if (ImGui::Button("Reset fifo")) {
+		gpu.ResetFifo();
+	}
+	ImGui::Text("Current status        : %s", magic_enum::enum_name(gpu.m_cmd_status).data());
+	ImGui::Text("Read mode             : %s", magic_enum::enum_name(gpu.m_read_status).data());
+	ImGui::Text("Read latch            : 0x%08X", gpu.m_gpu_read_latch);
 
 	ImGui::BeginTabBar("##stat");
 
