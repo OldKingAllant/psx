@@ -18,7 +18,6 @@
 #include <cmath>
 #include <memory>
 #include <filesystem>
-#include <fstream>
 
 #define _USE_MATH_DEFINES
 
@@ -49,35 +48,79 @@ void DebugView::GpuCommandWindow() {
 	if (record_commands) {
 		auto const& commands = gpu.GetRecordedCommands();
 
-		for (auto const& cmd : commands) {
-			GpuCommandLoadConfig(&cmd);
+		static uint64_t s_last_list_version{};
+		static std::vector<std::pair<std::string, uint32_t>> s_last_filtered_items{};
+		static size_t s_last_list_len{};
+
+		static ImGuiTextFilter s_filter{};
+		static bool s_show_gp0{ true };
+		static bool s_show_gp1{ true };
+
+		bool gp0_changed = ImGui::Checkbox("GP0", &s_show_gp0); ImGui::SameLine();
+		bool gp1_changed = ImGui::Checkbox("GP1", &s_show_gp1); ImGui::SameLine();
+		bool filter_changed = s_filter.Draw("Filter commands (not by value)", 200.f) ||
+			gp0_changed || gp1_changed;
+
+		size_t start_filter_index{s_last_list_len};
+		if (s_last_list_version != gpu.m_gp_commands_version || filter_changed) {
+			s_last_list_version = gpu.m_gp_commands_version;
+			start_filter_index = 0;
+			s_last_list_len = 0;
+			s_last_filtered_items.clear();
 		}
 
-		ImGuiListClipper clipper{};
-		clipper.Begin((int)commands.size());
+		while (start_filter_index < commands.size()) {
+			auto const& cmd = commands[start_filter_index];
+			if ((!s_show_gp0 && cmd.reg == psx::CommandRegister::GP0) ||
+				(!s_show_gp1 && cmd.reg == psx::CommandRegister::GP1)) {
+				start_filter_index++;
+				continue;
+			}
+			auto name = GetGpuCommandName(&cmd);
+			if (s_filter.PassFilter(name.c_str())) {
+				s_last_filtered_items.push_back({ name, (uint32_t)start_filter_index });
+			}
+			start_filter_index++;
+		}
+		s_last_list_len = start_filter_index;
 
-		while (clipper.Step()) {
-			for (size_t cmd_index = clipper.DisplayStart; cmd_index < clipper.DisplayEnd; cmd_index++) {
-				if (cmd_index >= commands.size()) {
-					break;
-				}
-				auto const& cmd = commands[cmd_index];
-				auto has_details = GetGpuCommandHasDetails(&cmd);
-				auto is_open = ShowGpuCommandEntry(cmd_index, &cmd, has_details);
-				auto is_hovered = ImGui::IsItemHovered();
+		if (s_last_filtered_items.size() == 0) {
+			ImGui::Text("No results");
+		}
+		else {
+			ImGuiListClipper clipper{};
+			clipper.Begin((int)s_last_filtered_items.size());
 
-				if (is_open || is_hovered) {
-					GpuCommandAppendVramAreas(&cmd, cmd_index);
-				}
+			size_t last_loaded_config_index{};
 
-				if (is_open && has_details) {
-					ShowGpuCommandDetails(&cmd, cmd_index, false);
-					ImGui::Separator();
-				}
-				else if(is_hovered && has_details) {
-					ImGui::BeginTooltip();
-					ShowGpuCommandDetails(&cmd, cmd_index, true);
-					ImGui::EndTooltip();
+			while (clipper.Step()) {
+				for (size_t cmd_index = clipper.DisplayStart; cmd_index < clipper.DisplayEnd; cmd_index++) {
+					if (cmd_index >= s_last_filtered_items.size()) {
+						break;
+					}
+					auto current_abs_index = s_last_filtered_items[cmd_index].second;
+					while (last_loaded_config_index <= (size_t)current_abs_index) {
+						GpuCommandLoadConfig(&commands[last_loaded_config_index]);
+						last_loaded_config_index++;
+					}
+					auto const& cmd = commands[current_abs_index];
+					auto has_details = !cmd.from_prev_frame && GetGpuCommandHasDetails(&cmd);
+					auto is_open = ShowGpuCommandEntry(current_abs_index, &cmd, has_details);
+					auto is_hovered = ImGui::IsItemHovered();
+
+					if (is_open || is_hovered) {
+						GpuCommandAppendVramAreas(&cmd, current_abs_index);
+					}
+
+					if (is_open && has_details) {
+						ShowGpuCommandDetails(&cmd, current_abs_index, false);
+						ImGui::Separator();
+					}
+					else if (is_hovered && has_details) {
+						ImGui::BeginTooltip();
+						ShowGpuCommandDetails(&cmd, current_abs_index, true);
+						ImGui::EndTooltip();
+					}
 				}
 			}
 		}
