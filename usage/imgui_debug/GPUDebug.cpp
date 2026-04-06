@@ -2173,55 +2173,132 @@ void DebugView::GpuWindow() {
 
 	if (ImGui::BeginTabItem("Status")) {
 		auto& gpustat = gpu.m_stat;
-		ImGui::Text("Tex X page : %d", (int)gpustat.texture_page_x_base * 64);
-		ImGui::Text("Tex Y page : %d", (int)gpustat.texture_page_y_base * 256);
+		uint32_t x_base = gpustat.texture_page_x_base * 64;
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Texture X page", ImGuiDataType_U32, (void*)&x_base);
+		gpustat.texture_page_x_base = std::min<uint32_t>(x_base, 960) / 64;
 
-		auto semi_trans = magic_enum::enum_name(gpustat.semi_transparency);
-		ImGui::Text("Semi transparency : %s", semi_trans.data());
-		auto texpage_col = magic_enum::enum_name(gpustat.tex_page_colors);
-		ImGui::Text("Texpage colors : %s", texpage_col.data());
+		uint32_t y_base = gpustat.texture_page_y_base * 256;
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Texture Y page", ImGuiDataType_U32, (void*)&y_base);
+		gpustat.texture_page_y_base = std::min<uint32_t>(y_base, 256) / 256;
 
-		ImGui::Text("Dither          : %d", gpustat.dither);
-		ImGui::Text("Draw to display : %d", gpustat.draw_to_display);
-		ImGui::Text("Set mask        : %d", gpustat.set_mask);
-		ImGui::Text("Mask enable     : %d", gpustat.draw_over_mask_disable);
-		ImGui::Text("Interlace field : %d", gpustat.interlace_field);
-		ImGui::Text("Flip H          : %d", gpustat.flip_screen_hoz);
-		ImGui::Text("Tex Y page 2    : %d", (int)gpustat.texture_page_y_base2 * 512);
-		ImGui::Text("Vertical interlace : %d", gpustat.vertical_interlace);
-		ImGui::Text("Display enable  : %d", gpustat.disp_enable);
-		ImGui::Text("IRQ1            : %d", gpustat.irq1);
-		ImGui::Text("Dreq            : %d", gpustat.dreq);
-		ImGui::Text("Recv cmd word   : %d", gpustat.recv_cmd_word);
-		ImGui::Text("Ready for VRAM -> CPU  : %d", gpustat.send_vram_cpu);
-		ImGui::Text("Recv DMA        : %d", gpustat.recv_dma);
+		constexpr const char* SEMI_TRANSPARENCIES[] = { "B/2+F/2", "B+F", "B-F", "B+F/4" };
+		auto semi_transparency = int(gpustat.semi_transparency);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::Combo("Semi-transparency", &semi_transparency, SEMI_TRANSPARENCIES, IM_ARRAYSIZE(SEMI_TRANSPARENCIES));
+		gpustat.semi_transparency = psx::SemiTransparency(semi_transparency);
 
-		auto dma_dir = magic_enum::enum_name(gpustat.dma_dir);
-		ImGui::Text("Dma direction   : %s", dma_dir.data());
-		ImGui::Text("Drawing odd     : %d", gpustat.drawing_odd);
+		constexpr const char* BPP[] = { "4BPP", "8BPP", "15BPP", "RESERVED" };
+		auto curr_bpp = int(gpustat.tex_page_colors);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::Combo("Texture BPP", &curr_bpp, BPP, IM_ARRAYSIZE(BPP));
+		gpustat.tex_page_colors = psx::TexPageColors(curr_bpp);
+
+		ImGui::Checkbox("Dither",          &gpustat.dither);
+		ImGui::Checkbox("Draw to display", &gpustat.draw_to_display);
+		ImGui::Checkbox("Set mask",        &gpustat.set_mask);
+		ImGui::Checkbox("Mask enable",     &gpustat.draw_over_mask_disable);
+		ImGui::Checkbox("Interlace field", &gpustat.interlace_field);
+		ImGui::Checkbox("Screen flip X",   &gpustat.flip_screen_hoz);
+		ImGui::Checkbox("Tex Y page 2",    &gpustat.texture_page_y_base2);
+		ImGui::Checkbox("Enable interlace",&gpustat.vertical_interlace);
+		ImGui::Checkbox("Display enable",  &gpustat.disp_enable);
+		ImGui::Checkbox("IRQ1",            &gpustat.irq1);
+		ImGui::Checkbox("Dreq",            &gpustat.dreq);
+		ImGui::Checkbox("Recv cmd word",   &gpustat.recv_cmd_word);
+		ImGui::Checkbox("Ready for VRAM -> CPU", &gpustat.send_vram_cpu);
+		ImGui::Checkbox("Recv DMA",        &gpustat.recv_dma);
+
+		constexpr const char* DMA_DIR[] = { "OFF", "INVALID", "CPU->GPU", "GPU->CPU" };
+		auto dma_dir = int(gpustat.dma_dir);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::Combo("DMA direction", &dma_dir, DMA_DIR, IM_ARRAYSIZE(DMA_DIR));
+		gpustat.dma_dir = psx::DmaDir(dma_dir);
+
+		ImGui::Checkbox("Drawing odd",     &gpustat.drawing_odd);
 
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Tex window")) {
-		ImGui::Text("Mask X : %d", gpu.m_tex_win.mask_x);
-		ImGui::Text("Mask Y : %d", gpu.m_tex_win.mask_y);
-		ImGui::Text("Offset X : %d", gpu.m_tex_win.offset_x);
-		ImGui::Text("Offset Y : %d", gpu.m_tex_win.offset_y);
+	if (ImGui::BeginTabItem("Non-stat")) {
+		constexpr const char* VIDEO_MODES[] = { "NTSC", "PAL"};
+		auto video_mode = int(gpu.m_video_mode);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::Combo("Video mode", &video_mode, VIDEO_MODES, IM_ARRAYSIZE(VIDEO_MODES));
+		gpu.m_video_mode = psx::ConsoleVideoMode(video_mode);
+
+		ImGui::Checkbox("Rectangle texture X flip", &gpu.m_tex_x_flip);
+		ImGui::Checkbox("Rectangle texture Y flip", &gpu.m_tex_y_flip);
+
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Mask X size", ImGuiDataType_U32, (void*)&gpu.m_tex_win.mask_x, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Mask Y size", ImGuiDataType_U32, (void*)&gpu.m_tex_win.mask_y, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Mask X offset", ImGuiDataType_U32, (void*)&gpu.m_tex_win.offset_x, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Mask Y offset", ImGuiDataType_U32, (void*)&gpu.m_tex_win.offset_y, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Horizontal resolution", ImGuiDataType_U32, (void*)&gpu.m_disp_conf.hoz_res, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Vertical resolution", ImGuiDataType_U32, (void*)&gpu.m_disp_conf.vert_res, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Draw area top left X", ImGuiDataType_U32, (void*)&gpu.m_x_top_left, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Draw area top left Y", ImGuiDataType_U32, (void*)&gpu.m_y_top_left, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Draw area bottom right X", ImGuiDataType_U32, (void*)&gpu.m_x_bot_right, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Draw area bottom right Y", ImGuiDataType_U32, (void*)&gpu.m_y_bot_right, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Draw offset X", ImGuiDataType_U32, (void*)&gpu.m_x_off, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Draw offset Y", ImGuiDataType_U32, (void*)&gpu.m_y_off, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Display start X", ImGuiDataType_U32, (void*)&gpu.m_disp_x_start, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SetNextItemWidth(150.f);
+		ImGui::InputScalar("Display start Y", ImGuiDataType_U32, (void*)&gpu.m_disp_y_start, 0, 0,
+			0, ImGuiInputTextFlags_ReadOnly);
+
 		ImGui::EndTabItem();
 	}
 
-	if (ImGui::BeginTabItem("Other data")) {
-		ImGui::Text("Horizontal resolution : %d", gpu.m_disp_conf.hoz_res);
-		ImGui::Text("Vertical resolution   : %d", gpu.m_disp_conf.vert_res);
-		ImGui::Text("Draw area top left X : %d, Y : %d",
-			gpu.m_x_top_left, gpu.m_y_top_left);
-		ImGui::Text("Draw area bottom right X : %d, Y : %d",
-			gpu.m_x_bot_right, gpu.m_y_bot_right);
-		ImGui::Text("Draw offset X : %d", gpu.m_x_off);
-		ImGui::Text("Draw offset Y : %d", gpu.m_y_off);
-		ImGui::Text("Display start X : %d", gpu.m_disp_x_start);
-		ImGui::Text("Display start Y : %d", gpu.m_disp_y_start);
+	if (ImGui::BeginTabItem("Command fifo")) {
+		ImGui::Text("Current size: %d", gpu.m_cmd_fifo.len());
+		ImGui::Text("Total bytes : %d", gpu.m_cmd_fifo.len() * sizeof(uint32_t));
+		ImGui::Separator();
+		if (gpu.m_cmd_fifo.len() > 0) {
+			ImGuiListClipper clipper{};
+			clipper.Begin((int)gpu.m_cmd_fifo.len());
+			while (clipper.Step()) {
+				for (int curr_index = clipper.DisplayStart; curr_index < clipper.DisplayEnd; 
+					curr_index++) {
+					ImGui::Text("Entry %d: %d", curr_index, *(gpu.m_cmd_fifo.begin() + curr_index));
+				}
+			}
+		}
+		else {
+			ImGui::Text("No entries");
+		}	
+
 		ImGui::EndTabItem();
 	}
 
