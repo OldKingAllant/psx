@@ -473,6 +473,9 @@ namespace psx {
 
 				cmd_copy.start_index = gpu.GetLatestIdleIndex();
 
+				if (curr_iteration == 0) {
+					cmd_copy.polyline_begin = true;
+				}
 
 				gpu.GetRecordedCommands().emplace_back(cmd_copy);
 			}

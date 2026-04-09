@@ -46,16 +46,21 @@ namespace psx {
 			return;
 		}
 
-		if (m_cmd_status == Status::IDLE && m_recording_commands) {
-			m_latest_idle_index = m_recorded_gp_commands.size();
-		}
+		if (m_recording_commands) {
+			if (m_cmd_status == Status::IDLE && GP0CommandType(value >> 29) != GP0CommandType::VRAM_CPU_BLIT) {
+				m_latest_idle_index = m_recorded_gp_commands.size();
+			}
 
-		if (m_recording_commands && GP0CommandType(value >> 29) != GP0CommandType::VRAM_CPU_BLIT) {
-			RegisterCommand cmd{};
-			cmd.reg_index = 0;
-			cmd.value = value;
-			m_recorded_gp_commands.push_back(cmd);
+			if (GP0CommandType(value >> 29) != GP0CommandType::VRAM_CPU_BLIT ||
+				m_cmd_status != Status::IDLE) {
+				RegisterCommand cmd{};
+				cmd.reg_index = 0;
+				cmd.value = value;
+				m_recorded_gp_commands.push_back(cmd);
+			}	
 		}
+		
+		auto prev_status = m_cmd_status;
 
 		switch (m_cmd_status)
 		{
@@ -127,7 +132,8 @@ namespace psx {
 			LOG_FLUSH();
 		}
 
-		if (m_recording_commands && m_cmd_status == Status::IDLE) {
+		if (m_recording_commands && m_cmd_status == Status::IDLE && 
+			prev_status != Status::VRAM_CPU_BLIT) {
 			RegisterCommand cmd{};
 			cmd.reg_index = 0;
 			cmd.value = 0;

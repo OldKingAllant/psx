@@ -31,7 +31,8 @@ namespace psx::video {
 		m_mono_line_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_shaded_line_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
 		m_draw_over_mask_disable{false},
-		m_blank_image{}
+		m_blank_image{},
+		m_gl_ctx{GetCurrentGLContext()}
 	{
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_framebuffer.RebuildUpscaledFbo(m_resolution_multiplier);

@@ -43,6 +43,18 @@ namespace psx {
 	}
 
 	void Gpu::Texpage(u32 cmd) {
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_PAGE;
+			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
+
 		cmd &= (1 << 14) - 1;
 
 		LOG_DEBUG("GPU", "[GPU] TEXPAGE(0x{:x})", cmd);
@@ -79,18 +91,6 @@ namespace psx {
 		m_renderer->GetUniformBuffer()
 			.use_dither = m_stat.dither;
 		m_renderer->RequestUniformBufferUpdate();
-
-		if (m_recording_commands) {
-			GPUCommand cmd_copy{};
-			cmd_copy.value = cmd;
-			cmd_copy.reg = CommandRegister::GP0;
-			cmd_copy.frame_of_recording = m_curr_vblank_count;
-			cmd_copy.gp0.type = GP0CommandType::ENV;
-			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_PAGE;
-			cmd_copy.gp0.env.cmd = cmd;
-			cmd_copy.start_index = m_latest_idle_index;
-			m_recorded_cmds.emplace_back(cmd_copy);
-		}
 	}
 
 	void Gpu::MiscCommand(u32 cmd) {
@@ -267,6 +267,18 @@ namespace psx {
 	}
 
 	void Gpu::DrawAreaTopLeft(u32 cmd) {
+		if (m_recording_commands) {
+			GPUCommand cmd_copy{};
+			cmd_copy.value = cmd;
+			cmd_copy.reg = CommandRegister::GP0;
+			cmd_copy.frame_of_recording = m_curr_vblank_count;
+			cmd_copy.gp0.type = GP0CommandType::ENV;
+			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_TOP;
+			cmd_copy.gp0.env.cmd = cmd;
+			cmd_copy.start_index = m_latest_idle_index;
+			m_recorded_cmds.emplace_back(cmd_copy);
+		}
+
 		cmd &= 0xFFFFF;
 
 		LOG_DEBUG("GPU", "[GPU] DRAW_TOP_LEFT(0x{:x})", cmd);
@@ -285,21 +297,21 @@ namespace psx {
 			m_y_top_left);
 
 		m_renderer->SetScissorTop(m_x_top_left, m_y_top_left);
+	}
 
+	void Gpu::DrawAreaBottomRight(u32 cmd) {
 		if (m_recording_commands) {
 			GPUCommand cmd_copy{};
 			cmd_copy.value = cmd;
 			cmd_copy.reg = CommandRegister::GP0;
 			cmd_copy.frame_of_recording = m_curr_vblank_count;
 			cmd_copy.gp0.type = GP0CommandType::ENV;
-			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_TOP;
+			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_BOTTOM;
 			cmd_copy.gp0.env.cmd = cmd;
 			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
-	}
 
-	void Gpu::DrawAreaBottomRight(u32 cmd) {
 		cmd &= 0xFFFFF;
 
 		LOG_DEBUG("GPU", "[GPU] DRAW_BOTTOM_RIGHT(0x{:x})", cmd);
@@ -318,21 +330,21 @@ namespace psx {
 			m_y_bot_right);
 
 		m_renderer->SetScissorBottom(m_x_bot_right, m_y_bot_right);
+	}
 
+	void Gpu::DrawOffset(u32 cmd) {
 		if (m_recording_commands) {
 			GPUCommand cmd_copy{};
 			cmd_copy.value = cmd;
 			cmd_copy.reg = CommandRegister::GP0;
 			cmd_copy.frame_of_recording = m_curr_vblank_count;
 			cmd_copy.gp0.type = GP0CommandType::ENV;
-			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_BOTTOM;
+			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_OFFSET;
 			cmd_copy.gp0.env.cmd = cmd;
 			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
-	}
 
-	void Gpu::DrawOffset(u32 cmd) {
 		cmd &= 0x1FFFFF;
 
 		LOG_DEBUG("GPU", "[GPU] DRAW_OFFSET(0x{:x})", cmd);
@@ -358,21 +370,21 @@ namespace psx {
 		m_renderer->GetUniformBuffer()
 			.draw_y_off = m_y_off;
 		m_renderer->RequestUniformBufferUpdate();
+	}
 
+	void Gpu::TexWindow(u32 cmd) {
 		if (m_recording_commands) {
 			GPUCommand cmd_copy{};
 			cmd_copy.value = cmd;
 			cmd_copy.reg = CommandRegister::GP0;
 			cmd_copy.frame_of_recording = m_curr_vblank_count;
 			cmd_copy.gp0.type = GP0CommandType::ENV;
-			cmd_copy.gp0.env.type = EnvCommandType::SET_DRAW_OFFSET;
+			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_WINDOW;
 			cmd_copy.gp0.env.cmd = cmd;
 			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
-	}
 
-	void Gpu::TexWindow(u32 cmd) {
 		cmd &= 0xFFFFF;
 
 		LOG_DEBUG("GPU", "[GPU] TEX_WINDOW(0x{:x})", cmd);
@@ -400,21 +412,21 @@ namespace psx {
 		uniforms.tex_window_off_x = m_tex_win.offset_x;
 		uniforms.tex_window_off_y = m_tex_win.offset_y;
 		m_renderer->RequestUniformBufferUpdate();
+	}
 
+	void Gpu::MaskSetting(u32 cmd) {
 		if (m_recording_commands) {
 			GPUCommand cmd_copy{};
 			cmd_copy.value = cmd;
 			cmd_copy.reg = CommandRegister::GP0;
 			cmd_copy.frame_of_recording = m_curr_vblank_count;
 			cmd_copy.gp0.type = GP0CommandType::ENV;
-			cmd_copy.gp0.env.type = EnvCommandType::TEXTURE_WINDOW;
+			cmd_copy.gp0.env.type = EnvCommandType::MASK_BIT;
 			cmd_copy.gp0.env.cmd = cmd;
 			cmd_copy.start_index = m_latest_idle_index;
 			m_recorded_cmds.emplace_back(cmd_copy);
 		}
-	}
 
-	void Gpu::MaskSetting(u32 cmd) {
 		cmd &= 3;
 
 		LOG_DEBUG("GPU", "[GPU] MASK_BIT(0x{:x})", cmd);
@@ -438,18 +450,6 @@ namespace psx {
 
 		if (m_stat.set_mask || m_stat.draw_over_mask_disable)
 			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");
-
-		if (m_recording_commands) {
-			GPUCommand cmd_copy{};
-			cmd_copy.value = cmd;
-			cmd_copy.reg = CommandRegister::GP0;
-			cmd_copy.frame_of_recording = m_curr_vblank_count;
-			cmd_copy.gp0.type = GP0CommandType::ENV;
-			cmd_copy.gp0.env.type = EnvCommandType::MASK_BIT;
-			cmd_copy.gp0.env.cmd = cmd;
-			cmd_copy.start_index = m_latest_idle_index;
-			m_recorded_cmds.emplace_back(cmd_copy);
-		}
 	}
 
 	void Gpu::CommandEnd() {

@@ -49,13 +49,13 @@ namespace psx {
 		wanted.samples = (Uint16)buffer_limit / 2;
 
 		m_dev_id = SDL_OpenAudioDevice(nullptr, 0, &wanted, &m_dev_specs, 0);
-
+		
 		LOG_INFO("AUDIO", "[AUDIO] (SDL) Silence value is {:#x}", m_dev_specs.silence);
-
+		
 		if (m_dev_specs.format != wanted.format || m_dev_specs.freq != wanted.freq) {
 			LOG_WARN("AUDIO", "[AUDIO] (SDL) Obtained output device with specs != from wanted");
 		}
-
+		
 		if (m_dev_id == 0) {
 			LOG_ERROR("AUDIO", "[AUDIO] (SDL) Could not open device: {}", SDL_GetError());
 			std::exit(1);

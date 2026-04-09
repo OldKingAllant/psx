@@ -21,14 +21,15 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	m_first_frame{ true }, m_enabled_opts{}, 
 	m_except_init{ false }, m_except_init_hook{ 0xFFFFF },
 	m_tracked_mc_files{}, m_highlited_areas{},
-	m_gpu_saved_conf{}, m_texture_view_shader{} {
+	m_gpu_saved_conf{}, m_texture_view_shader{},
+	m_is_main_window_open{} {
 	m_gl_ctx = m_win->GetGlContext();
 
 	ImGui::CreateContext();
 
 	auto& io = ImGui::GetIO();
 
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable;
 
 	ImGui_ImplSDL2_InitForOpenGL((SDL_Window*)m_win->GetWindowHandle(), 
 		m_gl_ctx->GetHandle());
@@ -75,7 +76,9 @@ void DebugView::Update() {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
-	//ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+	ImGui::DockSpaceOverViewport();
+
+	TaskBarWindow();
 
 	//CpuWindow();
 	//DmaWindow();
@@ -87,10 +90,14 @@ void DebugView::Update() {
 	//MdecWindow();
 	//MemcardWindow(m_psx->GetKernel().GetMC0Fs(), 0);
 	//MemcardWindow(m_psx->GetKernel().GetMC1Fs(), 1);
-	GpuCommandWindow();
-	GpuVramWindow();
-	GpuWindow();
-	GpuDumpVramWindow();
+	{
+		GpuMainWindow();
+		GpuCommandWindow();
+		GpuVramWindow();
+		GpuWindow();
+		GpuDumpVramWindow();
+		GpuLoadDumpWindow();
+	}
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -110,6 +117,48 @@ void DebugView::Update() {
 	m_win->Present();
 
 	m_first_frame = false;
+}
+
+void DebugView::TaskBarWindow() {
+	constexpr float TASKBAR_HEIGHT = 50.f;
+	auto viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - TASKBAR_HEIGHT));
+	ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, TASKBAR_HEIGHT));
+	ImGui::SetNextWindowViewport(viewport->ID);
+
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoDocking |
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoSavedSettings;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+	ImGui::Begin("TASKBAR", nullptr, flags);
+	ImGui::PopStyleVar();
+
+	for (auto& [win_name, is_open] : m_is_main_window_open) {
+		auto is_clicked = ImGui::Button(win_name.c_str());
+		if (ImGui::BeginItemTooltip()) {
+			if (!is_open) {
+				ImGui::Text("Open window");
+			}
+			else {
+				ImGui::Text("Set window focus");
+			}
+			ImGui::EndTooltip();
+		}
+		if (is_clicked) {
+			if (!is_open) {
+				is_open = true;
+			}
+			else {
+				ImGui::SetWindowFocus(win_name.c_str());
+			}
+		}
+	}
+
+	ImGui::End();
 }
 
 void DebugView::CpuWindow() {

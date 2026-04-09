@@ -5,6 +5,7 @@
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
 #include <thirdparty/ImGuiFileDialog/ImGuiFileDialog.h>
 #include <thirdparty/stb/stb_image_write.h>
+#include <thirdparty/cereal/archives/portable_binary.hpp>
 
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
@@ -14,10 +15,12 @@
 #include <psxemu/renderer/Shader.hpp>
 
 #include <GL/glew.h>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
 #include <filesystem>
+#include <fstream>
 
 #define _USE_MATH_DEFINES
 
@@ -29,8 +32,18 @@ static bool g_show_command_texture_window{};
 static uint32_t g_command_texture_index{};
 static uint64_t g_command_texture_list_version{};
 
+static bool g_show_recording_window{ false };
+static bool g_show_vram_window{ false };
+static bool g_show_dump_vram_window{ false };
+static bool g_show_load_dump_window{ false };
+static bool g_show_gpustat_window{ false };
+
 void DebugView::GpuCommandWindow() {
-	ImGui::Begin("GPU Commands");
+	if (!g_show_recording_window) {
+		return;
+	}
+
+	ImGui::Begin("GPU Commands", &g_show_recording_window);
 
 	auto& gpu = m_psx->GetStatus().sysbus->GetGPU();
 
@@ -42,6 +55,48 @@ void DebugView::GpuCommandWindow() {
 	ImGui::SetNextItemWidth(100.f);
 	ImGui::SameLine();
 	ImGui::InputInt("Frames to record", (int*)&gpu.m_frames_to_record);
+
+	ImGui::SameLine();
+	if (ImGui::Button("Dump")) {
+		ImGuiFileDialog::Instance()->OpenDialog("DumpCommands", "Dump GPU commands", ".gpudump");
+	}
+	if (ImGuiFileDialog::Instance()->Display("DumpCommands")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+			std::ofstream out_file{};
+			if (!std::filesystem::exists(filePathName)) {
+				out_file.open(filePathName, std::ios::out);
+				out_file.close();
+			}
+
+			bool show_error_dialog{ false };
+
+			out_file.open(filePathName, std::ios::out | std::ios::binary);
+			if (!out_file.is_open()) {
+				show_error_dialog = true;
+			}
+			else {
+				cereal::PortableBinaryOutputArchive out{ out_file };
+				gpu.DumpRecordedCommands(out);
+			}
+
+			if (!show_error_dialog) {
+				ImGuiFileDialog::Instance()->Close();
+			}
+			else {
+				ImGui::OpenPopup("Dump error");
+			}
+		}
+	}
+
+	if (ImGui::BeginPopupModal("Dump error", nullptr, ImGuiWindowFlags_NoResize)) {
+		ImGui::Text("Could not create dump file");
+		if (ImGui::Button("OK")) {
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
 
 	auto cursor_pos = ImGui::GetCursorPos();
 
@@ -84,6 +139,9 @@ void DebugView::GpuCommandWindow() {
 		}
 		s_last_list_len = start_filter_index;
 
+		ImGui::Separator();
+		ImGui::BeginChild(ImGui::GetID("##cmd_list"));
+
 		if (s_last_filtered_items.size() == 0) {
 			ImGui::Text("No results");
 		}
@@ -124,6 +182,8 @@ void DebugView::GpuCommandWindow() {
 				}
 			}
 		}
+
+		ImGui::EndChild();
 	}
 
 	ImGui::End();
@@ -169,6 +229,10 @@ static void ColorPicker(uint8_t r, uint8_t g, uint8_t b, std::string const& id) 
 }
 
 void DebugView::GpuVramWindow() {
+	if (!g_show_vram_window) {
+		return;
+	}
+
 	auto vram_handle = m_psx->GetStatus().sysbus->GetGPU().GetRenderer()->GetVram()
 		.GetTextureHandle();
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -206,7 +270,7 @@ void DebugView::GpuVramWindow() {
 	ImGui::SetNextWindowSizeConstraints(ImVec2(1024.f, Y_SIZE), ImVec2(1024.f, Y_SIZE));
 	ImGui::SetNextWindowSize(ImVec2(1024.f, Y_SIZE));
 
-	ImGui::Begin("VRAM", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
+	ImGui::Begin("VRAM", &g_show_vram_window, ImGuiWindowFlags_NoScrollbar);
 
 	if (ImGui::Button("Reset view", ImVec2(.0f, 30.f))) {
 		s_scale = 1.0f;
@@ -451,6 +515,13 @@ void DebugView::GpuVramWindow() {
 			ImGui::GetWindowDrawList()->AddCallback(CallbackEnableBlending, nullptr);
 		}
 
+		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+			ImGui::GetCurrentWindow()->Flags &= ~ImGuiWindowFlags_NoMove;
+		}
+		else {
+			ImGui::GetCurrentWindow()->Flags |= ImGuiWindowFlags_NoMove;
+		}
+
 		if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !s_magnifying_glass_on) {
 			bool dragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left, .01f);
 			if (bounding_box.Contains(ImGui::GetIO().MouseClickedPos[0]) && dragging) {
@@ -547,6 +618,10 @@ static void DecodeStoreTexture(uint32_t vram_handle,
 	std::string const& fpath);
 
 void DebugView::GpuDumpVramWindow() {
+	if (!g_show_dump_vram_window) {
+		return;
+	}
+
 	static uint32_t s_x_off{};
 	static uint32_t s_y_off{};
 	static uint32_t s_w{};
@@ -557,7 +632,7 @@ void DebugView::GpuDumpVramWindow() {
 
 	auto vram_handle = m_psx->GetStatus().sysbus->GetGPU().GetRenderer()->GetVram().GetTextureHandle();
 
-	ImGui::Begin("Dump Vram");
+	ImGui::Begin("Dump Vram", &g_show_dump_vram_window);
 
 	ImGui::InputScalar("Position X", ImGuiDataType_U32, (void*)&s_x_off);
 	ImGui::InputScalar("Position Y", ImGuiDataType_U32, (void*)&s_y_off);
@@ -600,6 +675,403 @@ void DebugView::GpuDumpVramWindow() {
 
 		ImGuiFileDialog::Instance()->Close();
 	}
+
+	ImGui::End();
+}
+
+static size_t GpuCommandGetGPSize(psx::GPUCommand const* cmd, std::vector<psx::Gpu::RegisterCommand> const& gps) {
+	if (cmd->from_prev_frame) {
+		return 0;
+	}
+	auto curr_index = cmd->start_index;
+	auto reg_index = gps[curr_index].reg_index;
+	size_t item_count{ 1 };
+	while (curr_index < gps.size()) {
+		curr_index++;
+		auto const& stored_cmd = gps[curr_index];
+		if (stored_cmd.reg_index == reg_index && !stored_cmd.end_marker) {
+			item_count++;
+		}
+		else if (stored_cmd.end_marker &&
+			(stored_cmd.reg_index == reg_index || stored_cmd.end_reg_independent)) {
+			break;
+		}
+	}
+	return item_count;
+}
+
+static size_t GpuCommandGetLastGPIndex(psx::GPUCommand const* cmd, std::vector<psx::Gpu::RegisterCommand> const& gps) {
+	if (cmd->from_prev_frame) {
+		return UINT64_MAX;
+	}
+	auto curr_index = cmd->start_index;
+	auto reg_index = gps[curr_index].reg_index;
+	while (curr_index < gps.size()) {
+		curr_index++;
+		auto const& stored_cmd = gps[curr_index];
+		if (stored_cmd.end_marker &&
+			(stored_cmd.reg_index == reg_index || stored_cmd.end_reg_independent)) {
+			break;
+		}
+	}
+	return curr_index;
+}
+
+void GpuCommandRemoveGPData(size_t index, 
+	std::vector<psx::GPUCommand>& cmds, 
+	std::vector<psx::Gpu::RegisterCommand>& gps) {
+	auto& cmd = cmds[index];
+	if (cmd.from_prev_frame) {
+		return;
+	}
+
+	//Remove interleaved items from GP list
+	//and shift references of the following
+	//items
+	//Item count to remove (include end marker)
+	auto item_count = GpuCommandGetGPSize(&cmd, gps) + 1;
+	//Index at which we are removing data
+	auto curr_index = cmd.start_index;
+	//GP0 or GP1
+	auto reg_index = gps[curr_index].reg_index;
+	//Removed since start of last index + all others accumulated
+	auto removed_counts = std::vector<size_t>{};
+	//Indices at which we started removing data
+	auto removed_indices = std::vector<size_t>{};
+	removed_counts.push_back(0); //Start from zero removed items
+	removed_indices.push_back(cmd.start_index); //at the current index
+	while (item_count && curr_index < gps.size()) {
+		auto const& stored_cmd = gps[curr_index];
+		if (stored_cmd.reg_index == reg_index) { //Same register
+			gps.erase(gps.begin() + curr_index); //Remove entry
+			item_count--;
+			removed_counts.back()++; //Accumulate removed items up to now
+		}
+		else {
+			while (curr_index < gps.size() && gps[curr_index].reg_index != reg_index) {
+				curr_index++; //Skip all items up to a new item with the same register
+			}
+			if (curr_index == gps.size()) {
+				break;
+			}
+			removed_counts.push_back(removed_counts.back()); //Add accumulated item count
+			removed_indices.push_back(cmd.start_index + removed_counts.back()); //Create new entry for index shifting
+		}
+	}
+
+	size_t curr_cmd_index = index + 1;
+	size_t curr_removed_index_reference = {};
+
+	while (curr_cmd_index < cmds.size()) {
+		size_t shift_count = {};
+		if (curr_removed_index_reference < (removed_indices.size() - 1) &&
+			removed_indices[curr_removed_index_reference + 1] < cmds[curr_cmd_index].start_index) {
+			curr_removed_index_reference++;
+		}
+		shift_count = removed_counts[curr_removed_index_reference];
+		if (!cmds[curr_cmd_index].from_prev_frame) {
+			cmds[curr_cmd_index].start_index -= shift_count;
+		}
+		curr_cmd_index++;
+	}
+}
+
+void DebugView::GpuLoadDumpWindow() {
+	if (!g_show_load_dump_window) {
+		return;
+	}
+
+	if (!ImGui::Begin("GPU command replay", &g_show_load_dump_window)) {
+		ImGui::End();
+		return;
+	}
+
+	auto& gpu = m_psx->GetStatus().sysbus->GetGPU();
+
+	static std::vector<psx::GPUCommand>           s_hle_commands{};
+	static std::vector<psx::Gpu::RegisterCommand> s_gp_commands{};
+	static bool s_single_step{ true };
+	static bool s_capture_renderdoc{ false };
+	static bool s_force_flush{ true };
+
+	ImGui::Text("Load GPU dump: ");
+	ImGui::SameLine();
+	if (ImGui::Button("Select dump")) {
+		ImGuiFileDialog::Instance()->OpenDialog("LoadDump", "Load GPU dump", ".gpudump");
+	}
+	if (ImGuiFileDialog::Instance()->Display("LoadDump")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+			std::ifstream in_file{};
+
+			bool show_error_dialog{ false };
+
+			if (!std::filesystem::exists(filePathName)) {
+				show_error_dialog = true;
+			}
+			else {
+				in_file.open(filePathName, std::ios::binary);
+				if (!in_file.is_open()) {
+					show_error_dialog = true;
+				}
+				else {
+					cereal::PortableBinaryInputArchive in{ in_file };
+					auto curr_ctx = psx::video::GetCurrentGLContext();
+					//Hope it is ok to bind that OpenGL context to this window
+					gpu.GetRenderer()->GetContext()->SetCurrent(m_win->GetWindowHandle());
+					show_error_dialog = !gpu.LoadRecordedCommands(in, s_hle_commands, s_gp_commands);
+					curr_ctx->SetCurrent(m_win->GetWindowHandle());
+				}
+			}
+
+			if (!show_error_dialog) {
+				ImGuiFileDialog::Instance()->Close();
+			}
+			else {
+				ImGui::OpenPopup("Load error");
+			}
+		}
+		else {
+			ImGuiFileDialog::Instance()->Close();
+		}
+	}
+
+	if (ImGui::BeginPopupModal("Load error", nullptr, ImGuiWindowFlags_NoResize)) {
+		ImGui::Text("Could not load dump");
+		if (ImGui::Button("OK")) {
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	if (ImGui::Button("Clear")) {
+		s_hle_commands.clear();
+		s_gp_commands.clear();
+	}
+
+	ImGui::SameLine();
+	ImGui::Checkbox("Single step", &s_single_step);
+	ImGui::SameLine();
+	ImGui::Checkbox("Renderdoc", &s_capture_renderdoc);
+	ImGui::SameLine();
+	ImGui::Checkbox("Flush cmds", &s_force_flush);
+	if (ImGui::BeginItemTooltip()) {
+		ImGui::Text("After stepping:");
+		ImGui::BulletText("Force flush commands");
+		ImGui::BulletText("Sync front/back textures");
+		ImGui::EndTooltip();
+	}
+
+	static uint32_t s_cmd_count{ 0 };
+	ImGui::SetNextItemWidth(150.f);
+	ImGui::InputScalar("Command count", ImGuiDataType_U32, (void*)&s_cmd_count);
+	s_cmd_count = std::clamp<uint32_t>(s_cmd_count, 0, (uint32_t)s_hle_commands.size());
+	if (ImGui::BeginItemTooltip()) {
+		ImGui::Text("When single stepping:");
+		ImGui::BulletText("How many commands to execute on step");
+		ImGui::BulletText("Leave zero if you want single stepping");
+		ImGui::EndTooltip();
+	}
+
+	if (!s_hle_commands.empty() && ImGui::Button("Replay")) {
+		if (!s_hle_commands[0].from_prev_frame &&
+			s_hle_commands[0].start_index != 0) {
+			psx::LOG_ERROR("DEBUG", "[DEBUG] Command replay: start index in gp list != 0");
+		}
+		size_t cmd_count = s_single_step ? (s_cmd_count ? s_cmd_count : 1) : s_hle_commands.size();
+		size_t gp_last_index = 0;
+
+		size_t remove_count = cmd_count;
+		size_t curr_cmd_index = 0;
+
+		auto renderdoc = gpu.GetRenderer()->GetRenderDoc();
+		if (renderdoc && s_capture_renderdoc) {
+			renderdoc->PrepareCapture();
+			renderdoc->StartCapture();
+		}
+
+		auto curr_ctx = psx::video::GetCurrentGLContext();
+		gpu.GetRenderer()->GetContext()->SetCurrent(m_win->GetWindowHandle());
+
+		while (cmd_count && curr_cmd_index < s_hle_commands.size()) {
+			auto& curr_cmd = s_hle_commands[curr_cmd_index];
+			if (curr_cmd.from_prev_frame) {
+				gpu.LoadStateConfiguration(curr_cmd);
+			}
+			else {
+				gp_last_index = GpuCommandGetLastGPIndex(&s_hle_commands[curr_cmd_index], s_gp_commands);
+				auto curr_gp_index = curr_cmd.start_index;
+				auto& start_gp_entry = s_gp_commands[curr_gp_index];
+				while (curr_gp_index != gp_last_index) {
+					auto& gp_entry = s_gp_commands[curr_gp_index];
+					if (gp_entry.reg_index != start_gp_entry.reg_index &&
+						(gp_entry.end_marker || gp_entry.end_reg_independent)) {
+						remove_count++;
+					}
+					if (!gp_entry.end_marker && !gp_entry.end_reg_independent) {
+						if (gp_entry.reg_index == 0) {
+							gpu.WriteGP0(gp_entry.value);
+						}
+						else if (gp_entry.reg_index == 1) {
+							gpu.WriteGP1(gp_entry.value);
+						}
+					}
+					curr_gp_index++;
+				}
+			}
+			cmd_count--;
+
+			if (s_hle_commands[curr_cmd_index].reg == psx::CommandRegister::GP0 &&
+				s_hle_commands[curr_cmd_index].gp0.type == psx::GP0CommandType::LINE &&
+				s_hle_commands[curr_cmd_index].gp0.line.is_polyline()) {
+				while (curr_cmd_index < s_hle_commands.size() &&
+					(s_hle_commands[curr_cmd_index].reg != psx::CommandRegister::GP0 ||
+					s_hle_commands[curr_cmd_index].gp0.type != psx::GP0CommandType::POLYLINE_END)) {
+					curr_cmd_index++;
+					remove_count++;
+				}
+			}
+
+			curr_cmd_index++;
+		}
+
+		//Force sync between commands
+		if (s_force_flush) {
+			gpu.GetRenderer()->FlushCommands();
+			gpu.GetRenderer()->SyncTextures();
+		}
+
+		curr_ctx->SetCurrent(m_win->GetWindowHandle());
+
+		if (renderdoc && s_capture_renderdoc) {
+			renderdoc->EndCapture();
+		}
+
+		remove_count = std::min(s_hle_commands.size(), remove_count);
+		if (remove_count == s_hle_commands.size()) {
+			s_gp_commands.clear();
+		}
+		else {
+			for (size_t remove_index = 0; remove_index < remove_count; remove_index++) {
+				GpuCommandRemoveGPData(remove_index, s_hle_commands, s_gp_commands);
+				if (s_hle_commands[remove_index].reg == psx::CommandRegister::GP0 &&
+					s_hle_commands[remove_index].gp0.type == psx::GP0CommandType::LINE &&
+					s_hle_commands[remove_index].gp0.line.is_polyline()) {
+					while (remove_index < remove_count &&
+						(s_hle_commands[remove_index].gp0.type != psx::GP0CommandType::POLYLINE_END ||
+							s_hle_commands[remove_index].reg != psx::CommandRegister::GP0)) {
+						remove_index++;
+					}
+				}
+			}
+		}
+		s_hle_commands.erase(s_hle_commands.begin(), s_hle_commands.begin() + remove_count);
+		s_cmd_count = 0;
+	}
+
+	ImGui::Separator();
+	ImGui::BeginChild("#dump_cmd_list");
+
+	if (s_hle_commands.empty()) {
+		ImGui::Text("No commands");
+	}
+	else {
+		ImGuiListClipper clipper{};
+		clipper.Begin((int)s_hle_commands.size());
+
+		std::vector<size_t> indexes_to_remove{};
+
+		while (clipper.Step()) {
+			for (size_t curr_index = clipper.DisplayStart; curr_index < clipper.DisplayEnd;
+				curr_index++) {
+				auto id_string = fmt::format("#loaded{}", curr_index);
+
+				auto const& cmd = s_hle_commands[curr_index];
+
+				bool is_gp0 = cmd.reg == psx::CommandRegister::GP0;
+				bool is_middle_polyline = is_gp0 && (cmd.gp0.type == psx::GP0CommandType::LINE &&
+					cmd.gp0.line.is_polyline() &&
+					!cmd.polyline_begin);
+				bool is_end_polyline = is_gp0 && cmd.gp0.type == psx::GP0CommandType::POLYLINE_END;
+
+				
+				ImGui::PushID(id_string.c_str());
+				if ((!is_middle_polyline && !is_end_polyline)) {
+					if (ImGui::Button("R")) {
+						indexes_to_remove.push_back(curr_index);
+					}
+				}
+				else {
+					ImGui::Dummy(ImVec2(ImGui::CalcTextSize("R  ").x, .0f));
+				}
+				ImGui::PopID();
+				ImGui::SameLine();
+				
+				auto name = GetGpuCommandName(&cmd);
+				ImGui::Text("%d (0x%08x) %s", curr_index, cmd.value, name.c_str());
+			}
+		}
+
+		for (auto index : indexes_to_remove) {
+			auto const& cmd = s_hle_commands[index];
+
+			bool is_gp0 = cmd.reg == psx::CommandRegister::GP0;
+			bool is_polyline = is_gp0 && 
+				cmd.gp0.type == psx::GP0CommandType::LINE &&
+				cmd.gp0.line.is_polyline();
+			bool is_middle_polyline = (is_polyline && !cmd.polyline_begin);
+			bool is_end_polyline = is_gp0 && cmd.gp0.type == psx::GP0CommandType::POLYLINE_END;
+
+			if (is_middle_polyline || is_end_polyline) {
+				psx::LOG_ERROR("DEBUG", "[DEBUG] Replay: Attemtping to delete index in the middle of a polyline");
+				continue;
+			}
+
+			GpuCommandRemoveGPData(index, s_hle_commands, s_gp_commands);
+			if (is_gp0 && is_polyline) {
+				while (true) {
+					auto cmd = s_hle_commands[index];
+					s_hle_commands.erase(s_hle_commands.begin() + index);
+					if (cmd.reg == psx::CommandRegister::GP0 &&
+						cmd.gp0.type == psx::GP0CommandType::POLYLINE_END) {
+						break;
+					}
+				}
+			}
+			else {
+				s_hle_commands.erase(s_hle_commands.begin() + index);
+			}
+		}
+	}
+
+	ImGui::EndChild();
+
+	ImGui::End();
+}
+
+void DebugView::GpuMainWindow() {
+	/*
+	static bool g_show_recording_window{ false };
+	static bool g_show_vram_window{ false };
+	static bool g_show_dump_vram_window{ false };
+	static bool g_show_load_dump_window{ false };
+	*/
+	if (!m_is_main_window_open.contains("GPU Main")) {
+		m_is_main_window_open["GPU Main"] = true;
+	}
+	if (!m_is_main_window_open["GPU Main"]) {
+		return;
+	}
+	ImGui::Begin("GPU Main", &m_is_main_window_open["GPU Main"]);
+
+	ImGui::Text("Show/hide GPU debug windows");
+	ImGui::Spacing();
+	ImGui::Checkbox("Show command recording window", &g_show_recording_window);
+	ImGui::Checkbox("Show VRAM window",      &g_show_vram_window);
+	ImGui::Checkbox("Show dump vram window", &g_show_dump_vram_window);
+	ImGui::Checkbox("Show load dump window", &g_show_load_dump_window);
+	ImGui::Checkbox("Show stat window", &g_show_gpustat_window);
 
 	ImGui::End();
 }
@@ -1419,11 +1891,17 @@ void DebugView::ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index) 
 			.render_shader = m_texture_view_shader.get()
 		};
 
+		auto same_viewport_as_main = ImGui::GetMainViewport() == ImGui::GetWindowViewport();
+
+		auto window_pos = same_viewport_as_main ? ImGui::GetMainViewport()->WorkPos : ImGui::GetWindowPos();
 		auto begin = ImGui::GetCursorScreenPos();
+		begin.x -= window_pos.x;
+		begin.y -= window_pos.y;
 		begin.y += 20.f;
 
 		auto draw_list = ImGui::GetWindowDrawList();
-		auto viewport_size = m_win->GetSize();
+		
+		auto viewport_size = ImGui::GetWindowViewport()->WorkSize;
 		
 		GpuCommandAppendPossiblyOverflowedAreas(
 			min_u / curr_color_depth_denom + x_base, 
@@ -1447,6 +1925,15 @@ void DebugView::ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index) 
 			clut_indicator.x[1] = clut_x;
 			clut_indicator.y[1] = clut_y;
 			m_highlited_areas.push_back(clut_indicator);
+
+			if (color_depth == 0) {
+				GpuCommandAppendPossiblyOverflowedAreas(clut_x, clut_y, 16, 1,
+					fmt::format("Command {} clut", cmd_index), cmd_index);
+			}
+			else if (color_depth == 1) {
+				GpuCommandAppendPossiblyOverflowedAreas(clut_x, clut_y, 256, 1,
+					fmt::format("Command {} clut", cmd_index), cmd_index);
+			}
 		}
 
 		draw_list->AddCallback([](const ImDrawList*, const ImDrawCmd* draw_cmd) {
@@ -1461,8 +1948,8 @@ void DebugView::ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index) 
 			glDisable(GL_BLEND);
 		}, (void*)&render_data, sizeof(render_data));
 		draw_list->AddImage((ImTextureID)(intptr_t)vram_handle, 
-			ImVec2(begin.x / viewport_size.w, begin.y / viewport_size.h),
-			ImVec2((begin.x + size_x * s_scale) / viewport_size.w, (begin.y + size_y * s_scale) / viewport_size.h),
+			ImVec2(begin.x / viewport_size.x, begin.y / viewport_size.y),
+			ImVec2((begin.x + size_x * s_scale) / viewport_size.x, (begin.y + size_y * s_scale) / viewport_size.y),
 			ImVec2(min_u / 1024.f, min_v / 512.f),
 			ImVec2(max_u / 1024.f, max_v / 512.f));
 		draw_list->AddCallback([](const ImDrawList*, const ImDrawCmd* draw_cmd) {
@@ -2151,7 +2638,11 @@ void DebugView::GpuCommandAppendClipRect(psx::GPUCommand const* cmd) {
 }
 
 void DebugView::GpuWindow() {
-	if (!ImGui::Begin("GPU")) {
+	if (!g_show_gpustat_window) {
+		return;
+	}
+
+	if (!ImGui::Begin("GPU", &g_show_gpustat_window)) {
 		ImGui::End();
 		return;
 	}

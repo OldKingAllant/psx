@@ -7,6 +7,7 @@
 #include "Shader.hpp"
 #include "UniformBuffer.hpp"
 #include "Renderdoc.hpp"
+#include "GLContext.hpp"
 
 #include <list>
 #include <optional>
@@ -258,6 +259,10 @@ namespace psx::video {
 
 		void SetResolutionMultiplier(u32 mult);
 
+		GLContext* GetContext() const {
+			return m_gl_ctx;
+		}
+
 		~Renderer();
 
 	private :
@@ -289,5 +294,6 @@ namespace psx::video {
 			BasicGouraudVertex, NullData> m_shaded_line_pipeline;
 		bool m_draw_over_mask_disable;
 		std::vector<u8> m_blank_image;
+		GLContext* m_gl_ctx;
 	};
 }

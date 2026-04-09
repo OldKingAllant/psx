@@ -3,6 +3,9 @@
 #include <common/Defs.hpp>
 #include <common/Macros.hpp>
 
+#include <algorithm>
+#include <bit>
+
 namespace psx {
 	/*
 	bit number   value   meaning
@@ -17,6 +20,7 @@ namespace psx {
 	struct PolygonCmd {
 		u32 cmd;
 		PolygonCmd(u32 value) : cmd(value) {}
+		PolygonCmd() : cmd{} {}
 
 		FORCE_INLINE u32 color() const { return (cmd) & 0xFF'FF'FF; }
 		FORCE_INLINE bool is_raw_texture() const { return (cmd >> 24) & 1; }
@@ -45,6 +49,7 @@ namespace psx {
 	struct RectCmd {
 		u32 cmd;
 		RectCmd(u32 value) : cmd(value) {}
+		RectCmd() : cmd{} {}
 
 		static constexpr u32 RECT_SIZES[] = { u32(-1), 1, 8, 16 };
 
@@ -71,6 +76,7 @@ namespace psx {
 	struct LineCmd {
 		u32 cmd;
 		LineCmd(u32 value) : cmd(value) {}
+		LineCmd() : cmd{} {}
 
 		FORCE_INLINE u32 color() const { return (cmd) & 0xFF'FF'FF; }
 		FORCE_INLINE bool is_semi_transparent() const { return (cmd >> 25) & 1; }
@@ -93,6 +99,7 @@ namespace psx {
 	struct ColorAttribute {
 		u32 attribute;
 		ColorAttribute(u32 value) : attribute(value) {}
+		ColorAttribute() : attribute{} {}
 
 		FORCE_INLINE u32 rgb() const { return (attribute) & 0xFF'FF'FF; }
 
@@ -104,6 +111,7 @@ namespace psx {
 	struct PositionAttribute {
 		u32 attribute;
 		PositionAttribute(u32 value) : attribute(value) {}
+		PositionAttribute() : attribute{} {}
 
 		FORCE_INLINE i32 x() const { return sign_extend<i32, 10>(attribute & 0xFFFF); };
 		FORCE_INLINE i32 y() const { return sign_extend<i32, 10>((attribute >> 16) & 0xFFFF); };
@@ -113,6 +121,7 @@ namespace psx {
 		//UV         ClutVVUU or PageVVUU   - optional, only present for textured polygons
 		u32 attribute;
 		UVAttribute(u32 value) : attribute(value) {}
+		UVAttribute() : attribute{} {}
 
 		FORCE_INLINE u32 u() const { return (attribute) & 0xFF; }
 		FORCE_INLINE u32 v() const { return (attribute >> 8) & 0xFF; }
@@ -123,6 +132,7 @@ namespace psx {
 	struct SizeAttribute {
 		u32 attribute;
 		SizeAttribute(u32 value) : attribute(value) {}
+		SizeAttribute() : attribute{} {}
 
 		FORCE_INLINE u32 sizex() const { return attribute & 0xFFFF; };
 		FORCE_INLINE u32 sizey() const { return (attribute >> 16) & 0xFFFF; };
@@ -364,6 +374,8 @@ namespace psx {
 	struct PolylineEndMarker {};
 
 	struct GP0Command {
+		GP0Command() {}
+
 		GP0CommandType type;
 
 		union {
@@ -377,6 +389,7 @@ namespace psx {
 	};
 
 	struct VertexParams {
+		VertexParams() : x{}, y{}, u{}, v{}, color{}, clut_page{} {};
 		i32 x, y;
 		u32 u, v;
 		ColorAttribute color;
@@ -384,6 +397,7 @@ namespace psx {
 	};
 
 	struct RenderingParams {
+		RenderingParams() : vertices{}, vertex_count{}, semi_transparent{}, transparency_type{} {};
 		VertexParams vertices[4];
 		u8 vertex_count;
 		bool semi_transparent;
@@ -391,6 +405,7 @@ namespace psx {
 	};
 
 	union CmdParams {
+		CmdParams() : quick_fill{} {};
 		QuickFillParams quick_fill;
 		VramVramBlitParams vram_vram_blit;
 		CpuVramBlitParams cpu_vram_blit;
@@ -411,7 +426,6 @@ namespace psx {
 		};
 
 		CmdParams params;
+		bool polyline_begin;
 	};
-
-	
 }

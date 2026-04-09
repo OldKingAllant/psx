@@ -5,6 +5,7 @@
 #include <common/Macros.hpp>
 
 #include <vector>
+#include <string>
 
 class DebugView;
 
@@ -275,8 +276,24 @@ namespace psx {
 			 
 		void PushStateConfiguration(std::vector<GPUCommand>& commands) const;
 		void LoadStateConfiguration(std::vector<GPUCommand> const& commands);
+		void LoadStateConfiguration(GPUCommand const& cmd);
 
 		void StoreVram();
+
+		struct RegisterCommand {
+			u32 reg_index;
+			u32 value;
+			bool end_marker;
+			bool end_reg_independent;
+		};
+
+		template <typename Ar>
+		void DumpRecordedCommands(Ar& ar);
+
+		template <typename Ar>
+		bool LoadRecordedCommands(Ar& ar, 
+			std::vector<GPUCommand>& hle_view,
+			std::vector<RegisterCommand>& raw_data);
 
 	private :
 		void CommandStart(u32 cmd);
@@ -370,13 +387,6 @@ namespace psx {
 		u32 m_frames_to_record;
 		u32 m_recorded_frames;
 		std::vector<u8> m_copied_vram;
-
-		struct RegisterCommand {
-			u32 reg_index;
-			u32 value;
-			bool end_marker;
-			bool end_reg_independent;
-		};
 
 		std::vector<RegisterCommand> m_recorded_gp_commands;
 		u64 m_gp_commands_version;

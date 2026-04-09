@@ -56,14 +56,20 @@ private :
 	void DmaWindow();
 	void MemoryConfigWindow();
 	void TimersWindow();
-	void GpuWindow();
+	
 	void KernelWindow();
 	void DriveWindow();
 	void MdecWindow();
 	void MemcardWindow(psx::kernel::MCFs& mcfs, psx::u32 slot);
+
 	void GpuCommandWindow();
 	void GpuVramWindow();
 	void GpuDumpVramWindow();
+	void GpuLoadDumpWindow();
+	void GpuMainWindow();
+	void GpuWindow();
+
+	void TaskBarWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
 
@@ -117,4 +123,6 @@ private :
 	} m_gpu_saved_conf;
 
 	std::unique_ptr<psx::video::Shader> m_texture_view_shader;
+
+	std::unordered_map<std::string, bool> m_is_main_window_open;
 };
