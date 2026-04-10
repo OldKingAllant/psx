@@ -92,6 +92,25 @@ private :
 	void GpuCommandLoadConfig(psx::GPUCommand const* cmd);
 	void GpuCommandAppendClipRect(psx::GPUCommand const* cmd);
 
+	/// <summary>
+	/// result.first = read
+	/// result.second = write
+	/// </summary>
+	/// <param name="cmd"></param>
+	/// <param name="x"></param>
+	/// <param name="y"></param>
+	/// <param name="w"></param>
+	/// <param name="h"></param>
+	/// <returns></returns>
+	std::pair<bool, bool> GetGpuCommandAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y,
+		uint32_t w, uint32_t h);
+	std::pair<bool, bool> GetGpuRectangleAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y,
+		uint32_t w, uint32_t h);
+	std::pair<bool, bool> GetGpuLineAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y,
+		uint32_t w, uint32_t h);
+	std::pair<bool, bool> GetGpuPolygonAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y,
+		uint32_t w, uint32_t h);
+
 	std::optional<psx::u32> CreateTextureFromIcon(std::vector<psx::u32> icon_data);
 	void FreeTexture(psx::u32 handle);
 

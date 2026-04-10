@@ -197,7 +197,7 @@ namespace psx {
 	}
 
 	static const std::string IDENTIFIER = { "GPU-DUMP" };
-	static constexpr u64 VERSION = 0x1;
+	static constexpr u64 VERSION = 0x2;
 
 	template <typename Ar>
 	void Gpu::DumpRecordedCommands(Ar& ar) {

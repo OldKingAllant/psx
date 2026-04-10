@@ -38,6 +38,9 @@ static bool g_show_dump_vram_window{ false };
 static bool g_show_load_dump_window{ false };
 static bool g_show_gpustat_window{ false };
 
+static uint32_t g_selected_pixel_x{};
+static uint32_t g_selected_pixel_y{};
+
 void DebugView::GpuCommandWindow() {
 	if (!g_show_recording_window) {
 		return;
@@ -107,14 +110,54 @@ void DebugView::GpuCommandWindow() {
 		static std::vector<std::pair<std::string, uint32_t>> s_last_filtered_items{};
 		static size_t s_last_list_len{};
 
+		static uint32_t s_last_selected_pixel_x{};
+		static uint32_t s_last_selected_pixel_y{};
+
 		static ImGuiTextFilter s_filter{};
 		static bool s_show_gp0{ true };
 		static bool s_show_gp1{ true };
+		static bool s_filter_by_area{ false };
+		static bool s_filter_w{ true };
+		static bool s_filter_r{ true };
 
 		bool gp0_changed = ImGui::Checkbox("GP0", &s_show_gp0); ImGui::SameLine();
 		bool gp1_changed = ImGui::Checkbox("GP1", &s_show_gp1); ImGui::SameLine();
+		bool filter_area_changed = ImGui::Checkbox("Filter by area", &s_filter_by_area);
+		if (ImGui::BeginItemTooltip()) {
+			ImGui::Text("Filter by commands that access selected pixel");
+			ImGui::EndTooltip();
+		}
+		bool filter_r_changed{ false };
+		bool filter_w_changed{ false };
+		if (s_filter_by_area) {
+			ImGui::SameLine();
+			filter_r_changed = ImGui::Checkbox("R", &s_filter_r); 
+			if (ImGui::BeginItemTooltip()) {
+				ImGui::Text("Filter by read (VRAM-VRAM blit, texture source, clut)");
+				ImGui::EndTooltip();
+			}
+			ImGui::SameLine();
+			filter_w_changed = ImGui::Checkbox("W", &s_filter_w);
+			if (ImGui::BeginItemTooltip()) {
+				ImGui::Text("Filter by write");
+				ImGui::EndTooltip();
+			}
+		}
 		bool filter_changed = s_filter.Draw("Filter commands (not by value)", 200.f) ||
-			gp0_changed || gp1_changed;
+			gp0_changed || gp1_changed || filter_area_changed;
+
+		filter_changed = filter_changed || (
+			s_filter_by_area &&
+			(
+			filter_r_changed ||
+			filter_w_changed ||
+			(s_last_selected_pixel_x != g_selected_pixel_x) ||
+			(s_last_selected_pixel_y != g_selected_pixel_y)
+			)
+		);
+
+		s_last_selected_pixel_x = g_selected_pixel_x;
+		s_last_selected_pixel_y = g_selected_pixel_y;
 
 		size_t start_filter_index{s_last_list_len};
 		if (s_last_list_version != gpu.m_gp_commands_version || filter_changed) {
@@ -133,11 +176,27 @@ void DebugView::GpuCommandWindow() {
 			}
 			auto name = GetGpuCommandName(&cmd);
 			if (s_filter.PassFilter(name.c_str())) {
-				s_last_filtered_items.push_back({ name, (uint32_t)start_filter_index });
+				if (s_filter_by_area) {
+					auto accesses_pixel = GetGpuCommandAccessesVramArea(&cmd,
+						s_last_selected_pixel_x, s_last_selected_pixel_y, 1, 1);
+					if ((s_filter_r && accesses_pixel.first) ||
+						(s_filter_w && accesses_pixel.second)) {
+						s_last_filtered_items.push_back({ name, (uint32_t)start_filter_index });
+					}
+				}
+				else {
+					s_last_filtered_items.push_back({ name, (uint32_t)start_filter_index });
+				}
 			}
 			start_filter_index++;
 		}
 		s_last_list_len = start_filter_index;
+
+		static uint32_t s_scroll_to{};
+		ImGui::SetNextItemWidth(75.f);
+		ImGui::InputScalar("##jump_to", ImGuiDataType_U32, (void*)&s_scroll_to); ImGui::SameLine();
+		s_scroll_to = std::clamp<uint32_t>(s_scroll_to, 0, s_last_filtered_items.size());
+		bool scrolled = ImGui::Button("Scroll");
 
 		ImGui::Separator();
 		ImGui::BeginChild(ImGui::GetID("##cmd_list"));
@@ -146,9 +205,15 @@ void DebugView::GpuCommandWindow() {
 			ImGui::Text("No results");
 		}
 		else {
+			static float s_item_height{};
+			if (scrolled && s_item_height > .0f) {
+				ImGui::SetScrollY(s_scroll_to * s_item_height);
+				s_scroll_to = 0;
+			}
+
 			ImGuiListClipper clipper{};
 			clipper.Begin((int)s_last_filtered_items.size());
-
+			
 			size_t last_loaded_config_index{};
 
 			while (clipper.Step()) {
@@ -179,6 +244,9 @@ void DebugView::GpuCommandWindow() {
 						ShowGpuCommandDetails(&cmd, current_abs_index, true);
 						ImGui::EndTooltip();
 					}
+				}
+				if (clipper.ItemsHeight > .0f) {
+					s_item_height = clipper.ItemsHeight;
 				}
 			}
 		}
@@ -263,7 +331,7 @@ void DebugView::GpuVramWindow() {
 	static int s_mag_size{100};
 
 	auto old_item_spacing = ImGui::GetStyle().ItemSpacing;
-	auto new_item_spacing = ImVec2(old_item_spacing.x, 30.f);
+	auto new_item_spacing = ImVec2(old_item_spacing.x, 50.f);
 
 	const auto Y_SIZE = 512.f + ImGui::GetFrameHeightWithSpacing() + new_item_spacing.y;
 
@@ -480,7 +548,7 @@ void DebugView::GpuVramWindow() {
 			auto prim_end = ImVec2(x1, y1);
 
 			ImGui::GetWindowDrawList()->AddLine(prim_begin, prim_end,
-				blink_color);
+				blink_color, s_scale);
 		}
 	}
 
@@ -597,6 +665,9 @@ void DebugView::GpuVramWindow() {
 				s_picked_b = b;
 				s_picked_x = uint32_t(pos_x);
 				s_picked_y = uint32_t(pos_y);
+
+				g_selected_pixel_x = s_picked_x;
+				g_selected_pixel_y = s_picked_y;
 			}
 			ImGui::EndTooltip();
 		}
@@ -1266,6 +1337,7 @@ void DebugView::ShowGpuCmdPolygon(psx::GPUCommand const* cmd, size_t cmd_index) 
 	HighlitArea area2{};
 	area2 = area1;
 
+	constexpr uint32_t COLOR_DEPTH_DIVISOR[] = { 4, 2, 1, 1 };
 	for (size_t vertex_index = 0; vertex_index < (polygon_cmd.is_quad() ? 4 : 3); vertex_index++) {
 		auto const& vertex = cmd->params.rendering.vertices[vertex_index];
 		ImGui::Text("X%d: %d, Y%d: %d", vertex_index, vertex.x, vertex_index, vertex.y);
@@ -1276,7 +1348,7 @@ void DebugView::ShowGpuCmdPolygon(psx::GPUCommand const* cmd, size_t cmd_index) 
 		if (polygon_cmd.is_textured()) {
 			uint32_t u = cmd->params.rendering.vertices[vertex_index].u;
 			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
-			u += x_base;
+			u = (u / COLOR_DEPTH_DIVISOR[color_depth]) + x_base;
 			v += y_base;
 			ImGui::Text("U%d: %d, V%d: %d", vertex_index, u,
 				vertex_index, v);
@@ -1377,6 +1449,7 @@ void DebugView::ShowGpuCmdRectangle(psx::GPUCommand const* cmd, size_t cmd_index
 	area.num_vertices = 4;
 	area.cmd_index = cmd_index;
 
+	constexpr uint32_t COLOR_DEPTH_DIVISOR[] = { 4, 2, 1, 1 };
 	for (size_t vertex_index = 0; vertex_index < 4; vertex_index++) {
 		auto const& vertex = cmd->params.rendering.vertices[vertex_index];
 		ImGui::Text("X%d: %d, Y%d: %d", vertex_index, vertex.x, vertex_index, vertex.y);
@@ -1387,7 +1460,7 @@ void DebugView::ShowGpuCmdRectangle(psx::GPUCommand const* cmd, size_t cmd_index
 		if (rect_cmd.is_textured()) {
 			uint32_t u = cmd->params.rendering.vertices[vertex_index].u;
 			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
-			u += x_base;
+			u = (u / COLOR_DEPTH_DIVISOR[color_depth]) + x_base;
 			v += y_base;
 			ImGui::Text("U%d: %d, V%d: %d", vertex_index, u,
 				vertex_index, v);
@@ -1802,7 +1875,7 @@ void DebugView::ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index) 
 		size_t num_vertices = cmd->gp0.type == psx::GP0CommandType::RECTANGLE ?
 			4 : (cmd->gp0.polygon.is_quad() ? 4 : 3);
 
-		for (size_t vertex_index = 0; vertex_index < 4; vertex_index++) {
+		for (size_t vertex_index = 0; vertex_index < num_vertices; vertex_index++) {
 			auto const& vertex = cmd->params.rendering.vertices[vertex_index];
 			ImGui::Text("X%d: %d, Y%d: %d", vertex_index, vertex.x, vertex_index, vertex.y);
 
@@ -1815,7 +1888,7 @@ void DebugView::ShowGpuCmdTexture(psx::GPUCommand const* cmd, size_t cmd_index) 
 			view_u[vertex_index] = u;
 			view_v[vertex_index] = v;
 
-			u += x_base;
+			u = (u / COLOR_DEPTH_DENOMINATOR[color_depth]) + x_base;
 			v += y_base;
 			ImGui::Text("U%d: %d, V%d: %d", vertex_index, u,
 				vertex_index, v);
@@ -2635,6 +2708,414 @@ void DebugView::GpuCommandAppendClipRect(psx::GPUCommand const* cmd) {
 	clip_rect.y[2] = m_gpu_saved_conf.y_bot;
 	clip_rect.y[3] = m_gpu_saved_conf.y_bot;
 	m_highlited_areas.emplace_back(clip_rect);
+}
+
+static bool GpuCommandAreaIntersectsRect(uint32_t area_x, uint32_t area_y, uint32_t area_w, uint32_t area_h,
+	uint32_t rect_x, uint32_t rect_y, uint32_t rect_w, uint32_t rect_h) {
+	uint32_t area_x_l = area_x;
+	uint32_t area_x_r = area_x + area_w;
+
+	uint32_t area_y_t = area_y;
+	uint32_t area_y_b = area_y + area_h;
+
+	uint32_t rect_x_l = rect_x;
+	uint32_t rect_x_r = rect_x + rect_w;
+			 
+	uint32_t rect_y_t = rect_y;
+	uint32_t rect_y_b = rect_y + rect_h;
+
+	//Do proof by contradiction
+	//Rightmost verices of area are to the left of the leftmost vertices of the rectangle
+	//Leftmost is to the right
+	return !(area_x_r < rect_x_l || area_x_l > rect_x_r || area_y_t > rect_y_b || area_y_b < rect_y_t);
+}
+
+static bool GpuCommandAreaIntersectsRect2(int32_t area_l, int32_t area_r, int32_t area_t, int32_t area_b,
+	int32_t rect_l, int32_t rect_r, int32_t rect_t, int32_t rect_b) {
+	//Do proof by contradiction
+	//Rightmost verices of area are to the left of the leftmost vertices of the rectangle
+	//Leftmost is to the right
+	return !(area_r < rect_l || area_l > rect_r || area_t > rect_b || area_b < rect_t);
+}
+
+static bool GpuCommandPossiblyOverflowingAreaIntersectsRect(
+	uint32_t area_x, uint32_t area_y, uint32_t area_w, uint32_t area_h,
+	uint32_t rect_x, uint32_t rect_y, uint32_t rect_w, uint32_t rect_h) {
+	//Assume that the 'rect' does not overflow
+	if (area_x + area_w <= 1024 && area_y + area_h <= 512) {
+		return GpuCommandAreaIntersectsRect(area_x, area_y, area_w, area_h,
+			rect_x, rect_y, rect_w, rect_h);
+	}
+	else if (area_x + area_w > 1024 && area_y + area_h > 512) {
+		auto step1 = GpuCommandAreaIntersectsRect(area_x, area_y, 1024 - area_x, 512 - area_y,
+			rect_x, rect_y, rect_w, rect_h);
+		auto step2 = GpuCommandAreaIntersectsRect(0, 0, (area_x + area_w) & 0x3FF, (area_y + area_h) & 0x1FF,
+			rect_x, rect_y, rect_w, rect_h);
+		auto step3 = GpuCommandAreaIntersectsRect(0, area_y, (area_x + area_w) & 0x3FF, 512 - area_y,
+			rect_x, rect_y, rect_w, rect_h);
+		auto step4 = GpuCommandAreaIntersectsRect(area_x, 0, 1024 - area_x, (area_y + area_h) & 0x1FF,
+			rect_x, rect_y, rect_w, rect_h);
+		return step1 || step2 || step3 || step4;
+	}
+	else if (area_x + area_w > 1024) {
+		auto step1 = GpuCommandAreaIntersectsRect(area_x, area_y, 1024 - area_x, area_h,
+			rect_x, rect_y, rect_w, rect_h);
+		auto step2 = GpuCommandAreaIntersectsRect(0, area_y, (area_x + area_w) & 0x3FF, area_h,
+			rect_x, rect_y, rect_w, rect_h);
+		return step1 || step2;
+	} 
+	else {
+		auto step1 = GpuCommandAreaIntersectsRect(area_x, area_y, area_w, 512 - area_y,
+			rect_x, rect_y, rect_w, rect_h);
+		auto step2 = GpuCommandAreaIntersectsRect(area_x, 0, area_w, (area_y + area_h) & 0x1FF,
+			rect_x, rect_y, rect_w, rect_h);
+		return step1 || step2;
+	}
+}
+
+std::pair<bool, bool> DebugView::GetGpuCommandAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+	if (cmd->reg == psx::CommandRegister::GP1) {
+		return { false, false };
+	}
+
+	using GP0Command = psx::GP0CommandType;
+	switch (cmd->gp0.type)
+	{
+	case GP0Command::MISC: {
+		switch (cmd->gp0.misc.type)
+		{
+		case psx::MiscCommandType::NOP:
+		case psx::MiscCommandType::NOP_FIFO:
+		case psx::MiscCommandType::CLEAR_CACHE:
+			return { false, false };
+		case psx::MiscCommandType::QUICK_FILL:
+		{
+			auto fill_x = cmd->params.quick_fill.x;
+			auto fill_y = cmd->params.quick_fill.y;
+			auto fill_w = cmd->params.quick_fill.w;
+			auto fill_h = cmd->params.quick_fill.h;
+			return { false, GpuCommandPossiblyOverflowingAreaIntersectsRect(
+				fill_x, fill_y, fill_w, fill_h,
+				x, y, w, h
+			) };
+		}
+		}
+	} break;
+	case GP0Command::POLYGON:
+		return GetGpuPolygonAccessesVramArea(cmd, x, y, w, h);
+	case GP0Command::LINE:
+		return GetGpuLineAccessesVramArea(cmd, x, y, w, h);
+	case GP0Command::RECTANGLE:
+		return GetGpuRectangleAccessesVramArea(cmd, x, y, w, h);
+	case GP0Command::POLYLINE_END:
+		return { false, false };
+	case GP0Command::VRAM_BLIT: {
+		auto src_x = cmd->params.vram_vram_blit.src_x;
+		auto src_y = cmd->params.vram_vram_blit.src_y;
+		auto dst_x = cmd->params.vram_vram_blit.dst_x;
+		auto dst_y = cmd->params.vram_vram_blit.dst_y;
+		auto blit_w = cmd->params.vram_vram_blit.w;
+		auto blit_h = cmd->params.vram_vram_blit.h;
+		return
+		{
+			GpuCommandPossiblyOverflowingAreaIntersectsRect(src_x, src_y, blit_w, blit_h, x, y, w, h),
+			GpuCommandPossiblyOverflowingAreaIntersectsRect(dst_x, dst_y, blit_w, blit_h, x, y, w, h)
+		};
+	}
+	case GP0Command::CPU_VRAM_BLIT: {
+		auto blit_x = cmd->params.cpu_vram_blit.dst_x;
+		auto blit_y = cmd->params.cpu_vram_blit.dst_y;
+		auto blit_w = cmd->params.cpu_vram_blit.w;
+		auto blit_h = cmd->params.cpu_vram_blit.h;
+		return { 
+			false,
+			GpuCommandPossiblyOverflowingAreaIntersectsRect(
+			blit_x, blit_y, blit_w, blit_h,
+			x, y, w, h)
+		 };
+	}
+	case GP0Command::VRAM_CPU_BLIT: {
+		auto blit_x = cmd->params.vram_cpu_blit.src_x;
+		auto blit_y = cmd->params.vram_cpu_blit.src_y;
+		auto blit_w = cmd->params.vram_cpu_blit.w;
+		auto blit_h = cmd->params.vram_cpu_blit.h;
+		return { GpuCommandPossiblyOverflowingAreaIntersectsRect(
+			blit_x, blit_y, blit_w, blit_h, 
+			x, y, w, h)
+			, false };
+	}
+	case GP0Command::ENV:
+		return { false, false };
+	}
+
+	return { false, false };
+}
+
+std::pair<bool, bool> DebugView::GetGpuRectangleAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+	auto rect_cmd = cmd->gp0.rect;
+
+	uint32_t color_depth = {};
+	uint32_t x_base = {};
+	uint32_t y_base = {};
+	uint32_t clut_x = {};
+	uint32_t clut_y = {};
+	if (rect_cmd.is_textured()) {
+		auto texpage = cmd->params.rendering.vertices[0].clut_page & 0xFFFF;
+		color_depth = (texpage >> 7) & 0x3;
+		x_base = (texpage & 0xF) * 64;
+		y_base = (((texpage >> 4) & 1) | (((texpage >> 11) & 1) << 1)) * 256;
+		auto clut = (cmd->params.rendering.vertices[0].clut_page >> 16) & 0xFFFF;
+		clut_x = (clut & 0x3F) * 16;
+		clut_y = (clut >> 6) & 0x1FF;
+	}
+
+	/*
+	texpage |= gpu_stat.texture_page_x_base;
+	texpage |= ((u16)gpu_stat.texture_page_y_base << 4);
+	texpage |= ((u16)gpu_stat.semi_transparency << 5);
+	texpage |= ((u16)gpu_stat.tex_page_colors << 7);
+	texpage |= ((u16)gpu_stat.texture_page_y_base2 << 11);
+
+	clut: 0-5 x coord, 6-14 y coord
+
+	tex_and_clut = (clut << 16) | texpage;
+	*/
+	int32_t draw_x[4] = {};
+	int32_t draw_y[4] = {};
+	int32_t tex_u[4] = {};
+	int32_t tex_v[4] = {};
+
+	for (size_t vertex_index = 0; vertex_index < 4; vertex_index++) {
+		auto const& vertex = cmd->params.rendering.vertices[vertex_index];
+
+		draw_x[vertex_index] = vertex.x;
+		draw_y[vertex_index] = vertex.y;
+
+		if (rect_cmd.is_textured()) {
+			uint32_t u = cmd->params.rendering.vertices[vertex_index].u;
+			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
+			u += x_base;
+			v += y_base;
+			tex_u[vertex_index] = (int32_t)u;
+			tex_v[vertex_index] = (int32_t)v;
+		}
+	}
+
+	std::swap(draw_y[1], draw_y[2]);
+	
+	bool write = GpuCommandAreaIntersectsRect2(draw_x[0], draw_x[2], draw_y[0], draw_y[2],
+		x, x + w, y, y + h);
+	bool read = false;
+
+	if (rect_cmd.is_textured()) {
+		//read = GpuCommandAreaIntersectsRect2(tex_u[0], tex_u[2], tex_v[0], tex_v[1],
+		//	x, x + w, y, y + h);
+		constexpr uint32_t BPP_DIVISOR[] = { 4, 2, 1, 1 };
+		read = GpuCommandPossiblyOverflowingAreaIntersectsRect(tex_u[0], tex_v[0], 
+			std::abs(tex_u[2] - tex_u[0]) / BPP_DIVISOR[color_depth],
+			std::abs(tex_v[1] - tex_v[0]), 
+			x, y, w, h);
+		if (color_depth != 2) {
+			int32_t clut_len = color_depth == 0 ? 16 : 256;
+			read = read || GpuCommandAreaIntersectsRect2(clut_x, clut_x + clut_len, clut_y, clut_y + 1,
+				x, x + w, y, y + h);
+		}
+	}
+
+	return { read, write };
+}
+
+//Copied straight from https://www.jeffreythompson.org/collision-detection/line-rect.php
+
+// LINE/LINE
+static bool LineIntersectLine(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4) {
+
+	// calculate the direction of the lines
+	float uA = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+	float uB = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+
+	// if uA and uB are between 0-1, lines are colliding
+	return (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1);
+}
+
+// LINE/RECTANGLE
+static bool LineIntersectsRect(float x1, float y1, float x2, float y2, float rx, float ry, float rw, float rh) {
+
+	// check if the line has hit any of the rectangle's sides
+	// uses the Line/Line function below
+	bool left = LineIntersectLine(x1, y1, x2, y2, rx, ry, rx, ry + rh);
+	bool right = LineIntersectLine(x1, y1, x2, y2, rx + rw, ry, rx + rw, ry + rh);
+	bool top = LineIntersectLine(x1, y1, x2, y2, rx, ry, rx + rw, ry);
+	bool bottom = LineIntersectLine(x1, y1, x2, y2, rx, ry + rh, rx + rw, ry + rh);
+
+	// if ANY of the above are true, the line
+	// has hit the rectangle
+	if (left || right || top || bottom) {
+		return true;
+	}
+	return false;
+}
+
+std::pair<bool, bool> DebugView::GetGpuLineAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+	
+	int32_t x0 = cmd->params.rendering.vertices[0].x;
+	int32_t y0 = cmd->params.rendering.vertices[0].y;
+	int32_t x1 = cmd->params.rendering.vertices[1].x;
+	int32_t y1 = cmd->params.rendering.vertices[1].y;
+
+	//Rectangle contains either extrema
+	if (GpuCommandAreaIntersectsRect(x, y, w, h, x0, y0, 1, 1) ||
+		GpuCommandAreaIntersectsRect(x, y, w, h, x1, y1, 1, 1)) {
+		return { false, true };
+	}
+	
+	bool writes = LineIntersectsRect((float)x0, (float)y0, (float)x1, (float)y1, (float)x, (float)y,
+		(float)w, (float)h);
+	return { false, writes };
+}
+
+std::pair<bool, bool> DebugView::GetGpuPolygonAccessesVramArea(psx::GPUCommand const* cmd, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+	auto polygon_cmd = cmd->gp0.polygon;
+
+	uint32_t color_depth = {};
+	uint32_t x_base = {};
+	uint32_t y_base = {};
+	uint32_t clut_x = {};
+	uint32_t clut_y = {};
+	if (polygon_cmd.is_textured()) {
+		auto texpage = cmd->params.rendering.vertices[0].clut_page & 0xFFFF;
+		color_depth = (texpage >> 7) & 0x3;
+		x_base = (texpage & 0xF) * 64;
+		y_base = (((texpage >> 4) & 1) | (((texpage >> 11) & 1) << 1)) * 256;
+		auto clut = (cmd->params.rendering.vertices[0].clut_page >> 16) & 0xFFFF;
+		clut_x = (clut & 0x3F) * 16;
+		clut_y = (clut >> 6) & 0x1FF;
+	}
+
+	int32_t vertex_x[4] = {};
+	int32_t vertex_y[4] = {};
+	int32_t tex_u[4] = {};
+	int32_t tex_v[4] = {};
+
+	constexpr uint32_t BPP_DIVISOR[] = { 4, 2, 1, 1 };
+	for (size_t vertex_index = 0; vertex_index < (polygon_cmd.is_quad() ? 4 : 3); vertex_index++) {
+		auto const& vertex = cmd->params.rendering.vertices[vertex_index];
+
+		vertex_x[vertex_index] = vertex.x;
+		vertex_y[vertex_index] = vertex.y;
+
+		if (polygon_cmd.is_textured()) {
+			uint32_t u = cmd->params.rendering.vertices[vertex_index].u / BPP_DIVISOR[color_depth];
+			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
+			u += x_base;
+			v += y_base;
+			tex_u[vertex_index] = u;
+			tex_v[vertex_index] = v;
+		}
+	}
+
+	bool writes = ImTriangleContainsPoint(
+		ImVec2((float)vertex_x[0], (float)vertex_y[0]),
+		ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+		ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+		ImVec2((float)x, (float)y));
+	writes = writes || 
+		ImTriangleContainsPoint(
+			ImVec2((float)vertex_x[0], (float)vertex_y[0]),
+			ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+			ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+			ImVec2((float)x + w, (float)y)) ||
+		ImTriangleContainsPoint(
+			ImVec2((float)vertex_x[0], (float)vertex_y[0]),
+			ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+			ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+			ImVec2((float)x, (float)y + h)) ||
+		ImTriangleContainsPoint(
+			ImVec2((float)vertex_x[0], (float)vertex_y[0]),
+			ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+			ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+			ImVec2((float)x + w, (float)y + h));
+
+	if (polygon_cmd.is_quad()) {
+		writes = writes || 
+			ImTriangleContainsPoint(
+				ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+				ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+				ImVec2((float)vertex_x[3], (float)vertex_y[3]),
+				ImVec2((float)x, (float)y)) ||
+			ImTriangleContainsPoint(
+				ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+				ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+				ImVec2((float)vertex_x[3], (float)vertex_y[3]),
+				ImVec2((float)x + w, (float)y)) ||
+			ImTriangleContainsPoint(
+				ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+				ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+				ImVec2((float)vertex_x[3], (float)vertex_y[3]),
+				ImVec2((float)x, (float)y + h)) ||
+			ImTriangleContainsPoint(
+				ImVec2((float)vertex_x[1], (float)vertex_y[1]),
+				ImVec2((float)vertex_x[2], (float)vertex_y[2]),
+				ImVec2((float)vertex_x[3], (float)vertex_y[3]),
+				ImVec2((float)x + w, (float)y + h));
+	}
+
+	bool read = false;
+
+	if (polygon_cmd.is_textured()) {
+		read = ImTriangleContainsPoint(
+				ImVec2((float)tex_u[0], (float)tex_v[0]),
+				ImVec2((float)tex_u[1], (float)tex_v[1]),
+				ImVec2((float)tex_u[2], (float)tex_v[2]),
+				ImVec2((float)x, (float)y)) ||
+			ImTriangleContainsPoint(
+				ImVec2((float)tex_u[0], (float)tex_v[0]),
+				ImVec2((float)tex_u[1], (float)tex_v[1]),
+				ImVec2((float)tex_u[2], (float)tex_v[2]),
+				ImVec2((float)x + w, (float)y)) ||
+			ImTriangleContainsPoint(
+				ImVec2((float)tex_u[0], (float)tex_v[0]),
+				ImVec2((float)tex_u[1], (float)tex_v[1]),
+				ImVec2((float)tex_u[2], (float)tex_v[2]),
+				ImVec2((float)x, (float)y + h)) ||
+			ImTriangleContainsPoint(
+				ImVec2((float)tex_u[0], (float)tex_v[0]),
+				ImVec2((float)tex_u[1], (float)tex_v[1]),
+				ImVec2((float)tex_u[2], (float)tex_v[2]),
+				ImVec2((float)x + w, (float)y + h));
+
+		if (polygon_cmd.is_quad()) {
+			writes = writes ||
+				ImTriangleContainsPoint(
+					ImVec2((float)tex_u[1], (float)tex_v[1]),
+					ImVec2((float)tex_u[2], (float)tex_v[2]),
+					ImVec2((float)tex_u[3], (float)tex_v[3]),
+					ImVec2((float)x, (float)y)) ||
+				ImTriangleContainsPoint(
+					ImVec2((float)tex_u[1], (float)tex_v[1]),
+					ImVec2((float)tex_u[2], (float)tex_v[2]),
+					ImVec2((float)tex_u[3], (float)tex_v[3]),
+					ImVec2((float)x + w, (float)y)) ||
+				ImTriangleContainsPoint(
+					ImVec2((float)tex_u[1], (float)tex_v[1]),
+					ImVec2((float)tex_u[2], (float)tex_v[2]),
+					ImVec2((float)tex_u[3], (float)tex_v[3]),
+					ImVec2((float)x, (float)y + h)) ||
+				ImTriangleContainsPoint(
+					ImVec2((float)tex_u[1], (float)tex_v[1]),
+					ImVec2((float)tex_u[2], (float)tex_v[2]),
+					ImVec2((float)tex_u[3], (float)tex_v[3]),
+					ImVec2((float)x + w, (float)y + h));
+		}
+		
+		if (color_depth != 2) {
+			int32_t clut_len = color_depth == 0 ? 16 : 256;
+			read = read || GpuCommandAreaIntersectsRect2(clut_x, clut_x + clut_len, clut_y, clut_y + 1,
+				x, x + w, y, y + h);
+		}
+	}
+
+	return { read, writes };
 }
 
 void DebugView::GpuWindow() {
