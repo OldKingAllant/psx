@@ -195,7 +195,7 @@ void DebugView::GpuCommandWindow() {
 		static uint32_t s_scroll_to{};
 		ImGui::SetNextItemWidth(75.f);
 		ImGui::InputScalar("##jump_to", ImGuiDataType_U32, (void*)&s_scroll_to); ImGui::SameLine();
-		s_scroll_to = std::clamp<uint32_t>(s_scroll_to, 0, s_last_filtered_items.size());
+		s_scroll_to = std::clamp<uint32_t>(s_scroll_to, 0, (uint32_t)s_last_filtered_items.size());
 		bool scrolled = ImGui::Button("Scroll");
 
 		ImGui::Separator();
