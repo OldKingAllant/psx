@@ -2885,6 +2885,7 @@ std::pair<bool, bool> DebugView::GetGpuRectangleAccessesVramArea(psx::GPUCommand
 	int32_t tex_u[4] = {};
 	int32_t tex_v[4] = {};
 
+	constexpr uint32_t BPP_DIVISOR[] = { 4, 2, 1, 1 };
 	for (size_t vertex_index = 0; vertex_index < 4; vertex_index++) {
 		auto const& vertex = cmd->params.rendering.vertices[vertex_index];
 
@@ -2894,7 +2895,7 @@ std::pair<bool, bool> DebugView::GetGpuRectangleAccessesVramArea(psx::GPUCommand
 		if (rect_cmd.is_textured()) {
 			uint32_t u = cmd->params.rendering.vertices[vertex_index].u;
 			uint32_t v = cmd->params.rendering.vertices[vertex_index].v;
-			u += x_base;
+			u = (u / BPP_DIVISOR[color_depth]) + x_base;
 			v += y_base;
 			tex_u[vertex_index] = (int32_t)u;
 			tex_v[vertex_index] = (int32_t)v;
@@ -2910,9 +2911,8 @@ std::pair<bool, bool> DebugView::GetGpuRectangleAccessesVramArea(psx::GPUCommand
 	if (rect_cmd.is_textured()) {
 		//read = GpuCommandAreaIntersectsRect2(tex_u[0], tex_u[2], tex_v[0], tex_v[1],
 		//	x, x + w, y, y + h);
-		constexpr uint32_t BPP_DIVISOR[] = { 4, 2, 1, 1 };
 		read = GpuCommandPossiblyOverflowingAreaIntersectsRect(tex_u[0], tex_v[0], 
-			std::abs(tex_u[2] - tex_u[0]) / BPP_DIVISOR[color_depth],
+			std::abs(tex_u[2] - tex_u[0]),
 			std::abs(tex_v[1] - tex_v[0]), 
 			x, y, w, h);
 		if (color_depth != 2) {
