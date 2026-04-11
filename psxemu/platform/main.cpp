@@ -41,6 +41,7 @@ std::string GetRenderdocPath() {
 
 int main(int argc, char* argv[]) {
 	psx::video::SdlInit();
+	atexit(psx::video::SdlShutdown);
 
 	config::Config config_loader{};
 	config_loader.LoadFromFile("../config/emu_conf.txt");
@@ -260,6 +261,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
+		display.DrawGui();
 		display.Present();
 
 		if (debug_view) {
@@ -272,6 +274,4 @@ int main(int argc, char* argv[]) {
 
 	server.Shutdown();
 	if(console) console->Close();
-
-	psx::video::SdlShutdown();
 } 

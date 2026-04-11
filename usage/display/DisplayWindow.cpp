@@ -5,6 +5,15 @@
 #include <fmt/format.h>
 #include <SDL2/SDL.h>
 
+#include <thirdparty/imgui/imgui.h>
+#include <thirdparty/imgui/imgui_internal.h>
+#include <thirdparty/imgui/misc/cpp/imgui_stdlib.h>
+#include <thirdparty/imgui/backends/imgui_impl_sdl2.h>
+#include <thirdparty/imgui/backends/imgui_impl_opengl3.h>
+
+//Expect that only ONE display window exists
+static ImGuiContext* g_imgui_ctx{ nullptr };
+
 DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::string blit_loc,
 	std::string blit16_name, std::string blit24_name, bool reuse_ctx, bool resize,
 	bool enable_debug) : SdlWindow(name, size, blit_loc, blit16_name, 
@@ -19,18 +28,33 @@ DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::strin
 	glGenBuffers(1, &m_ssbo_buf);
 
 	m_gl_ctx.BindBuffer(GL_PIXEL_PACK_BUFFER, m_ssbo_buf);
-	//glBindBuffer(GL_PIXEL_PACK_BUFFER, m_ssbo_buf);
 	glBufferData(GL_PIXEL_PACK_BUFFER, 1024ULL * 512 * 2,
 		nullptr, GL_DYNAMIC_DRAW);
-	//glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_ssbo_buf);
 
 	m_gl_ctx.BindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+	g_imgui_ctx = ImGui::CreateContext();
+	ImGui::SetCurrentContext(g_imgui_ctx);
+
+	ImGui_ImplSDL2_InitForOpenGL((SDL_Window*)m_win, m_gl_ctx.GetHandle());
+	ImGui_ImplOpenGL3_Init("#version 460");
+
+	ForwardEventHandler([this](SDL_Event* ev) {
+		ImGui::SetCurrentContext(g_imgui_ctx);
+		ImGui_ImplSDL2_ProcessEvent(ev);
+	});
 }
 
 DisplayWindow::~DisplayWindow() {
+	m_gl_ctx.SetCurrent(m_win);
 	delete m_blit24_shader;
 	glDeleteBuffers(1, &m_ssbo_buf);
+
+	ImGui::SetCurrentContext(g_imgui_ctx);
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext(g_imgui_ctx);
 }
 
 void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_size, Rect texture_size) {
@@ -91,4 +115,22 @@ void DisplayWindow::Blit24(uint32_t texture_id) {
 	////////////////////////////////////////////////
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void DisplayWindow::DrawGui() {
+	ImGui::SetCurrentContext(g_imgui_ctx);
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplSDL2_NewFrame();
+	ImGui::NewFrame();
+
+	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("Emulation")) {
+			ImGui::Text("SUB-MENU");
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }

@@ -16,6 +16,8 @@
 
 #include <GL/glew.h>
 
+static ImGuiContext* g_imgui_ctx{nullptr};
+
 DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sys) 
 	: m_win{ win }, m_psx{ sys }, m_gl_ctx{ nullptr }, 
 	m_first_frame{ true }, m_enabled_opts{}, 
@@ -25,7 +27,8 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	m_is_main_window_open{} {
 	m_gl_ctx = m_win->GetGlContext();
 
-	ImGui::CreateContext();
+	g_imgui_ctx = ImGui::CreateContext();
+	ImGui::SetCurrentContext(g_imgui_ctx);
 
 	auto& io = ImGui::GetIO();
 
@@ -36,6 +39,7 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	ImGui_ImplOpenGL3_Init("#version 460");
 
 	m_win->ForwardEventHandler([this](SDL_Event* ev) {
+		ImGui::SetCurrentContext(g_imgui_ctx);
 		ImGui_ImplSDL2_ProcessEvent(ev);
 	});
 
@@ -60,12 +64,14 @@ DebugView::~DebugView() {
 		FreeTexture(file_tex.second);
 	}
 
+	ImGui::SetCurrentContext(g_imgui_ctx);
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
-	ImGui::DestroyContext();
+	ImGui::DestroyContext(g_imgui_ctx);
 }
 
 void DebugView::Update() {
+	ImGui::SetCurrentContext(g_imgui_ctx);
 	m_win->Clear();
 
 	m_gl_ctx->SetCurrent(m_win->GetWindowHandle());

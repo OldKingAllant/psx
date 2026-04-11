@@ -559,6 +559,7 @@ union ImGL3WProcs {
 };
 
 GL3W_API extern union ImGL3WProcs imgl3wProcs;
+GL3W_API extern uint64_t imgl3wLibRefCount;
 
 /* OpenGL functions */
 #define glActiveTexture                   imgl3wProcs.gl.ActiveTexture
@@ -840,6 +841,10 @@ static void clear_procs();
 
 int imgl3wInit(void)
 {
+    imgl3wLibRefCount++;
+    if (imgl3wLibRefCount > 1) {
+        return GL3W_OK;
+    }
     int res = open_libgl();
     if (res)
         return res;
@@ -855,6 +860,13 @@ int imgl3wInit2(GL3WGetProcAddressProc proc)
 
 void imgl3wShutdown(void)
 {
+    if (imgl3wLibRefCount == 0) {
+        return;
+    }
+    imgl3wLibRefCount--;
+    if (imgl3wLibRefCount != 0) {
+        return;
+    }
     close_libgl();
     clear_procs();
 }
@@ -937,6 +949,7 @@ static const char *proc_names[] = {
 };
 
 GL3W_API union ImGL3WProcs imgl3wProcs;
+GL3W_API uint64_t imgl3wLibRefCount{ 0 };
 
 static void load_procs(GL3WGetProcAddressProc proc)
 {

@@ -46,6 +46,21 @@ namespace psx::video {
 		gl_debug_en = true;
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 		glEnable(GL_DEBUG_OUTPUT);
+		glDebugMessageControl(
+			GL_DONT_CARE, GL_DONT_CARE, 
+			GL_DEBUG_SEVERITY_LOW, 
+			0, nullptr, GL_FALSE);
+		glDebugMessageControl(
+			GL_DONT_CARE, GL_DONT_CARE,
+			GL_DEBUG_SEVERITY_NOTIFICATION,
+			0, nullptr, GL_FALSE);
+		
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+			GL_DEBUG_SEVERITY_MEDIUM,
+			0, nullptr, GL_TRUE);
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+			GL_DEBUG_SEVERITY_HIGH,
+			0, nullptr, GL_TRUE);
 	}
 
 	void GlSetDebugMessageCallback(DebugMessageCallback callback, void* userdata) {
