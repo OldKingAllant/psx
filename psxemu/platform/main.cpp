@@ -63,45 +63,18 @@ int main(int argc, char* argv[]) {
 		renderdoc->SetCaptureOption(CaptureOpts::CAPTURE_CALLSTACKS, 1);
 	}
 
-	psx::video::SdlWindow vram_view("Vram",
-		psx::video::Rect{ .w = 1024, .h = 512 }, 
-		"../shaders", "vram_view_blit", false, true, true);
-
 	DisplayWindow display("PSX-Display",
 		psx::video::Rect{ .w = 640, .h = 480 },
 		"../shaders", "display_blit", "display_blit24", true, true, true);
 
 	if(renderdoc)
-		renderdoc->SetCurrentWindow(vram_view.GetNativeWindowHandle());
+		renderdoc->SetCurrentWindow(display.GetNativeWindowHandle());
 
 	using SdlEvent = psx::video::SdlEvent;
 
 	bool ov_enable = true;
 
 	std::shared_ptr<psx::input::IInputManager> input_manager{std::make_shared<psx::input::KeyboardManager>()};
-
-	vram_view.Listen(SdlEvent::KeyPressed, [&renderdoc, &ov_enable, &vram_view](SdlEvent ev_type, std::any data) {
-		auto key_name = std::any_cast<std::string_view>(data);
-		
-		if (renderdoc) {
-			if (key_name == "C")
-				renderdoc->PrepareCapture();
-			else if (key_name == "O") {
-				ov_enable = !ov_enable;
-
-				fmt::println("Renderdoc overlay enable : {}", ov_enable);
-
-				if (!ov_enable)
-					renderdoc->SetOverlayOptions(OverlayOpts::DISABLE);
-				else
-					renderdoc->SetOverlayOptions(OverlayOpts::ENABLE | OverlayOpts::FRAMERATE | OverlayOpts::CAPTURES);
-			}
-		}
-
-		if (key_name == "R") {
-			vram_view.SetSize(psx::video::Rect{.w = 1024, .h = 512});
-		}
-	});
 
 	display.Listen(SdlEvent::KeyPressed, [input_manager](SdlEvent ev_type, std::any data) {
 		auto key_name = std::any_cast<std::string_view>(data);
@@ -124,8 +97,6 @@ int main(int argc, char* argv[]) {
 	});
 
 	psx::video::WindowManager wm{};
-
-	wm.AddWindow(&vram_view);
 	wm.AddWindow(&display);
 
 	std::unique_ptr<tty::TTY_Console> console{};
@@ -238,7 +209,7 @@ int main(int argc, char* argv[]) {
 	{
 		bool debug_view_close_request = debug_view ? debug_view->CloseRequest() : false;
 
-		if (vram_view.CloseRequest() || display.CloseRequest() || debug_view_close_request) break;
+		if (display.CloseRequest() || debug_view_close_request) break;
 
 		if (!sys.Stopped()) {
 			display.MakeContextCurrent();
@@ -258,9 +229,6 @@ int main(int argc, char* argv[]) {
 		auto& framebuf = gpu.GetRenderer()->GetFramebuffer();
 		auto& vram = gpu.GetRenderer()->GetVram();
 		auto handle = framebuf.GetUpscaledTexture().value_or(framebuf.GetInternalTexture());
-
-		vram_view.Blit(handle);
-		vram_view.Present();
 
 		auto const& disp_conf = gpu.GetDispConfig();
 
