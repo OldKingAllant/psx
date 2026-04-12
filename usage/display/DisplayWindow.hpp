@@ -1,8 +1,13 @@
 #pragma once
 
 #include <psxemu/renderer/SdlWindow.hpp>
+#include <psxemu/include/psxemu/Server.hpp>
 
 #include <vector>
+
+namespace psx {
+	class System;
+}
 
 class DisplayWindow : public psx::video::SdlWindow {
 public :
@@ -22,9 +27,14 @@ public :
 
 	void DrawGui();
 
+	void SetSystem(psx::System* sys);
+	void SetGdbServer(std::shared_ptr<psx::gdbstub::Server> server);
+
 private :
 	psx::video::Shader* m_blit24_shader;
 	std::vector<u8> m_24bit_buf;
 	std::vector<u16> m_temp_buf;
 	GLuint m_ssbo_buf;
+	psx::System* m_sys;
+	std::shared_ptr<psx::gdbstub::Server> m_gdb_server;
 };

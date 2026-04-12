@@ -212,6 +212,7 @@
     <ClInclude Include="include\psxemu\RootCounters.hpp" />
     <ClInclude Include="include\psxemu\Scheduler.hpp" />
     <ClInclude Include="include\psxemu\Server.hpp" />
+    <ClInclude Include="include\psxemu\ServerAsyncCommands.hpp" />
     <ClInclude Include="include\psxemu\SIOAbstractDevice.hpp" />
     <ClInclude Include="include\psxemu\SIOPadMemcardDriver.hpp" />
     <ClInclude Include="include\psxemu\SIOPort.hpp" />
@@ -313,6 +314,7 @@
     <ClCompile Include="source\psxemu\RootCounters.cpp" />
     <ClCompile Include="source\psxemu\Scheduler.cpp" />
     <ClCompile Include="source\psxemu\Server.cpp" />
+    <ClCompile Include="source\psxemu\ServerAsyncCommands.cpp" />
     <ClCompile Include="source\psxemu\ServerExtensionPackets.cpp" />
     <ClCompile Include="source\psxemu\SIOPadMemcardDriver.cpp" />
     <ClCompile Include="source\psxemu\SIOPort.cpp" />

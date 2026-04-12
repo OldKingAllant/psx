@@ -14,6 +14,10 @@ namespace psx {
 	class System;
 	struct DriveCommand;
 	struct GPUCommand;
+
+	namespace gdbstub {
+		class Server;
+	}
 }
 
 class DebugView {
@@ -43,6 +47,10 @@ public :
 		std::optional<std::array<float, 4>> color;
 	};
 
+	inline void SetGdbServer(std::shared_ptr<psx::gdbstub::Server> server) {
+		m_gdb_server = server;
+	}
+
 private :
 	/// <summary>
 	/// Draw the CPU status window
@@ -68,6 +76,8 @@ private :
 	void GpuLoadDumpWindow();
 	void GpuMainWindow();
 	void GpuWindow();
+
+	void GdbWindow();
 
 	void TaskBarWindow();
 
@@ -144,4 +154,6 @@ private :
 	std::unique_ptr<psx::video::Shader> m_texture_view_shader;
 
 	std::unordered_map<std::string, bool> m_is_main_window_open;
+
+	std::shared_ptr<psx::gdbstub::Server> m_gdb_server;
 };

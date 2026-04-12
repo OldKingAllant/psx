@@ -154,6 +154,7 @@
     <ClCompile Include="config\ConfigLoader.cpp" />
     <ClCompile Include="display\DisplayWindow.cpp" />
     <ClCompile Include="imgui_debug\DebugView.cpp" />
+    <ClCompile Include="imgui_debug\GdbWindow.cpp" />
     <ClCompile Include="imgui_debug\GPUDebug.cpp" />
     <ClCompile Include="tty\TTY_Console.cpp" />
   </ItemGroup>

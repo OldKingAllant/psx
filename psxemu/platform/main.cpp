@@ -117,19 +117,6 @@ int main(int argc, char* argv[]) {
 				psx::u32 ch = sys.GetCPU().GetRegs().a0;
 				if(console) console->Putchar((char)ch);
 			});
-	kernel
-		.InsertEnterHook(std::string("SystemError"),
-			[&sys](psx::u32 pc, psx::u32 id) {
-				auto const& regs = sys.GetCPU().GetRegs();
-				auto type = char(regs.a0);
-				auto errcode = regs.a1;
-
-				auto errmessage = fmt::format("SystemError called\nType: {}, Code: {:#x}",
-					type, errcode);
-
-				MessageBoxA(NULL, errmessage.c_str(),
-					"Fatal error", MB_OK | MB_ICONERROR);
-			});
 
 	if (renderdoc) {
 		sys.GetStatus()
@@ -180,9 +167,10 @@ int main(int argc, char* argv[]) {
 		wm.SetWindowAsUnfiltered(debug_view->GetRawWindow());
 	}
 
-	psx::gdbstub::Server server(config->gdb_stub_port, &sys);
+	std::shared_ptr<psx::gdbstub::Server> server{};
+	server = std::make_shared<psx::gdbstub::Server>(config->gdb_stub_port, &sys);
 
-	(void)server.SetTraceHandler([](std::string_view packet, bool inout) {
+	(void)server->SetTraceHandler([](std::string_view packet, bool inout) {
 		if (inout) //Sending
 			std::cout << "Out: " << packet;
 		else
@@ -190,8 +178,14 @@ int main(int argc, char* argv[]) {
 
 		std::cout << std::endl;
 	});
-	server.SetTracing(false);
-	server.Start();
+	server->SetTracing(false);
+
+	if (config->enable_gdb_stub) {
+		server->StartThread();
+	}
+
+	display.SetSystem(&sys);
+	display.SetGdbServer(server);
 
 	{
 		//auto& mdec = sys.GetStatus()
@@ -206,11 +200,18 @@ int main(int argc, char* argv[]) {
 		//dma_control.UseSimd(true);
 	}
 
-	while (server.HandlePackets() && wm.HandleEvents())
+	if (debug_view) {
+		debug_view->SetGdbServer(server);
+	}
+
+	sys.SetStopped(true);
+	while (wm.HandleEvents())
 	{
 		bool debug_view_close_request = debug_view ? debug_view->CloseRequest() : false;
 
 		if (display.CloseRequest() || debug_view_close_request) break;
+
+		server->HandleAsyncCommands();
 
 		if (!sys.Stopped()) {
 			display.MakeContextCurrent();
@@ -220,7 +221,7 @@ int main(int argc, char* argv[]) {
 
 			if (break_hit || sys.Stopped()) {
 				sys.SetStopped(true);
-				server.BreakTriggered();
+				server->BreakTriggered();
 			}
 		}
 
@@ -272,6 +273,6 @@ int main(int argc, char* argv[]) {
 
 	display.MakeContextCurrent();
 
-	server.Shutdown();
+	server->StopThread();
 	if(console) console->Close();
 } 

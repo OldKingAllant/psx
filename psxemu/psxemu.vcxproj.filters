@@ -435,6 +435,9 @@
     <ClInclude Include="renderer\GLContext.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\ServerAsyncCommands.hpp">
+      <Filter>Header Files\gdbstub</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -670,6 +673,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\MIPS1.cpp">
       <Filter>Resource Files\cpu</Filter>
+    </ClCompile>
+    <ClCompile Include="source\psxemu\ServerAsyncCommands.cpp">
+      <Filter>Resource Files\gdbstub</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

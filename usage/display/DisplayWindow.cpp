@@ -1,6 +1,7 @@
 #include "DisplayWindow.hpp"
 
 #include <psxemu/renderer/GLContext.hpp>
+#include <GL/glew.h>
 
 #include <fmt/format.h>
 #include <SDL2/SDL.h>
@@ -11,13 +12,20 @@
 #include <thirdparty/imgui/backends/imgui_impl_sdl2.h>
 #include <thirdparty/imgui/backends/imgui_impl_opengl3.h>
 
+#include <psxemu/include/psxemu/System.hpp>
+#include <psxemu/include/psxemu/Kernel.hpp>
+
 //Expect that only ONE display window exists
 static ImGuiContext* g_imgui_ctx{ nullptr };
+
+static bool g_show_popup{ false };
+static std::string g_popup_string{};
 
 DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::string blit_loc,
 	std::string blit16_name, std::string blit24_name, bool reuse_ctx, bool resize,
 	bool enable_debug) : SdlWindow(name, size, blit_loc, blit16_name, 
-		reuse_ctx, resize, enable_debug) {
+		reuse_ctx, resize, enable_debug), m_sys{ nullptr },
+		m_gdb_server{} {
 	m_blit24_shader = new psx::video::Shader(blit_loc, blit24_name);
 	m_blit24_shader->SetLabel(fmt::format("window_{}_blit24_shader", name));
 
@@ -34,16 +42,32 @@ DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::strin
 
 	m_gl_ctx.BindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-	g_imgui_ctx = ImGui::CreateContext();
-	ImGui::SetCurrentContext(g_imgui_ctx);
 
-	ImGui_ImplSDL2_InitForOpenGL((SDL_Window*)m_win, m_gl_ctx.GetHandle());
-	ImGui_ImplOpenGL3_Init("#version 460");
+	{
+		GLint unpack_row_len{}, pack_row_len{};
+		GLint pack_align{}, unpack_align{};
 
-	ForwardEventHandler([this](SDL_Event* ev) {
+		glGetIntegerv(GL_UNPACK_ROW_LENGTH, &unpack_row_len);
+		glGetIntegerv(GL_PACK_ROW_LENGTH, &pack_row_len);
+		glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack_align);
+		glGetIntegerv(GL_PACK_ALIGNMENT, &pack_align);
+
+		g_imgui_ctx = ImGui::CreateContext();
 		ImGui::SetCurrentContext(g_imgui_ctx);
-		ImGui_ImplSDL2_ProcessEvent(ev);
-	});
+
+		ImGui_ImplSDL2_InitForOpenGL((SDL_Window*)m_win, m_gl_ctx.GetHandle());
+		ImGui_ImplOpenGL3_Init("#version 460");
+
+		ForwardEventHandler([this](SDL_Event* ev) {
+			ImGui::SetCurrentContext(g_imgui_ctx);
+			ImGui_ImplSDL2_ProcessEvent(ev);
+		});
+
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, unpack_row_len);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, unpack_align);
+		glPixelStorei(GL_PACK_ROW_LENGTH, pack_row_len);
+		glPixelStorei(GL_PACK_ALIGNMENT, pack_align);
+	}
 }
 
 DisplayWindow::~DisplayWindow() {
@@ -118,19 +142,74 @@ void DisplayWindow::Blit24(uint32_t texture_id) {
 }
 
 void DisplayWindow::DrawGui() {
+	GLint unpack_row_len{}, pack_row_len{};
+	GLint pack_align{}, unpack_align{};
+
+	glGetIntegerv(GL_UNPACK_ROW_LENGTH, &unpack_row_len);
+	glGetIntegerv(GL_PACK_ROW_LENGTH, &pack_row_len);
+	glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpack_align);
+	glGetIntegerv(GL_PACK_ALIGNMENT, &pack_align);
+
 	ImGui::SetCurrentContext(g_imgui_ctx);
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
-
+	
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Emulation")) {
-			ImGui::Text("SUB-MENU");
+			bool stop = m_sys->Stopped();
+			if (m_gdb_server->IsConnected()) ImGui::BeginDisabled();
+			ImGui::Checkbox("Stop", &stop);
+			if (m_gdb_server->IsConnected()) ImGui::EndDisabled();
+			m_sys->SetStopped(stop);
+			if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && m_gdb_server->IsConnected()) {
+				ImGui::BeginTooltip();
+				ImGui::Text("Connected to GDB, cannot free-run");
+				ImGui::EndTooltip();
+			}
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();
 	}
-
+	
+	if (g_show_popup) {
+		ImGui::OpenPopup("##popup");
+		g_show_popup = false;
+	}
+	
+	if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_NoResize)) {
+		ImGui::Text(g_popup_string.c_str());
+		if (ImGui::Button("OK")) {
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+	
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, unpack_row_len);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, unpack_align);
+	glPixelStorei(GL_PACK_ROW_LENGTH, pack_row_len);
+	glPixelStorei(GL_PACK_ALIGNMENT, pack_align);
+}
+
+void DisplayWindow::SetSystem(psx::System* sys) {
+	m_sys = sys;
+	psx::kernel::Kernel& kernel = sys->GetKernel();
+	kernel
+		.InsertEnterHook(std::string("SystemError"),
+			[sys](psx::u32 pc, psx::u32 id) {
+				auto const& regs = sys->GetCPU().GetRegs();
+				auto type = char(regs.a0);
+				auto errcode = regs.a1;
+
+				g_popup_string = fmt::format("SystemError() called, type: {}, code: {:#x}",
+					type, errcode);
+				g_show_popup = true;
+			});
+}
+
+void DisplayWindow::SetGdbServer(std::shared_ptr<psx::gdbstub::Server> server) {
+	m_gdb_server = server;
 }

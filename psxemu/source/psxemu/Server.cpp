@@ -1,4 +1,6 @@
 #include <psxemu/include/psxemu/Server.hpp>
+#include <psxemu/include/psxemu/ServerAsyncCommands.hpp>
+
 #include <Poco/Net/SocketStream.h>
 
 #include <chrono>
@@ -11,11 +13,14 @@
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
+#include <common/SetThreadName.hpp>
+
 namespace psx::gdbstub {
 	Server::Server(int16_t port, System* sys) :
 		m_socket{},
 		m_conn{},
 		m_address{},
+		m_address_lock{},
 		m_port{port},
 		m_open{false},
 		m_recv_buffer{nullptr},
@@ -24,7 +29,8 @@ namespace psx::gdbstub {
 		m_cmd_handlers{},
 		m_ext_cmd_handlers{},
 		m_trace_handler{}, m_tracing{false}, 
-		m_sys{sys} {
+		m_sys{sys},
+		m_thread_state{} {
 		m_cmd_handlers.insert(std::pair{ std::string("qSupported"), &Server::HandleQSupported });
 		m_cmd_handlers.insert(std::pair{ std::string("Hg"), &Server::HandleHg });
 		m_cmd_handlers.insert(std::pair{ std::string("qAttached"), &Server::HandleQAttached });
@@ -46,50 +52,87 @@ namespace psx::gdbstub {
 		m_cmd_handlers.insert(std::pair{ std::string("ext_"), &Server::HandleExtensionPackets});
 
 		InitExtHandlers();
+
+		auto server_address = Poco::Net::SocketAddress("127.0.0.1", m_port);;
+		m_socket.bind(server_address);
 	}
 
-	void Server::Start() {
-		auto server_address = Poco::Net::SocketAddress("127.0.0.1", m_port);;
-
-		m_socket.bind(server_address);
-
+	void Server::Start(std::stop_token token) {
 		using namespace std::chrono_literals;
 
 		m_socket.listen(1);
-		m_conn = m_socket.acceptConnection();
-		
-		//m_conn.setBlocking(false);
+
+		Poco::Net::PollSet poll_set{};
+		poll_set.add(m_socket, Poco::Net::Socket::SELECT_READ);
+
+		bool accepted = false;
+		while (!token.stop_requested()) {
+			using namespace std::chrono_literals;
+			auto changed_sockets = poll_set.poll(Poco::Timespan(20ms));
+			if (changed_sockets.contains(m_socket)) {
+				m_conn = m_socket.acceptConnection();
+				accepted = true;
+				break;
+			}
+		}
+
+		if (!accepted) {
+			return;
+		}
+
 		m_conn.setReceiveTimeout(Poco::Timespan(
 			TIMEOUT
 		));
 
-		m_recv_buffer = new char[BUFFER_SIZE];
+		if (!m_recv_buffer) {
+			m_recv_buffer = std::make_unique<char[]>(BUFFER_SIZE);
+		}
 
-		std::memset(m_recv_buffer, 0x0, BUFFER_SIZE);
-
+		std::scoped_lock lk{ m_address_lock };
 		m_address = m_conn.peerAddress();
-
 		m_open = true;
 	}
 
 	void Server::Shutdown() {
-		if (m_open) {
+		if (m_open.load()) {
 			m_conn.close();
-			m_socket.close();
+			m_open.store(false);
+			std::scoped_lock lk{ m_address_lock };
+			m_address = {};
 		}
 	}
 
 	bool Server::HandlePackets() {
 		//The packet format is specified at https://sourceware.org/gdb/current/onlinedocs/gdb.html/Overview.html#Overview
 		try {
-			auto effective_len = m_conn.receiveBytes(m_recv_buffer, BUFFER_SIZE);
+			auto stop_token = m_thread_state.server_thread.get_stop_token();
+
+			Poco::Net::PollSet poll_set{};
+			poll_set.add(m_conn, Poco::Net::Socket::SELECT_READ | Poco::Net::Socket::SELECT_ERROR);
+
+			using namespace std::chrono_literals;
+			auto changed_sockets = poll_set.poll(Poco::Timespan(TIMEOUT));
+
+			if (stop_token.stop_requested()) {
+				return false;
+			}
+
+			if (!changed_sockets.contains(m_conn)) {
+				return true;
+			}
+
+			if (changed_sockets[m_conn] & Poco::Net::Socket::SELECT_ERROR) {
+				return false;
+			}
+
+			auto effective_len = m_conn.receiveBytes(m_recv_buffer.get(), BUFFER_SIZE);
 
 			if (effective_len == 0)
 				return true;
 
 			m_recv_size = effective_len;
 
-			std::string data{ m_recv_buffer, (std::size_t)effective_len };
+			std::string data{ m_recv_buffer.get(), (std::size_t)effective_len};
 
 			if (m_tracing && m_trace_handler)
 				m_trace_handler(data, false);
@@ -97,7 +140,7 @@ namespace psx::gdbstub {
 			//The connection might be closed by a command
 			//and a single packet might contain more
 			//than one command
-			while (data.length() && m_open) {
+			while (!stop_token.stop_requested() && data.length() && m_open.load()) {
 				if (data[0] == '+' || data[0] == '\0') {
 					data.erase(0, 1);
 				}
@@ -106,7 +149,7 @@ namespace psx::gdbstub {
 					data.erase(0, 1);
 				}
 				else if (data[0] == (char)0x03) {
-					m_sys->SetStopped(true);
+					PushServerToEmuCommand<StopEmuCommand>();
 					SendPayload("S05");
 					return true;
 				}
@@ -501,13 +544,20 @@ namespace psx::gdbstub {
 	}
 
 	void Server::HandleSmallG(std::string& data) {
+		PushServerToEmuCommand<GetRegistersCommand>();
+		auto response = AwaitEmuResponse<GetRegistersResponse>(m_thread_state.server_thread.get_stop_token());
+		if (!response) {
+			return;
+		}
+
 		//Send registers packet
 		std::ostringstream out{};
-
 		//Send all 73 regs (which means that a lot of them are dummy values)
 
-		for (uint32_t reg_index = 0; reg_index <= NUM_STUB_REGISTERS; reg_index++)
-			out << UintToHexString( GetRegValueFromIndex(reg_index), 8, true);
+		for (uint32_t reg_index = 0; reg_index < NUM_STUB_REGISTERS; reg_index++) {
+			out << fmt::format("{:08x}", std::byteswap(response->regs[reg_index]));
+		}
+		//out << UintToHexString( response->regs[reg_index], 8, true);
 
 		std::string res = out.str();
 
@@ -520,30 +570,33 @@ namespace psx::gdbstub {
 		//Simply writes all registers
 		//in one go
 
+		std::array<uint32_t, NUM_STUB_REGISTERS> regs{};
+
 		while (data.length() >= 8) {
-			auto hex_num = std::string_view(data.begin(), data.begin() + 8);
+			auto hex_num = std::string(data.begin(), data.begin() + 8);
+			uint32_t new_value{};
 
-			auto res = HexStringToUint(hex_num, true);
-
-			if (!res) {
+			try {
+				new_value = std::stoul(hex_num, nullptr, 16);
+			}
+			catch (std::invalid_argument const& e) {
+				LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling G: {}", e.what());
 				SendPayload("E00");
 				return;
 			}
-			else {
-				SetRegValueFromIndex(reg_index, res.value());
-			}
 
+			regs[reg_index] = std::byteswap(new_value);
 			data.erase(0, 8);
-
 			reg_index += 1;
 		}
 
+		PushServerToEmuCommand<SetRegistersCommand>(regs);
 		SendPayload("OK");
 	}
 
 	void Server::HandleDetach(std::string& data) {
 		SendPayload("OK");
-		m_open = false;
+		m_open.store(false);
 	}
 
 	void Server::HandleP(std::string& data) {
@@ -555,25 +608,31 @@ namespace psx::gdbstub {
 			return;
 		}
 
-		auto reg_index_str = std::string_view(data.begin(), data.begin() + reg_index_end);
+		auto reg_index_str = std::string(data.begin(), data.begin() + reg_index_end);
+		uint32_t reg_index{};
 
-		auto reg_index = HexStringToUint(reg_index_str, false);
-
-		if (!reg_index) {
+		try {
+			reg_index = std::stoul(reg_index_str, nullptr, 16);
+		}
+		catch (std::invalid_argument const& e) {
+			LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling P, invalid register: {}", e.what());
 			SendPayload("E00");
 			return;
 		}
 
-		auto reg_value_str = std::string_view(data.begin() + reg_index_end + 1, data.end());
-		auto reg_value = HexStringToUint(reg_value_str, true);
+		auto reg_value_str = std::string(data.begin() + reg_index_end + 1, data.end());
+		uint32_t reg_value{};
 
-		if (!reg_value) {
+		try {
+			reg_value = std::stoul(reg_value_str, nullptr, 16);
+		}
+		catch (std::invalid_argument const& e) {
+			LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling P, invalid value: {}", e.what());
 			SendPayload("E00");
 			return;
 		}
 
-		SetRegValueFromIndex(reg_index.value(), reg_value.value());
-
+		PushServerToEmuCommand<SetSingleRegisterCommand>(reg_index, reg_value);
 		SendPayload("OK");
 	}
 
@@ -582,35 +641,30 @@ namespace psx::gdbstub {
 		auto addr_str = data.substr(0, colon_pos);
 		auto size_str = data.substr(colon_pos + 1);
 
-		auto addr = HexStringToUint(addr_str, false);
+		uint32_t addr{};
+		uint32_t size{};
 
-		if (!addr.has_value()) {
+		try {
+			addr = std::stoul(addr_str, nullptr, 16);
+			size = std::stoul(size_str, nullptr, 16);
+		}
+		catch (std::invalid_argument const& e) {
+			LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling m, invalid value: {}", e.what());
 			SendPayload("E00");
 			return;
 		}
 
-		auto size = HexStringToUint(size_str, false);
-
-		if (!size.has_value()) {
-			SendPayload("E00");
+		PushServerToEmuCommand<ReadMemoryCommand>(addr, size);
+		auto response = AwaitEmuResponse<ReadMemoryResponse>(m_thread_state.server_thread.get_stop_token());
+		if (!response) {
 			return;
 		}
-		
-		auto effective_addr = addr.value();
-		auto effective_sz = size.value();
 
 		std::string out = "";
+		out.reserve((std::size_t)size * 2);
 
-		out.reserve((std::size_t)effective_sz * 2);
-
-		while (effective_sz) {
-			psx::u8 value = m_sys->GetStatus().sysbus->Read<u8, false>(effective_addr);
-			auto hex_str = UintToHexString(value, 2, false);
-
-			out.append(hex_str);
-
-			effective_sz--;
-			effective_addr++;
+		for (auto value : response->values) {
+			out.append(fmt::format("{:02x}", value));
 		}
 
 		SendPayload(out);
@@ -629,45 +683,47 @@ namespace psx::gdbstub {
 		auto addr_str = data.substr(0, colon_pos);
 		auto size_str = data.substr(colon_pos + 1, value_pos - colon_pos - 1);
 
-		auto addr = HexStringToUint(addr_str, false);
+		uint32_t addr{};
+		uint32_t size{};
 
-		if (!addr.has_value()) {
+		try {
+			addr = std::stoul(addr_str, nullptr, 16);
+			size = std::stoul(size_str, nullptr, 16);
+		}
+		catch (std::exception const& e) {
+			LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling M, invalid value: {}", e.what());
 			SendPayload("E00");
 			return;
 		}
-
-		auto size = HexStringToUint(size_str, false);
-
-		if (!size.has_value()) {
-			SendPayload("E00");
-			return;
-		}
-
-		auto effective_addr = addr.value();
-		auto effective_sz = size.value();
 
 		auto bytes_to_write_str = data.substr(value_pos + 1);
 
-		while (effective_sz) {
-			auto curr_byte = std::string_view(
+		std::vector<uint8_t> bytes{};
+		bytes.reserve(size);
+
+		size_t size_copy{ size };
+		while (size_copy) {
+			auto curr_byte = std::string(
 				bytes_to_write_str.begin(),
 				bytes_to_write_str.begin() + 2);
 
-			auto maybe_value = HexStringToUint(curr_byte, true);
-
-			if (!maybe_value) {
+			uint8_t value = {};
+			try {
+				value = (uint8_t)std::stoul(curr_byte, nullptr, 16);
+			}
+			catch (std::exception const& e) {
+				LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling M, invalid value: {}", e.what());
 				SendPayload("E00");
 				return;
 			}
 
-			m_sys->GetStatus().sysbus->Write<u8, false>(effective_addr, (u8)maybe_value.value());
+			bytes.push_back(value);
 
 			bytes_to_write_str.erase(0, 2);
-
-			effective_addr++;
-			effective_sz--;
+			size_copy--;
 		}
 
+		PushServerToEmuCommand<WriteMemoryCommand>(addr, std::move(bytes));
 		SendPayload("OK");
 	}
 
@@ -698,7 +754,11 @@ namespace psx::gdbstub {
 			}
 
 			if (cmd == 's') {
-				m_sys->RunInterpreter(1);
+				PushServerToEmuCommand<RunForNInstructions>(1);
+				auto response = AwaitEmuResponse<RunInstructionsResponse>(m_thread_state.server_thread.get_stop_token());
+				if (!response) {
+					return;
+				}
 				SendPayload("S05");
 			}
 			else if (cmd == 'c') {
@@ -710,7 +770,11 @@ namespace psx::gdbstub {
 		}
 		else {
 			if (data[0] == 's') {
-				m_sys->RunInterpreter(1);
+				PushServerToEmuCommand<RunForNInstructions>(1);
+				auto response = AwaitEmuResponse<RunInstructionsResponse>(m_thread_state.server_thread.get_stop_token());
+				if (!response) {
+					return;
+				}
 				SendPayload("S05");
 			}
 			else if (data[0] == 'c') {
@@ -777,10 +841,8 @@ namespace psx::gdbstub {
 	}
 
 	Server::~Server() {
-		Shutdown();
-
-		if (m_recv_buffer)
-			delete[] m_recv_buffer;
+		StopThread();
+		m_socket.close();
 	}
 
 	void Server::HandleExtensionPackets(std::string& data) {
@@ -810,5 +872,47 @@ namespace psx::gdbstub {
 
 		auto const& handler = m_ext_cmd_handlers[command];
 		std::invoke(handler, this, args);
+	}
+
+	void Server::StartThread() {
+		if (m_thread_state.is_running.load()) {
+			return;
+		}
+		m_thread_state.server_to_emu.clear();
+		m_thread_state.emu_to_server.clear();
+		m_thread_state.server_thread = std::jthread([this](std::stop_token token) {
+			ThreadMain(token);
+		});
+		m_thread_state.is_running.store(true);
+	}
+
+	void Server::StopThread() {
+		if (!m_thread_state.is_running.load()) {
+			return;
+		}
+		m_thread_state.server_thread.request_stop();
+		m_thread_state.server_thread.join();
+		m_thread_state.server_to_emu.clear();
+		m_thread_state.emu_to_server.clear();
+		m_thread_state.is_running.store(false);
+	}
+
+	void Server::ThreadMain(std::stop_token token) {
+		SetThreadName("GDBServer");
+
+		while (!token.stop_requested()) { //Even if client closed the connection
+										  //stay in the loop
+			this->Start(token); //Wait for client connection
+
+			PushServerToEmuCommand<StopEmuCommand>(); //Stop the emulator if it is running
+
+			while (!token.stop_requested() && m_open.load()) {
+				if (!HandlePackets()) break; //Client closed the connection
+			}
+
+			HandleEmuCommands();
+		}
+
+		Shutdown(); //Exit requested from the application, stop the thread
 	}
 }

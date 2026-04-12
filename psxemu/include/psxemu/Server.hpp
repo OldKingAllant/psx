@@ -1,10 +1,18 @@
 #pragma once
 
 #include <Poco/Net/ServerSocket.h>
+#include <Poco/Net/PollSet.h>
 
 #include <map>
 #include <optional>
 #include <functional>
+#include <thread>
+#include <deque>
+#include <mutex>
+#include <condition_variable>
+#include <memory>
+#include <atomic>
+#include <stop_token>
 
 namespace psx {
 	class System;
@@ -12,6 +20,20 @@ namespace psx {
 
 namespace psx::gdbstub {
 	class Server;
+
+	struct ServerCommand {
+		ServerCommand() : server{nullptr} {}
+		Server* server;
+		virtual void Execute() = 0;
+		virtual ~ServerCommand() {}
+	};
+
+	struct EmuCommand {
+		EmuCommand() : server{nullptr} {}
+		Server* server;
+		virtual void Execute() = 0;
+		virtual ~EmuCommand() {}
+	};
 
 	using CommandHandler = void(Server::*)(std::string&);
 
@@ -24,14 +46,77 @@ namespace psx::gdbstub {
 
 	class Server {
 	public :
+		friend struct ServerCommand;
+		friend struct EmuCommand;
+
 		Server(int16_t port, System* sys);
+
+		void StartThread();
+		void StopThread();
+
+		//Call on emu thread
+		void HandleAsyncCommands();
+
+		//Call on server thread
+		void HandleEmuCommands();
+
+		template <typename CmdType, typename... Args>
+		void PushServerToEmuCommand(Args&&... args) requires std::copy_constructible<CmdType> &&
+		std::derived_from<CmdType, ServerCommand> {
+			auto cmd = CmdType(std::forward<Args>(args)...);
+			cmd.server = this;
+			std::scoped_lock lk{ m_thread_state.server_queue_mutex };
+			m_thread_state.server_to_emu.push_back(std::make_unique<CmdType>(cmd));
+			m_thread_state.server_queue_cv.notify_one();
+		}
+
+		template <typename CmdType, typename... Args>
+		void PushEmuToServerCommand(Args&&... args) requires std::copy_constructible<CmdType> &&
+		std::derived_from<CmdType, EmuCommand> {
+			auto cmd = CmdType(std::forward<Args>(args)...);
+			cmd.server = this;
+			std::scoped_lock lk{ m_thread_state.emu_queue_mutex };
+			m_thread_state.emu_to_server.push_back(std::make_unique<CmdType>(cmd));
+			m_thread_state.emu_queue_cv.notify_one();
+		}
+
+		template <typename CmdType>
+		std::unique_ptr<CmdType> AwaitEmuResponse(std::stop_token token) requires 
+			std::derived_from<CmdType, EmuCommand> {
+
+			std::unique_ptr<CmdType> response{};
+
+			while (!token.stop_requested() && !response) {
+				std::unique_lock lk{ m_thread_state.emu_queue_mutex };
+				if (m_thread_state.emu_to_server.empty()) {
+					m_thread_state.emu_queue_cv.wait(lk, [this, token]() {
+						return token.stop_requested() || !m_thread_state.emu_to_server.empty();
+					});
+				}
+
+				std::unique_ptr<EmuCommand> cmd{};
+				cmd.swap(m_thread_state.emu_to_server.front());
+				m_thread_state.emu_to_server.pop_front();
+				cmd->Execute();
+
+				CmdType* derived = dynamic_cast<CmdType*>(cmd.get());
+				if (derived == nullptr) {
+					continue;
+				}
+
+				cmd.release();
+				response = std::unique_ptr<CmdType>{ derived };
+			}
+			
+			return response;
+		}
 
 		/// <summary>
 		/// Opens TCP connection on 
 		/// the given port and waits
 		/// for connection
 		/// </summary>
-		void Start();
+		void Start(std::stop_token token);
 
 		/// <summary>
 		/// Closes the connection
@@ -150,9 +235,37 @@ namespace psx::gdbstub {
 		/// </summary>
 		void BreakTriggered();
 
+		inline bool IsConnected() const {
+			return m_open.load();
+		}
+
+		inline bool IsThreadRunning() const {
+			return m_thread_state.is_running.load();
+		}
+
+		inline int16_t GetPort() const {
+			return m_port;
+		}
+
+		inline void SetPort(int16_t port) {
+			if (m_thread_state.is_running) {
+				return;
+			}
+			m_port = port;
+		}
+
+		inline Poco::Net::SocketAddress GetClientAddress() {
+			std::scoped_lock lk{ m_address_lock };
+			return m_address;
+		}
+
+		inline System* GetSystem() {
+			return m_sys;
+		}
+
 		~Server();
 
-		static constexpr int64_t TIMEOUT = 1000;
+		static constexpr int64_t TIMEOUT = 20000;
 		static constexpr std::size_t BUFFER_SIZE = 2048;
 		static constexpr const char SUPPORTED_STR[] = "PacketSize=1024;multiprocess-;qRelocInsn-;hwbreak+;vContSupported+";
 		static constexpr std::size_t NUM_STUB_REGISTERS = 73;
@@ -236,6 +349,8 @@ namespace psx::gdbstub {
 		void HandleExtDumpExceptionChains(std::string&);
 		void HandleExtTimestamp(std::string&);
 
+		void ThreadMain(std::stop_token token);
+
 	private :
 		/// <summary>
 		/// Server socket (used only for accepting initial connection from GDB client)
@@ -251,6 +366,7 @@ namespace psx::gdbstub {
 		/// Client address
 		/// </summary>
 		Poco::Net::SocketAddress m_address;
+		std::mutex m_address_lock;
 
 		/// <summary>
 		/// Server port
@@ -260,9 +376,9 @@ namespace psx::gdbstub {
 		/// <summary>
 		/// If the connection is open
 		/// </summary>
-		bool m_open;
+		std::atomic<bool> m_open;
 
-		char* m_recv_buffer;
+		std::unique_ptr<char[]> m_recv_buffer;
 
 		/// <summary>
 		/// Last sent payload (not the complete packet)
@@ -278,5 +394,24 @@ namespace psx::gdbstub {
 		bool m_tracing;
 
 		System* m_sys;
+
+		struct ThreadState {
+			std::jthread server_thread;
+			//Server to emu thread commands
+			std::deque<std::unique_ptr<ServerCommand>> server_to_emu;
+			//Emu thread to server commands
+			std::deque<std::unique_ptr<EmuCommand>> emu_to_server;
+			//Server to emu mutex
+			std::mutex server_queue_mutex;
+			//Emu to server mutex
+			std::mutex emu_queue_mutex;
+			//Server to emu cv
+			std::condition_variable server_queue_cv;
+			//Emu to server cv
+			std::condition_variable emu_queue_cv;
+			std::atomic<bool> is_running;
+		};
+
+		ThreadState m_thread_state;
 	};
 }

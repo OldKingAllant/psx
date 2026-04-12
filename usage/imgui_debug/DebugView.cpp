@@ -24,7 +24,7 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 	m_except_init{ false }, m_except_init_hook{ 0xFFFFF },
 	m_tracked_mc_files{}, m_highlited_areas{},
 	m_gpu_saved_conf{}, m_texture_view_shader{},
-	m_is_main_window_open{} {
+	m_is_main_window_open{}, m_gdb_server{} {
 	m_gl_ctx = m_win->GetGlContext();
 
 	g_imgui_ctx = ImGui::CreateContext();
@@ -105,6 +105,8 @@ void DebugView::Update() {
 		GpuLoadDumpWindow();
 	}
 
+	GdbWindow();
+
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -162,6 +164,7 @@ void DebugView::TaskBarWindow() {
 				ImGui::SetWindowFocus(win_name.c_str());
 			}
 		}
+		ImGui::SameLine();
 	}
 
 	ImGui::End();
