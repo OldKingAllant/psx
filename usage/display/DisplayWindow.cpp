@@ -15,11 +15,13 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/Kernel.hpp>
 
+#include <vector>
+
 //Expect that only ONE display window exists
 static ImGuiContext* g_imgui_ctx{ nullptr };
 
-static bool g_show_popup{ false };
-static std::string g_popup_string{};
+static bool g_is_popup_open{ false };
+static std::vector<std::pair<std::string, std::string>> g_popups{};
 
 DisplayWindow::DisplayWindow(std::string name, psx::video::Rect size, std::string blit_loc,
 	std::string blit16_name, std::string blit24_name, bool reuse_ctx, bool resize,
@@ -154,6 +156,16 @@ void DisplayWindow::DrawGui() {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
+
+	static bool s_was_gdb_connected{};
+	bool is_gdb_connected = m_gdb_server->IsConnected();
+	if (!s_was_gdb_connected && is_gdb_connected) {
+		g_popups.push_back({ "GDB Server", "GDB attached" });
+	}
+	else if (s_was_gdb_connected && !is_gdb_connected) {
+		g_popups.push_back({ "GDB Server", "GDB detached" });
+	}
+	s_was_gdb_connected = is_gdb_connected;
 	
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("Emulation")) {
@@ -172,17 +184,28 @@ void DisplayWindow::DrawGui() {
 		ImGui::EndMainMenuBar();
 	}
 	
-	if (g_show_popup) {
-		ImGui::OpenPopup("##popup");
-		g_show_popup = false;
+	if (!g_is_popup_open && !g_popups.empty()) {
+		ImGui::OpenPopup(g_popups[0].first.c_str());
+		g_is_popup_open = true;
 	}
-	
-	if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_NoResize)) {
-		ImGui::Text(g_popup_string.c_str());
-		if (ImGui::Button("OK")) {
-			ImGui::CloseCurrentPopup();
+
+	if (!g_popups.empty()) {
+		auto viewport = ImGui::GetWindowViewport();
+		ImGui::SetNextWindowPos(viewport->GetWorkCenter(), 0, ImVec2(.5f, .5f));
+		ImGui::SetNextWindowSize(ImVec2(150.f, 80.f));
+		if (ImGui::BeginPopupModal(g_popups[0].first.c_str(), nullptr, ImGuiWindowFlags_NoResize)) {
+			auto window_width = ImGui::GetWindowSize().x;
+			auto text_size = ImGui::CalcTextSize(g_popups[0].second.c_str());
+			ImGui::SetCursorPosX((window_width - text_size.x) * 0.5);
+			ImGui::Text(g_popups[0].second.c_str());
+			
+			if (ImGui::Button("OK")) {
+				ImGui::CloseCurrentPopup();
+				g_is_popup_open = false;
+				g_popups.erase(g_popups.begin());
+			}
+			ImGui::EndPopup();
 		}
-		ImGui::EndPopup();
 	}
 	
 	ImGui::Render();
@@ -204,9 +227,9 @@ void DisplayWindow::SetSystem(psx::System* sys) {
 				auto type = char(regs.a0);
 				auto errcode = regs.a1;
 
-				g_popup_string = fmt::format("SystemError() called, type: {}, code: {:#x}",
-					type, errcode);
-				g_show_popup = true;
+				g_popups.push_back({ "SystemError", fmt::format("SystemError() called, type: {}, code: {:#x}",
+					type, errcode) });
+				sys->SetStopped(true);
 			});
 }
 
