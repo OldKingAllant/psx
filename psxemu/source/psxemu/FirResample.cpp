@@ -4,7 +4,6 @@
 #include <numeric>
 
 namespace psx {
-#pragma optimize("", off)
 	FirResampler::FirResampler() : m_buffer{} {}
 
 	void FirResampler::Push(i32 value) {
@@ -22,5 +21,4 @@ namespace psx {
 
 		return value;
 	}
-#pragma optimize("", on)
 }
