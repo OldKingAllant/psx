@@ -11,6 +11,11 @@ namespace psx::gdbstub {
 		~StopEmuCommand() override {}
 	};
 
+	struct StopEmuResponse : public EmuCommand {
+		void Execute() override;
+		~StopEmuResponse() override {};
+	};
+
 	struct GetRegistersCommand : public ServerCommand {
 		void Execute() override;
 		~GetRegistersCommand() override {}
@@ -63,16 +68,42 @@ namespace psx::gdbstub {
 		~WriteMemoryCommand() override {}
 	};
 
-	struct RunForNInstructions : public ServerCommand {
+	struct RunForNInstructionsCommand : public ServerCommand {
 		size_t count;
-		RunForNInstructions(size_t c) : count{ c } {}
+		RunForNInstructionsCommand(size_t c) : count{ c } {}
 		void Execute() override;
-		~RunForNInstructions() override {}
+		~RunForNInstructionsCommand() override {}
 	};
 
 	struct RunInstructionsResponse : public EmuCommand {
 		RunInstructionsResponse() {}
 		void Execute() override;
 		~RunInstructionsResponse() override {}
+	};
+
+	struct ContinueCommand : public ServerCommand {
+		ContinueCommand() {}
+		void Execute() override;
+		~ContinueCommand() override {}
+	};
+
+	struct BreakTriggeredResponse : public EmuCommand {
+		BreakTriggeredResponse() {}
+		void Execute() override;
+		~BreakTriggeredResponse() override {}
+	};
+
+	struct AddHardwareBreakpointCommand : public ServerCommand {
+		uint32_t address;
+		AddHardwareBreakpointCommand(uint32_t a) : address{a} {}
+		void Execute() override;
+		~AddHardwareBreakpointCommand() override {}
+	};
+
+	struct RemoveHardwareBreakpointCommand : public ServerCommand {
+		uint32_t address;
+		RemoveHardwareBreakpointCommand(uint32_t a) : address{ a } {}
+		void Execute() override;
+		~RemoveHardwareBreakpointCommand() override {}
 	};
 }

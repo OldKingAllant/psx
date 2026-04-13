@@ -221,7 +221,7 @@ int main(int argc, char* argv[]) {
 
 			if (break_hit || sys.Stopped()) {
 				sys.SetStopped(true);
-				server->BreakTriggered();
+				server->SignalBreakpoint();
 			}
 		}
 

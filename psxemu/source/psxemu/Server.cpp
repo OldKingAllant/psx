@@ -150,6 +150,10 @@ namespace psx::gdbstub {
 				}
 				else if (data[0] == (char)0x03) {
 					PushServerToEmuCommand<StopEmuCommand>();
+					auto response = AwaitEmuResponse<StopEmuResponse>(stop_token);
+					if (!response) {
+						break;
+					}
 					SendPayload("S05");
 					return true;
 				}
@@ -166,18 +170,24 @@ namespace psx::gdbstub {
 						return true;
 
 					//Last 2 chars in a packet
-					auto checksum_str = std::string_view(data.begin() + end + 1,
+					auto checksum_str = std::string(data.begin() + end + 1,
 						data.begin() + end + 3);
 
 					//Data inside the leading $ and trailing #
 					auto payload = std::string_view(data.begin() + start, data.begin() + end);
 					auto computed_checksum = ComputeChecksum(payload); //Our checksum
-					auto converted_checksum = HexStringToUint(checksum_str, false); //Inbound checksum
 
-					if (!converted_checksum.has_value())
+					uint32_t converted_checksum{};
+					try {
+						converted_checksum = std::stoul(checksum_str, nullptr, 16);
+					}
+					catch (std::exception const& e) {
+						LOG_ERROR("GDBSTUB", "[GDBSTUB] Invalid packet checksum: {}, error: {}",
+							checksum_str, e.what());
 						return true;
+					}
 
-					if (computed_checksum != converted_checksum.value()) {
+					if (computed_checksum != converted_checksum) {
 						SendNAck(); //Request retransmission
 					}
 					else {
@@ -295,9 +305,8 @@ namespace psx::gdbstub {
 
 		uint8_t checksum = ComputeChecksum(payload);
 
-		stream << UintToHexString(checksum, 2, false);
-
-		stream << "\0"; //Add leading \0 just to be sure
+		stream << fmt::format("{:02x}", checksum);
+		stream << "\0"; //Add trailing \0 just to be sure
 
 		out_str = stream.str();
 
@@ -337,109 +346,6 @@ namespace psx::gdbstub {
 		m_out = "-";
 
 		m_conn.sendBytes(m_out.c_str(), (int)m_out.size());
-	}
-
-	uint8_t Server::HexToNibble(char ch) const {
-		//Assume char is in valid range
-		//and uppercase
-		if (ch >= '0' && ch <= '9')
-			return ch - '0';
-		else
-			return ch - 'A' + 10;
-	}
-
-	std::optional<uint32_t> Server::HexStringToUint(std::string_view str, bool little) const {
-		uint32_t num = 0;
-
-		//Yes, there are thousands of more clever
-		//ways of implementing this instead of using
-		//two different loops
-		if (little) {
-			uint8_t shift = 0;
-
-			for (std::size_t index = 0; index < str.length(); index++) {
-				char ch = std::toupper(str[index]);
-
-				if (!std::isalnum(ch) || ch > 'F')
-					return std::nullopt;
-
-				uint32_t nibble = HexToNibble(ch);
-
-				if (index & 1) {
-					//Low nibble
-					num |= nibble << shift;
-					shift += 8;
-				}
-				else
-					num |= nibble << (shift + 4); //High nibble
-			}
-		}
-		else {
-			for (std::size_t index = 0; index < str.length(); index++) {
-				char ch = std::toupper(str[index]);
-
-				if (!std::isalnum(ch) || ch > 'F')
-					return std::nullopt;
-
-				uint32_t nibble = HexToNibble(ch);
-
-				num |= nibble;
-
-				if (index != str.length() - 1)
-					num <<= 4; //Simply push to the left
-			}
-		}
-
-		return num;
-	}
-
-	char Server::NibbleToHex(uint8_t nibble) const {
-		if (nibble <= 9)
-			return '0' + nibble;
-		else
-			return 'a' + (nibble - 10);
-	}
-
-	std::string Server::UintToHexString(uint32_t num, uint32_t pad_to, bool little) const {
-		if (pad_to == 0)
-			return "";
-
-		std::string ret(pad_to, '0');
-
-		std::size_t original_pad = pad_to;
-
-		if (little) {
-			while (num && pad_to != 0) {
-				uint8_t nibble_low = (uint8_t)(num & 0xF);
-				char hex_low = NibbleToHex(nibble_low);
-
-				uint8_t nibble_high = (uint8_t)((num >> 4) & 0xF);
-				char hex_high = NibbleToHex(nibble_high);
-
-				ret[original_pad - (std::size_t)pad_to] = hex_high;
-				pad_to--;
-
-				if (pad_to) {
-					ret[original_pad - (std::size_t)pad_to] = hex_low;
-					pad_to--;
-				}
-
-				num >>= 8;
-			}
-		}
-		else {
-			while (num && pad_to != 0) {
-				uint8_t nibble = (uint8_t)(num & 0xF);
-				char hex = NibbleToHex(nibble);
-
-				ret[(std::size_t)pad_to - 1] = hex;
-
-				pad_to--;
-				num >>= 4;
-			}
-		}
-
-		return ret;
 	}
 
 	uint32_t Server::GetRegValueFromIndex(uint8_t reg_index) {
@@ -754,7 +660,7 @@ namespace psx::gdbstub {
 			}
 
 			if (cmd == 's') {
-				PushServerToEmuCommand<RunForNInstructions>(1);
+				PushServerToEmuCommand<RunForNInstructionsCommand>(1);
 				auto response = AwaitEmuResponse<RunInstructionsResponse>(m_thread_state.server_thread.get_stop_token());
 				if (!response) {
 					return;
@@ -762,7 +668,7 @@ namespace psx::gdbstub {
 				SendPayload("S05");
 			}
 			else if (cmd == 'c') {
-				m_sys->SetStopped(false);
+				PushServerToEmuCommand<ContinueCommand>();
 			}
 			else {
 				SendPayload("E00");
@@ -770,7 +676,7 @@ namespace psx::gdbstub {
 		}
 		else {
 			if (data[0] == 's') {
-				PushServerToEmuCommand<RunForNInstructions>(1);
+				PushServerToEmuCommand<RunForNInstructionsCommand>(1);
 				auto response = AwaitEmuResponse<RunInstructionsResponse>(m_thread_state.server_thread.get_stop_token());
 				if (!response) {
 					return;
@@ -778,7 +684,7 @@ namespace psx::gdbstub {
 				SendPayload("S05");
 			}
 			else if (data[0] == 'c') {
-				m_sys->SetStopped(false);
+				PushServerToEmuCommand<ContinueCommand>();
 			}
 			else {
 				SendPayload("E00");
@@ -799,15 +705,17 @@ namespace psx::gdbstub {
 
 		auto address_str = data.substr(0, colon_pos);
 
-		auto address = HexStringToUint(address_str, false);
-
-		if (!address.has_value()) {
+		uint32_t address{};
+		try {
+			address = std::stoul(address_str, nullptr, 16);
+		}
+		catch (std::exception const& e) {
+			LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling Z1, invalid value: {}", e.what());
 			SendPayload("E00");
 			return;
 		}
 
-		m_sys->AddHardwareBreak(address.value());
-
+		PushServerToEmuCommand<AddHardwareBreakpointCommand>(address);
 		SendPayload("OK");
 	}
 
@@ -824,20 +732,26 @@ namespace psx::gdbstub {
 
 		auto address_str = data.substr(0, colon_pos);
 
-		auto address = HexStringToUint(address_str, false);
-
-		if (!address.has_value()) {
+		uint32_t address{};
+		try {
+			address = std::stoul(address_str, nullptr, 16);
+		}
+		catch (std::exception const& e) {
+			LOG_ERROR("GDBSTUB", "[GDBSTUB] While handling z1, invalid value: {}", e.what());
 			SendPayload("E00");
 			return;
 		}
 
-		m_sys->RemoveHardwareBreak(address.value());
-
+		PushServerToEmuCommand<RemoveHardwareBreakpointCommand>(address);
 		SendPayload("OK");
 	}
 
 	void Server::BreakTriggered() {
 		SendPayload("S05");
+	}
+
+	void Server::SignalBreakpoint() {
+		PushEmuToServerCommand<BreakTriggeredResponse>();
 	}
 
 	Server::~Server() {
@@ -905,12 +819,15 @@ namespace psx::gdbstub {
 			this->Start(token); //Wait for client connection
 
 			PushServerToEmuCommand<StopEmuCommand>(); //Stop the emulator if it is running
+			auto response = AwaitEmuResponse<StopEmuResponse>(token);
+			if (!response) {
+				break;
+			}
 
 			while (!token.stop_requested() && m_open.load()) {
 				if (!HandlePackets()) break; //Client closed the connection
+				HandleEmuCommands();
 			}
-
-			HandleEmuCommands();
 		}
 
 		Shutdown(); //Exit requested from the application, stop the thread

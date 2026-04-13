@@ -41,7 +41,10 @@ namespace psx::gdbstub {
 	void StopEmuCommand::Execute() {
 		auto sys = server->GetSystem();
 		sys->SetStopped(true);
+		server->PushEmuToServerCommand<StopEmuResponse>();
 	}
+
+	void StopEmuResponse::Execute() {}
 
 	void GetRegistersCommand::Execute() {
 		auto sys = server->GetSystem();
@@ -95,11 +98,30 @@ namespace psx::gdbstub {
 		}
 	}
 
-	void RunForNInstructions::Execute() {
+	void RunForNInstructionsCommand::Execute() {
 		auto sys = server->GetSystem();
 		sys->RunInterpreter((uint32_t)count);
 		server->PushEmuToServerCommand<RunInstructionsResponse>();
 	}
 
 	void RunInstructionsResponse::Execute() {}
+
+	void ContinueCommand::Execute() {
+		auto sys = server->GetSystem();
+		sys->SetStopped(false);
+	}
+
+	void BreakTriggeredResponse::Execute() {
+		server->BreakTriggered();
+	}
+
+	void AddHardwareBreakpointCommand::Execute() {
+		auto sys = server->GetSystem();
+		sys->AddHardwareBreak(address);
+	}
+
+	void RemoveHardwareBreakpointCommand::Execute() {
+		auto sys = server->GetSystem();
+		sys->RemoveHardwareBreak(address);
+	}
 }

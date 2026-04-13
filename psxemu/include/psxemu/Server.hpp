@@ -175,43 +175,6 @@ namespace psx::gdbstub {
 		std::optional<std::pair<std::string, std::size_t>> SeparateStr(std::string const& buf) const;
 
 		/// <summary>
-		/// Performs a conversion from hex string to
-		/// an unsigned 32 bit integer value
-		/// </summary>
-		/// <param name="str">Input string to convert</param>
-		/// <param name="little">Use little endian</param>
-		/// <returns>None if invalid input was found, else the converted value</returns>
-		std::optional<uint32_t> HexStringToUint(std::string_view str, bool little) const;
-
-		/// <summary>
-		/// Converts 32 bits unsigned integer number to
-		/// hex string, padding it to pad_to chars if
-		/// the number is not big enough
-		/// </summary>
-		/// <param name="num">Number to convert</param>
-		/// <param name="pad_to">Padding</param>
-		/// <param name="little">Use little endian byte ordering</param>
-		/// <returns>String representation</returns>
-		std::string UintToHexString(uint32_t num, uint32_t pad_to, bool little) const;
-
-		/// <summary>
-		/// UNSAFE! Converts character
-		/// to 4 bits nibble
-		/// </summary>
-		/// <param name="ch">The char</param>
-		/// <returns>The nibble</returns>
-		uint8_t HexToNibble(char ch) const;
-
-		/// <summary>
-		/// Performs the reverse operation
-		/// wrt HexToNibble. However, this
-		/// function never fails
-		/// </summary>
-		/// <param name="nibble"></param>
-		/// <returns></returns>
-		char NibbleToHex(uint8_t nibble) const;
-
-		/// <summary>
 		/// Retrieves value of register with the given index
 		/// from the state
 		/// </summary>
@@ -228,12 +191,14 @@ namespace psx::gdbstub {
 		void SetRegValueFromIndex(uint8_t reg_index, uint32_t value);
 
 		/// <summary>
-		/// Tell the server that the emulator
-		/// has reached a breakpoint (be it 
-		/// a hardware break, watchpoint or
-		/// error)
+		/// Call on the server thread
 		/// </summary>
 		void BreakTriggered();
+
+		/// <summary>
+		/// Call on the emulation thread
+		/// </summary>
+		void SignalBreakpoint();
 
 		inline bool IsConnected() const {
 			return m_open.load();
