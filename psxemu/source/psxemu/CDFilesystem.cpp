@@ -276,32 +276,7 @@ namespace psx::kernel {
 		}
 
 		auto data_size = entry->cd_record.main_record.le_data_size_bytes();
-		auto logical_block_size = m_volume_descriptor->le_logical_block_size();
-		auto logical_block_num = entry->cd_record.main_record.le_logical_block_num(logical_block_size);
-		auto absolute_offset = logical_block_num.get_absolute_location();
-		auto sector_loc = m_cdrom->LogicalToPhysical(0, 0, absolute_offset, logical_block_size);
-
-		std::vector<u8> file_data{};
-		file_data.resize(data_size);
-
-		u32 total_sectors = (u32)std::ceil(float(data_size) / logical_block_size);
-		u32 rem_data_size = data_size;
-		u32 curr_pos = 0;
-		while (total_sectors--) {
-			auto sector = m_cdrom->ReadSector(
-				sector_loc.mm,
-				sector_loc.ss,
-				sector_loc.sect
-			);
-
-			auto to_copy = (size_t)rem_data_size >= logical_block_size ? logical_block_size : (size_t)rem_data_size;
-			std::copy_n(sector.cbegin(), to_copy, file_data.begin() + curr_pos);
-			sector_loc++;
-			rem_data_size -= u32(to_copy);
-			curr_pos += u32(to_copy);
-		}
-
-		return file_data;
+		return ReadFileFromEntry(entry, 0, data_size);
 	}
 
 	std::optional<std::vector<u8>> CdromFs::ReadFileFromEntry(std::shared_ptr<HLEFsEntry> entry, u32 off, u32 len) {

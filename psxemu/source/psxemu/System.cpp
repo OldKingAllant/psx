@@ -427,7 +427,7 @@ namespace psx {
 		LOG_INFO("SYSTEM", "[SYSTEM] CDROM License string: {}", m_kernel.GetCdFs().ReadLicenseString());
 		if (auto maybe_entry = m_kernel.GetFilesystemEntry("cdrom:\\SYSTEM.CNF;1")) {
 			auto entry = maybe_entry.value();
-			auto file_data = m_kernel.ReadFileFromEntry(entry, 0, entry->cd_record.main_record.le_data_size_bytes()).value();
+			auto file_data = m_kernel.ReadFileFromEntry(entry).value();
 			auto systemcnf = kernel::SystemCnf(std::span{ file_data });
 
 			LOG_DEBUG("SYSTEM", "[SYSTEM] Found SYSTEM.CNF: ");
