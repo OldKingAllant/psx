@@ -813,10 +813,13 @@ namespace psx::gdbstub {
 
 	void Server::ThreadMain(std::stop_token token) {
 		SetThreadName("GDBServer");
+		LOG_INFO("GDBSTUB", "[GDBSTUB] Thread started");
 
 		while (!token.stop_requested()) { //Even if client closed the connection
 										  //stay in the loop
 			this->Start(token); //Wait for client connection
+			LOG_INFO("GDBSTUB", "[GDBSTUB] Connected to {}:{}",
+				m_address.host().toString(), m_address.port());
 
 			PushServerToEmuCommand<StopEmuCommand>(); //Stop the emulator if it is running
 			auto response = AwaitEmuResponse<StopEmuResponse>(token);
@@ -830,6 +833,7 @@ namespace psx::gdbstub {
 			}
 		}
 
+		LOG_INFO("GDBSTUB", "[GDBSTUB] Thread is exiting");
 		Shutdown(); //Exit requested from the application, stop the thread
 	}
 }

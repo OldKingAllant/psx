@@ -16,6 +16,7 @@ namespace psx {
 		m_response{}, m_in_fifo{},
 		m_btn_status{}, m_led_state{},
 		m_curr_rumble_protocol{},
+		m_key_lock{},
 		m_btn_map{}
 	{
 		m_btn_status.reg = 0xFFFF;
@@ -257,8 +258,30 @@ namespace psx {
 		auto cmd = Command(value);
 		switch (cmd)
 		{
+		case Command::READ:
+			m_response.queue(u8(CONFIG_ID));
+			m_response.queue(u8(CONFIG_ID >> 8));
+			m_response.queue(u8(m_btn_status.reg & 0xFF));
+			m_response.queue(u8((m_btn_status.reg >> 8) & 0xFF));
+			//TODO: Also here push true values of analog buttons
+			m_response.queue(0x00);
+			m_response.queue(0x00);
+			m_response.queue(0x00);
+			m_response.queue(0x00);
+			break;
 		case Command::SET_LET_STATE:
-			error::DebugBreak();
+			/*
+			Send  01h 44h 00h Led Key 00h 00h 00h 00h
+			Reply HiZ F3h 5Ah 00h 00h Err 00h 00h 00h
+			*/
+			m_response.queue(u8(CONFIG_ID));
+			m_response.queue(u8(CONFIG_ID >> 8));
+			m_response.queue(0x0);
+			m_response.queue(0x0);
+			m_response.queue(0x0); //Original PSX controllers do not return any error here
+			m_response.queue(0x0);
+			m_response.queue(0x0);
+			m_response.queue(0x0);
 			break;
 		case Command::GET_LED_STATE:
 			/*
@@ -326,9 +349,23 @@ namespace psx {
 		auto cmd = Command(m_in_fifo.deque());
 		switch (cmd)
 		{
-		case Command::SET_LET_STATE:
-			error::DebugBreak();
+		case Command::READ:
+			//TODO: Also here motor speed can be changed
 			break;
+		case Command::SET_LET_STATE: {
+			m_in_fifo.deque();
+			auto led = m_in_fifo.deque();
+			auto key = m_in_fifo.deque();
+			while (!m_in_fifo.empty()) m_in_fifo.deque();
+			m_led_state = LedState(led);
+			m_key_lock = u8_to_keylock(key);
+			if (m_led_state == LedState::ON) {
+				m_mode = ControllerMode::ANALOG;
+			}
+			else {
+				m_mode = ControllerMode::DIGITAL;
+			}
+		} break;
 		case Command::GET_LED_STATE:
 		case Command::GET_VARIABLE_RESPONSE_A:
 		case Command::GET_WHATEVER:

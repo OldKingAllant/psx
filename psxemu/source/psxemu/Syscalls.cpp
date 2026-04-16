@@ -153,7 +153,13 @@ namespace psx {
 			{ 0xB0F, "uint CloseThread(handle=UINT,)" },
 			{ 0xB10, "uint ChangeThread(handle=UINT,)" },
 			{ 0xB0A, "uint WaitEvent(event=UINT,)" },
-			{ 0xB3F, "void puts(str=CHAR_PTR,)" }
+			{ 0xB3F, "void puts(str=CHAR_PTR,)" },
+			{ 0xA2A, "void memcpy(dst=VOID_PTR,src=VOID_PTR,len=UINT,)" },
+			{ 0xA2B, "void memset(dst=VOID_PTR,fillbyte=UINT,len=UINT,)" },
+			{ 0xA13, "uint setjmp(buf=VOID_PTR,)" },
+			{ 0xA14, "[noreturn] longjmp(buf=VOID_PTR,status=UINT,)" },
+			{ 0xA17, "int strcmp(str1=CHAR_PTR,str2=CHAR_PTR,)" },
+			{ 0xA25, "char toupper(char=CHAR,)" }
 		};
 
 		for (auto const& [id, syscall] : syscalls) {

@@ -42,7 +42,7 @@ namespace psx {
 			GET_VARIABLE_RESPONSE_A = 0x46,
 			GET_WHATEVER = 0x47,
 			GET_VARIABLE_RESPONSE_B = 0x4C,
-			GET_SET_RUMBLE_PROTOCOL = 0x4D
+			GET_SET_RUMBLE_PROTOCOL = 0x4D,
 		};
 
 		enum class ControllerStatus {
@@ -72,6 +72,16 @@ namespace psx {
 			OFF,
 			ON
 		};
+
+		enum class KeyLock : u8 {
+			UNLOCK,
+			LOCK
+		};
+
+		static KeyLock u8_to_keylock(u8 value) {
+			value &= 0x3;
+			return (value < 0x3) ? KeyLock::UNLOCK : KeyLock::LOCK;
+		}
 
 		static constexpr u8 CONTROLLER_TYPE_ANALOG = 0x1;
 
@@ -122,6 +132,7 @@ namespace psx {
 		StandardButtonStatus m_btn_status;
 		LedState m_led_state;
 		std::array<u8, 6> m_curr_rumble_protocol;
+		KeyLock m_key_lock;
 
 		std::unordered_map<std::string, u64> m_btn_map;
 	};

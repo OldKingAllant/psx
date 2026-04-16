@@ -83,7 +83,7 @@ void clut8(in uint texpage_x, in uint texpage_y,
 }
 
 bool is_fully_transparent(in vec4 color) {
-	return color.r == 0 && color.g == 0 && color.b == 0;
+	return color.r == 0 && color.g == 0 && color.b == 0 && color.a == 0;
 }
 
 const mat4 dither_table = mat4(
