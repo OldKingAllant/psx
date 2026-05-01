@@ -3,6 +3,9 @@
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <fmt/format.h>
 
 #include <common/Errors.hpp>
@@ -99,8 +102,9 @@ namespace psx {
 			auto block_control = *reinterpret_cast<SliceBlockControl*>(&m_shadow_block_control);
 			m_words_rem = block_control.blocksize;
 			
-			if (!resume)
+			if (!resume) {
 				m_blocks_rem = block_control.block_count;
+			}
 		}
 			break;
 		case SyncMode::LINKED: {

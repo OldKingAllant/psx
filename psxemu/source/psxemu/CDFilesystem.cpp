@@ -26,8 +26,7 @@ namespace psx::kernel {
 
 	std::string CdromFs::ReadLicenseString() {
 		constexpr u64 LICENSE_BASE_LEN = 0x40;
-		auto license_sector = m_cdrom->ReadSector(LICENSE_STRING_LOC.mm, LICENSE_STRING_LOC.ss,
-			LICENSE_STRING_LOC.sect);
+		auto license_sector = m_cdrom->ReadSector(LICENSE_STRING_LOC);
 
 		auto license_end = LICENSE_BASE_LEN;
 		while (license_sector[license_end] != '\0' && license_sector[license_end] != '\n' &&
@@ -47,7 +46,7 @@ namespace psx::kernel {
 		auto loc = PS_LOGO_LOC;
 
 		for (u64 curr_sector = 0; curr_sector < PS_LOGO_NUM_SECTORS; curr_sector++) {
-			auto logo_sector = m_cdrom->ReadSector(loc.mm, loc.ss, loc.sect);
+			auto logo_sector = m_cdrom->ReadSector(loc);
 			out.write(std::bit_cast<char*>(logo_sector.data()), logo_sector.size());
 			loc++;
 		}
@@ -111,10 +110,7 @@ namespace psx::kernel {
 		auto primary_volume_loc = PRIMARY_VOLUME_DESCRIPTOR_LOC;
 
 		CdVolumeDescriptor volume_descriptor{};
-		auto descriptor_data = m_cdrom->ReadSector(
-			primary_volume_loc.mm, primary_volume_loc.ss,
-			primary_volume_loc.sect
-		);
+		auto descriptor_data = m_cdrom->ReadSector(primary_volume_loc);
 
 		std::copy_n(std::bit_cast<char*>(descriptor_data.data()),
 			sizeof(CdVolumeDescriptor), std::bit_cast<char*>(&volume_descriptor));
@@ -185,10 +181,10 @@ namespace psx::kernel {
 				auto logical_block_num = dir.cd_record.main_record.le_logical_block_num(logical_block_size);
 				auto absolute_offset = logical_block_num.get_absolute_location();
 				visited_offsets.insert(absolute_offset);
-				auto sector_loc_orig = fs->m_cdrom->LogicalToPhysical(0, 0, absolute_offset, logical_block_size);
+				auto sector_loc_orig = fs->m_cdrom->LogicalToPhysical(absolute_offset);
 				auto sector_loc_copy = sector_loc_orig;
 				sector_loc_copy.ss -= 2;
-				absolute_offset = sector_loc_copy.to_mode2_absolute();
+				absolute_offset = sector_loc_copy.to_lba();
 
 				if ((data_size & 0x7FF) != 0) {
 					throw std::runtime_error("Parsing filesystem error: a directory has a size not multiple of the sector size");
@@ -201,11 +197,7 @@ namespace psx::kernel {
 
 				u32 total_sectors = data_size / logical_block_size;
 				while (total_sectors--) {
-					auto sector = fs->m_cdrom->ReadSector(
-						sector_loc_orig.mm,
-						sector_loc_orig.ss,
-						sector_loc_orig.sect
-					);
+					auto sector = fs->m_cdrom->ReadSector(sector_loc_orig);
 					u64 rem_bytes = logical_block_size;
 					u8* entry_base = sector.data();
 					while (rem_bytes) {
@@ -296,16 +288,12 @@ namespace psx::kernel {
 		auto logical_block_num = entry->cd_record.main_record.le_logical_block_num(logical_block_size);
 		logical_block_num.block.id += offset_block;
 		auto absolute_offset = logical_block_num.get_absolute_location();
-		auto sector_loc = m_cdrom->LogicalToPhysical(0, 0, absolute_offset, logical_block_size);
+		auto sector_loc = m_cdrom->LogicalToPhysical(absolute_offset);
 
 		std::vector<u8> file_data{};
 		file_data.resize(len);
 
-		auto first_sector = m_cdrom->ReadSector(
-			sector_loc.mm,
-			sector_loc.ss,
-			sector_loc.sect
-		);
+		auto first_sector = m_cdrom->ReadSector(sector_loc);
 		auto to_copy = (size_t)len >= logical_block_size ? logical_block_size : (size_t)len;
 		
 		if (to_copy + offset_inside_first_block >= logical_block_size) {
@@ -320,11 +308,7 @@ namespace psx::kernel {
 		curr_pos += u32(to_copy);
 
 		while (len) {
-			auto sector = m_cdrom->ReadSector(
-				sector_loc.mm,
-				sector_loc.ss,
-				sector_loc.sect
-			);
+			auto sector = m_cdrom->ReadSector(sector_loc);
 
 			auto to_copy = (size_t)len >= logical_block_size ? logical_block_size : (size_t)len;
 			std::copy_n(sector.cbegin(), to_copy, file_data.begin() + curr_pos);

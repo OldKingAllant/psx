@@ -268,4 +268,31 @@ namespace psx {
 
 		LOG_ERROR("CDROM", "[CDROM] STUBBED FUNCTION Demute()");
 	}
+
+	void CDDrive::Command_ReadS() {
+		m_stat.motor_on = m_motor_on;
+		m_read_paused = false;
+
+		if (m_has_unprocessed_seek) {
+			m_has_unprocessed_seek = false;
+			m_seek_loc = m_unprocessed_seek_loc;
+			m_stat.seeking = true;
+		}
+		else {
+			m_stat.reading = true;
+		}
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		u64 read_time = m_mode.double_speed ? ResponseTimings::READ_DOUBLE_SPEED :
+			ResponseTimings::READ;
+
+		m_read_event = m_sys_status->scheduler.Schedule(
+			read_time,
+			read_callback, std::bit_cast<void*>(this));
+
+		LOG_DEBUG("CDROM", "[CDROM] ReadS() -> INT3({:#x})",
+			m_stat.reg);
+	}
 }

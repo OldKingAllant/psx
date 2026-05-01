@@ -818,8 +818,10 @@ namespace psx::gdbstub {
 		while (!token.stop_requested()) { //Even if client closed the connection
 										  //stay in the loop
 			this->Start(token); //Wait for client connection
-			LOG_INFO("GDBSTUB", "[GDBSTUB] Connected to {}:{}",
-				m_address.host().toString(), m_address.port());
+			if (m_open.load()) {
+				LOG_INFO("GDBSTUB", "[GDBSTUB] Connected to {}:{}",
+					m_address.host().toString(), m_address.port());
+			}
 
 			PushServerToEmuCommand<StopEmuCommand>(); //Stop the emulator if it is running
 			auto response = AwaitEmuResponse<StopEmuResponse>(token);

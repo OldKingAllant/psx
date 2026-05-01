@@ -118,10 +118,10 @@ namespace psx {
 		m_response.queue(u8((m_btn_status.reg >> 8) & 0xFF));
 
 		if (ControllerMode::ANALOG == m_mode || force_analog) {
-			m_response.queue(0x00);
-			m_response.queue(0x00);
-			m_response.queue(0x00);
-			m_response.queue(0x00);
+			m_response.queue(0x80);
+			m_response.queue(0x80);
+			m_response.queue(0x80);
+			m_response.queue(0x80);
 		}
 	}
 

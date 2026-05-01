@@ -85,8 +85,8 @@ namespace psx {
 		static constexpr u32 MEMCARD_SIZE = 128 * 1024;
 		static constexpr u32 NUM_BLOCKS = 16;
 		static constexpr u32 BLOCK_SIZE = MEMCARD_SIZE / NUM_BLOCKS;
-		static constexpr u32 SECTOR_SIZE = MEMCARD_SIZE / (MAX_SECTOR + 1);
-		static constexpr u32 SECTORS_PER_BLOCK = BLOCK_SIZE / SECTOR_SIZE;
+		static constexpr u32 LOGICAL_SECTOR_SIZE = MEMCARD_SIZE / (MAX_SECTOR + 1);
+		static constexpr u32 SECTORS_PER_BLOCK = BLOCK_SIZE / LOGICAL_SECTOR_SIZE;
 
 		static constexpr u8 END_BYTE = u8('G');
 		static constexpr u8 BAD_CHECKSUM = u8(0x4E);

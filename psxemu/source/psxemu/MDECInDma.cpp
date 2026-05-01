@@ -1,5 +1,8 @@
 #include <psxemu/include/psxemu/MDECInDma.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 namespace psx {
 	MDECIn::MDECIn(system_status* sys_status, DmaController* dma_controller) :
 		DmaBase(sys_status, dma_controller, 0),

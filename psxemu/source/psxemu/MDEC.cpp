@@ -36,6 +36,7 @@ namespace psx {
 		m_out_fifo = std::make_unique<jnk0le::Ringbuffer<u32, RINGBUF_SIZE>>();
 	}
 
+#pragma optimize("", off)
 	void MDEC::WriteCommand(u32 value) {
 		//All writes require the decoding to
 		//be halted
@@ -352,6 +353,8 @@ namespace psx {
 			auto in_iter = m_in_fifo.cbegin();
 			auto end_iter = in_iter + m_curr_in_pos;
 
+			auto decoded_macroblocks = 0;
+
 			while (in_iter != end_iter) {
 				auto cr = DecodeSingleBlock(in_iter, m_color_table);
 				auto cb = DecodeSingleBlock(in_iter, m_color_table);
@@ -362,6 +365,7 @@ namespace psx {
 				auto y4 = DecodeSingleBlock(in_iter, m_luminance_table);
 
 				if (!cr || !cb || !y1 || !y2 || !y3 || !y4) {
+					LOG_WARN("MDEC", "[MDEC] DROPPING MACROBLOCK");
 					continue;
 				}
 
@@ -373,6 +377,8 @@ namespace psx {
 				YUVToRGB(y4.value(), cr.value(), cb.value(), macroblock, 8, 8);
 
 				VecToOutFifo(macroblock);
+
+				decoded_macroblocks++;
 				
 				if (m_start_decode.load()) {
 					std::unique_lock<std::mutex> _lk{ m_sys_status->sync_producer_mux };
@@ -384,6 +390,8 @@ namespace psx {
 					UpdateDMA1Req();
 				}
 			}
+
+			LOG_INFO("MDEC", "[MDEC] DECODED {} MACROBLOCKS", decoded_macroblocks);
 		}
 	}
 
@@ -1046,5 +1054,5 @@ namespace psx {
 			m_start_decode.store(false);
 		}
 	}
-
+#pragma optimize("", on)
 }

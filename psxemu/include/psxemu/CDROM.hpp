@@ -1,102 +1,13 @@
 #pragma once
 
+#include <psxemu/include/psxemu/CdLocation.hpp>
+
 #include <filesystem>
 #include <array>
 
 #include <common/Defs.hpp>
 
 namespace psx {
-	static constexpr u64 TRACKS_PER_DISK = 99;
-	static constexpr u64 INDICES_PER_TRACK = 99;
-	static constexpr u64 MINUTES_PER_DISK = 74;
-	static constexpr u64 SECONDS_PER_MINUTE = 60;
-	static constexpr u64 SECTORS_PER_SECOND = 75;
-
-	struct CdLocation {
-		u64 mm;
-		u64 ss;
-		u64 sect;
-
-		constexpr CdLocation(u64 mm, u64 ss, u64 sect) {
-			this->mm = mm;
-			this->ss = ss;
-			this->sect = sect;
-		}
-
-		constexpr CdLocation() : 
-			mm{}, ss{}, sect{} { }
-
-		CdLocation& operator++() {
-			sect += 1;
-
-			if (sect >= SECTORS_PER_SECOND) {
-				ss += 1;
-				sect %= SECTORS_PER_SECOND;
-			}
-
-			if (ss >= SECONDS_PER_MINUTE) {
-				mm += 1;
-				ss %= SECONDS_PER_MINUTE;
-			}
-
-			if (mm >= MINUTES_PER_DISK) {
-				mm = 0;
-			}
-
-			return *this;
-		}
-
-		CdLocation& operator++(int) {
-			sect += 1;
-
-			if (sect >= SECTORS_PER_SECOND) {
-				ss += 1;
-				sect %= SECTORS_PER_SECOND;
-			}
-
-			if (ss >= SECONDS_PER_MINUTE) {
-				mm += 1;
-				ss %= SECONDS_PER_MINUTE;
-			}
-
-			if (mm >= MINUTES_PER_DISK) {
-				mm = 0;
-			}
-
-			return *this;
-		}
-
-		u64 to_mode2_absolute() const {
-			return ((mm * SECONDS_PER_MINUTE)
-				* SECTORS_PER_SECOND + 
-				(ss * SECTORS_PER_SECOND) + 
-				sect) * 0x930;
-		}
-
-		static constexpr CdLocation lba_to_sect(u64 lba) {
-			CdLocation cdloc{};
-			//ignore offset inside sector
-			u64 abs_sect = lba / 0x930;
-			cdloc.sect = abs_sect % SECTORS_PER_SECOND;
-			u64 abs_second = abs_sect / SECTORS_PER_SECOND;
-			cdloc.ss = abs_second % SECONDS_PER_MINUTE;
-			u64 abs_minute = abs_second / SECONDS_PER_MINUTE;
-			cdloc.mm = abs_minute;
-			return cdloc;
-		}
-	};
-
-	static u64 bcd_to_normal(u64 value) {
-		u64 result{};
-		u64 curr_power{1};
-		while (value) {
-			result += (value & 0xF) * curr_power;
-			curr_power *= 10;
-			value >>= 4;
-		}
-		return result;
-	}
-
 	/*
 	  000h 0Ch  Sync   (00h,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,00h)
 	  00Ch 4    Header (Minute,Second,Sector,Mode=02h)
@@ -113,11 +24,30 @@ namespace psx {
 		u8 mode;
 	};
 
+	struct SubModeByte {
+		u8 eor       : 1;
+		u8 video     : 1;
+		u8 audio     : 1;
+		u8 data      : 1;
+		u8 trigger   : 1;
+		u8 form2     : 1;
+		u8 real_time : 1;
+		u8 eof		 : 1;
+	};
+
+	struct CodingInfoByte {
+		u8 is_stereo       : 2;
+		u8 sample_rate     : 2;
+		u8 bits_per_sample : 2;
+		u8 emphasis        : 1;
+		u8 reserved        : 1;
+	};
+
 	struct SectorMode2SubHeader {
 		u8 file;
 		u8 channel;
-		u8 submode;
-		u8 codinginfo;
+		SubModeByte submode;
+		CodingInfoByte codinginfo;
 	};
 
 #pragma pack(push, 1)
@@ -126,7 +56,7 @@ namespace psx {
 		SectorHeader header;
 		SectorMode2SubHeader subheader;
 		SectorMode2SubHeader subheader_copy;
-		char data[0x800];
+		char data[LOGICAL_SECTOR_SIZE];
 		u32 edc;
 		char ecc[0x114];
 	};
@@ -141,17 +71,16 @@ namespace psx {
 			return m_path;
 		}
 
-		static constexpr u64 SECTOR_SIZE = 0x800;
-		static constexpr u64 FULL_SECTOR_SIZE = 0x930;
-
 		virtual bool Init() = 0;
 
-		virtual std::array<u8, FULL_SECTOR_SIZE> ReadSector(u64 amm, u64 ass, u64 asect) = 0;
-		virtual std::array<u8, FULL_SECTOR_SIZE> ReadFullSector(u64 amm, u64 ass, u64 asect) = 0;
+		virtual u64 GetTrackNumber(CdLocation loc) const = 0;
+		virtual u64 GetTrackNumber(u64 lba) const = 0;
 
-		virtual u64 GetFileSize(u64 session) const = 0;
-		virtual CdLocation LogicalToPhysical(u64 session, u64 track, 
-			u64 lba, u64 block_size) const = 0;
+		virtual std::array<u8, FULL_SECTOR_SIZE> ReadSector(CdLocation loc) = 0;
+		virtual std::array<u8, FULL_SECTOR_SIZE> ReadFullSector(CdLocation loc) = 0;
+
+		virtual u64 GetFileSize(u64 track) const = 0;
+		virtual CdLocation LogicalToPhysical(u64 lba) const = 0;
 
 		virtual ~CDROM() {}
 

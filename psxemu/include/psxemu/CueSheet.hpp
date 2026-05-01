@@ -4,6 +4,8 @@
 #include <vector>
 #include <optional>
 
+#include "CdLocation.hpp"
+
 namespace psx {
 	class CueSheet {
 	public :
@@ -12,35 +14,29 @@ namespace psx {
 		bool ReadCue(std::filesystem::path const& path);
 
 		enum class TrackType {
-			MODE2_2352
-		};
-
-		struct Position {
-			std::uint64_t mm;
-			std::uint64_t ss;
-			std::uint64_t ff;
+			MODE2_2352,
+			AUDIO
 		};
 
 		struct Index {
-			Position position;
-			std::uint64_t id;
+			CdLocation position;
+			u64 id;
 		};
 
 		struct Track {
-			std::uint64_t track_index;
+			u64 track_index;
 			TrackType track_type;
-			Position pregap;
-			Position postgap;
+			CdLocation pregap;
+			CdLocation postgap;
 			std::vector<Index> indexes;
+			CdLocation begin;
+			CdLocation end;
+			std::filesystem::path path;
+			u64 file_offset;
 		};
 
-		struct FileEntry {
-			std::filesystem::path relative_path;
-			std::vector<Track> tracks;
-		};
-
-		std::vector<FileEntry> const& GetFiles() const {
-			return m_files;
+		std::vector<Track> const& GetTracks() const {
+			return m_tracks;
 		}
 
 	private :
@@ -53,6 +49,6 @@ namespace psx {
 			std::vector<std::string>::iterator end);
 
 	private :
-		std::vector<FileEntry> m_files;
+		std::vector<Track> m_tracks;
 	};
 }

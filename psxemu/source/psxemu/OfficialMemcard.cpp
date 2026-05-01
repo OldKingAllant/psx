@@ -20,7 +20,7 @@ namespace psx {
 		m_selected_sector{0}, m_is_sector_valid{false}, m_is_checksum_valid{false},
 		m_mc_buffer{}, m_temp_sector{}, m_update_seq_number{}
 	{
-		auto temp_buf = std::make_unique<char[]>(SECTOR_SIZE);
+		auto temp_buf = std::make_unique<char[]>(LOGICAL_SECTOR_SIZE);
 		m_temp_sector.swap(temp_buf);
 	}
 
@@ -87,23 +87,23 @@ namespace psx {
 		}
 
 		std::vector<u8> data{};
-		data.resize(SECTOR_SIZE);
+		data.resize(LOGICAL_SECTOR_SIZE);
 
-		std::copy_n(m_mc_buffer.get() + (frame_num * SECTOR_SIZE), SECTOR_SIZE,
+		std::copy_n(m_mc_buffer.get() + (frame_num * LOGICAL_SECTOR_SIZE), LOGICAL_SECTOR_SIZE,
 			data.data());
 
 		return data;
 	}
 
 	bool OfficialMemcard::WriteFrame(u32 frame_num, std::vector<u8> const& data) {
-		if (data.size() != SECTOR_SIZE) {
+		if (data.size() != LOGICAL_SECTOR_SIZE) {
 			return false;
 		}
 		if (frame_num > MAX_SECTOR) {
 			return false;
 		}
 
-		std::copy_n(data.data(), SECTOR_SIZE, m_mc_buffer.get() + (frame_num * SECTOR_SIZE));
+		std::copy_n(data.data(), LOGICAL_SECTOR_SIZE, m_mc_buffer.get() + (frame_num * LOGICAL_SECTOR_SIZE));
 		m_update_seq_number += 1;
 		
 		return true;
@@ -115,8 +115,8 @@ namespace psx {
 		u8 checksum{u8(sector_num >> 8)};
 		checksum ^= u8(sector_num);
 
-		u32 start = sector_num * SECTOR_SIZE;
-		u32 end = start + SECTOR_SIZE;
+		u32 start = sector_num * LOGICAL_SECTOR_SIZE;
+		u32 end = start + LOGICAL_SECTOR_SIZE;
 
 		for (u32 curr_byte = start; curr_byte < end; curr_byte++) {
 			checksum ^= m_mc_buffer.get()[curr_byte];
@@ -129,7 +129,7 @@ namespace psx {
 		u8 checksum{ u8(sector_num >> 8) };
 		checksum ^= u8(sector_num);
 
-		for (u32 curr_byte = 0; curr_byte < SECTOR_SIZE; curr_byte++) {
+		for (u32 curr_byte = 0; curr_byte < LOGICAL_SECTOR_SIZE; curr_byte++) {
 			checksum ^= m_temp_sector.get()[curr_byte];
 		}
 
@@ -191,7 +191,7 @@ namespace psx {
 			break;
 		case psx::OfficialMemcard::ReadStatus::SEND_SECTOR:
 		{
-			u32 sec_offset = m_selected_sector * SECTOR_SIZE;
+			u32 sec_offset = m_selected_sector * LOGICAL_SECTOR_SIZE;
 			u32 tot_offset = sec_offset + m_cmd_step;
 			response = m_mc_buffer.get()[tot_offset];
 		}
@@ -265,8 +265,8 @@ namespace psx {
 				response = BAD_CHECKSUM;
 			else {
 				response = END_BYTE;
-				u32 offset = m_selected_sector * SECTOR_SIZE;
-				std::copy_n(m_temp_sector.get(), SECTOR_SIZE, m_mc_buffer.get() + offset);
+				u32 offset = m_selected_sector * LOGICAL_SECTOR_SIZE;
+				std::copy_n(m_temp_sector.get(), LOGICAL_SECTOR_SIZE, m_mc_buffer.get() + offset);
 				m_update_seq_number += 1;
 			}
 			break;

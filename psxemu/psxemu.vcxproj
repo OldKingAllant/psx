@@ -160,6 +160,7 @@
     <ClInclude Include="include\psxemu\CDDrive.hpp" />
     <ClInclude Include="include\psxemu\CDDriveStructs.hpp" />
     <ClInclude Include="include\psxemu\CDFilesystem.hpp" />
+    <ClInclude Include="include\psxemu\CdLocation.hpp" />
     <ClInclude Include="include\psxemu\CDROM.hpp" />
     <ClInclude Include="include\psxemu\CDROMDma.hpp" />
     <ClInclude Include="include\psxemu\CdDescriptors.hpp" />

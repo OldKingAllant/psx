@@ -165,7 +165,7 @@ namespace psx {
 		}
 		else {
 			m_cpu.StepInstruction();
-			//m_sysbus.m_curr_cycles = 2;
+			m_sysbus.m_curr_cycles = 2;
 		}
 
 		auto num_cycles = m_sysbus.m_curr_cycles;

@@ -7,7 +7,7 @@
 
 namespace psx {
 	CueSheet::CueSheet() : 
-		m_files{}
+		m_tracks{}
 	{}
 
 	bool CueSheet::ReadCue(std::filesystem::path const& path) {
@@ -93,27 +93,46 @@ namespace psx {
 			LOG_ERROR("CDROM", "[CUE] Incomplete FILE entry, missing track");
 			return false;
 		}
-
-		FileEntry file{};
-		file.relative_path = complete_path;
 		
-		while (auto track = ReadTrackEntry(base, iter, end)) {
-			file.tracks.push_back(track.value());
+		auto all_offsets = CdLocation(0, 2, 0); //pregaps and postgaps are accumulated
+		if (!m_tracks.empty()) { //2-second pregap is only for the first track
+			all_offsets = CdLocation{};
+		}
+		while (auto maybe_track = ReadTrackEntry(base, iter, end)) {
+			auto track = maybe_track.value();
+			track.path = complete_path;
+			if (m_tracks.empty()) {
+				track.pregap = track.pregap + all_offsets;
+				track.begin = track.pregap;
+				track.file_offset = 0;
+			}
+			else {
+				all_offsets = all_offsets + track.pregap; //add another pregap to all the offsets
+				auto index = std::find_if(track.indexes.cbegin(), track.indexes.cend(),
+					[](Index const& i) { return i.id == 1; }); //INDEX 01 is required, gives file position
+				if (index == track.indexes.cend()) {
+					LOG_ERROR("CDROM", "[CUE] Incomplete TRACK entry, missing INDEX 01");
+					continue;
+				}
+				track.begin = index->position + all_offsets; //index position if offset by all previous gaps
+				if (m_tracks.back().path != complete_path) {
+					track.file_offset = 0;
+				}
+				else {
+					track.file_offset = index->position.to_lba();
+				}
+				all_offsets = all_offsets + track.postgap;
+			}
+			m_tracks.push_back(track);
 		}
 
-		if (file.tracks.empty()) {
-			return false;
-		}
-
-		m_files.push_back(file);
-
-		return true;
+		return !m_tracks.empty();
 	}
 
 	std::optional<CueSheet::Track> CueSheet::ReadTrackEntry(std::vector<std::string>::iterator base, std::vector<std::string>::iterator& iter, std::vector<std::string>::iterator end)
 	{
 		if (iter == end) {
-			return {};
+			return std::nullopt;
 		}
 		auto curr_line = std::distance(base, iter);
 
@@ -123,7 +142,7 @@ namespace psx {
 		if (entry != "TRACK") {
 			LOG_ERROR("CDROM", "[CUE] Unexpected entry {} on line {}, expected TRACK",
 				entry, curr_line);
-			return {};
+			return std::nullopt;
 		}
 
 		auto next_space_pos = iter->find_first_of(' ', space_pos + 1);
@@ -132,7 +151,7 @@ namespace psx {
 		if (distance <= 1) {
 			LOG_ERROR("CDROM", "[CUE] Missing track index on line {}",
 				curr_line);
-			return {};
+			return std::nullopt;
 		}
 		auto track_index_string = iter->substr(space_pos + 1, distance - 1);
 
@@ -143,20 +162,26 @@ namespace psx {
 		catch (...) {
 			LOG_ERROR("CDROM", "[CUE] Invalid track index on line {}",
 				curr_line);
-			return {};
+			return std::nullopt;
 		}
 
 		auto mode = iter->substr(next_space_pos + 1);
 
-		if (mode != "MODE2/2352") {
+		if (mode != "MODE2/2352" && mode != "AUDIO") {
 			LOG_ERROR("CDROM", "[CUE] Unsupported track mode {} on line {}",
 				mode, curr_line);
-			return {};
+			return std::nullopt;
 		}
 
 		Track track{};
 		track.track_index = track_index;
-		track.track_type = TrackType::MODE2_2352;
+
+		if (mode == "MODE2/2352") {
+			track.track_type = TrackType::MODE2_2352;
+		}
+		else if(mode == "AUDIO") {
+			track.track_type = TrackType::AUDIO;
+		}
 
 		if (++iter == end) {
 			LOG_ERROR("CDROM", "[CUE] Truncated track");
@@ -166,7 +191,7 @@ namespace psx {
 		bool pregap_found = false;
 		bool postgap_found = false;
 
-		auto get_cd_position = [&](std::size_t start) -> std::optional<Position> {
+		auto get_cd_position = [&](std::size_t start) -> std::optional<CdLocation> {
 			auto mm_end = iter->find_first_of(':', start);
 			auto ss_end = iter->find_first_of(':', mm_end + 1);
 
@@ -179,7 +204,7 @@ namespace psx {
 			auto ss_string = iter->substr(mm_end + 1, ss_end - (mm_end + 1));
 			auto ff_string = iter->substr(ss_end + 1);
 
-			Position pos{};
+			CdLocation pos{};
 
 			try {
 				pos.mm = std::stoi(mm_string);
@@ -192,7 +217,7 @@ namespace psx {
 			catch (...) { return {}; }
 
 			try {
-				pos.ff = std::stoi(ff_string);
+				pos.sect = std::stoi(ff_string);
 			}
 			catch (...) { return {}; }
 

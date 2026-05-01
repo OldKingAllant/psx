@@ -2,6 +2,9 @@
 #include <psxemu/include/psxemu/DmaController.hpp>
 #include <psxemu/include/psxemu/Interrupts.hpp>
 
+#include <psxemu/include/psxemu/Logger.hpp>
+#include <psxemu/include/psxemu/LoggerMacros.hpp>
+
 #include <common/Errors.hpp>
 
 #include <fmt/format.h>
@@ -246,6 +249,7 @@ namespace psx {
 			return;
 
 		if ((m_int_control.channel_int_enable >> dma_id) & 1) {
+			LOG_INFO("DMA", "[DMA] DMA {} INTERRUPT REQUEST", dma_id);
 			m_int_control.channel_int_req |= (1 << dma_id);
 			m_sys_status->Interrupt((u32)Interrupts::DMA);
 		}

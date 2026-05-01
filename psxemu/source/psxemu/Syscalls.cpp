@@ -159,7 +159,10 @@ namespace psx {
 			{ 0xA13, "uint setjmp(buf=VOID_PTR,)" },
 			{ 0xA14, "[noreturn] longjmp(buf=VOID_PTR,status=UINT,)" },
 			{ 0xA17, "int strcmp(str1=CHAR_PTR,str2=CHAR_PTR,)" },
-			{ 0xA25, "char toupper(char=CHAR,)" }
+			{ 0xA25, "char toupper(char=CHAR,)" },
+			{ 0xA1B, "uint strlen(src=CHAR_PTR,)" },
+			{ 0xA28, "void bzero(dst=VOID_PTR,len=UINT,)" },
+			{ 0xAA2, "void EnqueueCdIntr()" }
 		};
 
 		for (auto const& [id, syscall] : syscalls) {

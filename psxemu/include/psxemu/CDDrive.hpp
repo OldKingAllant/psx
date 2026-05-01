@@ -81,6 +81,7 @@ namespace psx {
 		void Command_Pause();
 		void Command_Init();
 		void Command_Demute();
+		void Command_ReadS();
 
 		///////////
 
@@ -145,8 +146,8 @@ namespace psx {
 
 		u64 m_read_event;
 		bool m_has_pending_read;
-		std::array<u8, CDROM::FULL_SECTOR_SIZE> m_curr_sector;
-		std::array<u8, CDROM::FULL_SECTOR_SIZE> m_pending_sector;
+		std::array<u8, FULL_SECTOR_SIZE> m_curr_sector;
+		std::array<u8, FULL_SECTOR_SIZE> m_pending_sector;
 		bool m_has_data_to_load;
 		bool m_has_loaded_data;
 		u32 m_curr_sector_size;
