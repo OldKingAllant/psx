@@ -15,7 +15,12 @@ namespace psx {
 		u64 GetTrackNumber(u64 lba) const override;
 
 		std::array<u8, FULL_SECTOR_SIZE> ReadSector(CdLocation loc) override;
-		std::array<u8, FULL_SECTOR_SIZE> ReadFullSector(CdLocation loc) override;
+		void ReadSector(CdLocation loc, u8* data) override;
+
+		std::array<u8, FULL_SECTOR_SIZE> ReadSectorData(CdLocation loc) override;
+		void ReadSectorData(CdLocation loc, u8* data) override;
+
+		Track const& GetTrack(u64 id) const override;
 
 		u64 GetFileSize(u64 track) const override;
 		CdLocation LogicalToPhysical(u64 lba) const override;

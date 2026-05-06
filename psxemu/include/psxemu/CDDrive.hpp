@@ -82,6 +82,8 @@ namespace psx {
 		void Command_Init();
 		void Command_Demute();
 		void Command_ReadS();
+		void Command_Setfilter();
+		void Command_Mute();
 
 		///////////
 
@@ -118,8 +120,10 @@ namespace psx {
 		bool m_soundmap_en;
 		bool m_want_data;
 
+		XA_ADPCM_Volume m_shadow_volume;
 		XA_ADPCM_Volume m_volume;
 		bool m_mute_adpcm;
+		bool m_enable_audio;
 		SoundCoding m_sound_coding;
 
 		bool m_read_paused;
@@ -153,5 +157,7 @@ namespace psx {
 		u32 m_curr_sector_size;
 		u32 m_pending_sector_size;
 		u32 m_curr_sector_pos;
+
+		DriveFilter m_filter;
 	};
 }

@@ -156,6 +156,11 @@ namespace psx {
 		u8 reg;
 	};
 
+	struct DriveFilter {
+		u8 file;
+		u8 channel;
+	};
+
 	struct DriveCommand {
 		u8 command_id;
 		u8 params[16];

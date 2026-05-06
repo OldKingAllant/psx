@@ -26,7 +26,7 @@ namespace psx::kernel {
 
 	std::string CdromFs::ReadLicenseString() {
 		constexpr u64 LICENSE_BASE_LEN = 0x40;
-		auto license_sector = m_cdrom->ReadSector(LICENSE_STRING_LOC);
+		auto license_sector = m_cdrom->ReadSectorData(LICENSE_STRING_LOC);
 
 		auto license_end = LICENSE_BASE_LEN;
 		while (license_sector[license_end] != '\0' && license_sector[license_end] != '\n' &&
@@ -46,7 +46,7 @@ namespace psx::kernel {
 		auto loc = PS_LOGO_LOC;
 
 		for (u64 curr_sector = 0; curr_sector < PS_LOGO_NUM_SECTORS; curr_sector++) {
-			auto logo_sector = m_cdrom->ReadSector(loc);
+			auto logo_sector = m_cdrom->ReadSectorData(loc);
 			out.write(std::bit_cast<char*>(logo_sector.data()), logo_sector.size());
 			loc++;
 		}
@@ -110,7 +110,7 @@ namespace psx::kernel {
 		auto primary_volume_loc = PRIMARY_VOLUME_DESCRIPTOR_LOC;
 
 		CdVolumeDescriptor volume_descriptor{};
-		auto descriptor_data = m_cdrom->ReadSector(primary_volume_loc);
+		auto descriptor_data = m_cdrom->ReadSectorData(primary_volume_loc);
 
 		std::copy_n(std::bit_cast<char*>(descriptor_data.data()),
 			sizeof(CdVolumeDescriptor), std::bit_cast<char*>(&volume_descriptor));
@@ -197,7 +197,7 @@ namespace psx::kernel {
 
 				u32 total_sectors = data_size / logical_block_size;
 				while (total_sectors--) {
-					auto sector = fs->m_cdrom->ReadSector(sector_loc_orig);
+					auto sector = fs->m_cdrom->ReadSectorData(sector_loc_orig);
 					u64 rem_bytes = logical_block_size;
 					u8* entry_base = sector.data();
 					while (rem_bytes) {
@@ -293,7 +293,7 @@ namespace psx::kernel {
 		std::vector<u8> file_data{};
 		file_data.resize(len);
 
-		auto first_sector = m_cdrom->ReadSector(sector_loc);
+		auto first_sector = m_cdrom->ReadSectorData(sector_loc);
 		auto to_copy = (size_t)len >= logical_block_size ? logical_block_size : (size_t)len;
 		
 		if (to_copy + offset_inside_first_block >= logical_block_size) {
@@ -308,7 +308,7 @@ namespace psx::kernel {
 		curr_pos += u32(to_copy);
 
 		while (len) {
-			auto sector = m_cdrom->ReadSector(sector_loc);
+			auto sector = m_cdrom->ReadSectorData(sector_loc);
 
 			auto to_copy = (size_t)len >= logical_block_size ? logical_block_size : (size_t)len;
 			std::copy_n(sector.cbegin(), to_copy, file_data.begin() + curr_pos);

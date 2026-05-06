@@ -2,6 +2,7 @@
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/Interrupts.hpp>
+#include <psxemu/include/psxemu/SPU.hpp>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
@@ -15,7 +16,8 @@ namespace psx {
 		m_index_reg{}, m_curr_cmd{}, m_new_cmd{}, 
 		m_response_fifo{}, m_param_fifo{}, m_int_enable {}, m_int_flag{},
 		m_soundmap_en{false}, m_want_data{false},
-		m_volume{}, m_mute_adpcm{true}, m_sound_coding{},
+		m_shadow_volume{}, m_volume{},
+		m_mute_adpcm{ true }, m_enable_audio{false}, m_sound_coding{},
 		m_read_paused{false}, m_motor_on{false},
 		m_mode{}, m_stat{}, m_sys_status {sys_status},
 		m_idle{ true }, m_has_next_cmd{ false }, m_event_id{INVALID_EVENT},
@@ -25,7 +27,7 @@ namespace psx {
 		m_has_pending_read{ false }, m_curr_sector{}, m_pending_sector{},
 		m_has_data_to_load{ false }, m_has_loaded_data{ false },
 		m_curr_sector_size{}, m_pending_sector_size{}, 
-		m_curr_sector_pos{} {
+		m_curr_sector_pos{}, m_filter{} {
 		m_index_reg.param_fifo_empty = true;
 		m_index_reg.param_fifo_not_full = true;
 		m_stat.shell_open = false;
@@ -146,7 +148,7 @@ namespace psx {
 		}
 			break;
 		case 3: {
-			m_volume.right_to_right = value;
+			m_shadow_volume.right_to_right = value;
 		}
 			break;
 		default:
@@ -176,10 +178,10 @@ namespace psx {
 				(u8)m_int_enable.enable_bits);
 			break;
 		case 2:
-			m_volume.left_to_left = value;
+			m_shadow_volume.left_to_left = value;
 			break;
 		case 3:
-			m_volume.right_to_left = value;
+			m_shadow_volume.right_to_left = value;
 			break;
 		default:
 			error::DebugBreak();
@@ -253,15 +255,17 @@ namespace psx {
 			}
 			break;
 		case 2:
-			m_volume.left_to_right = value;
+			m_shadow_volume.left_to_right = value;
 			break;
 		case 3: {
 			bool old_mute = m_mute_adpcm;
 			m_mute_adpcm = (bool)(value & 1);
 			if (!old_mute && m_mute_adpcm)
-				LOG_DEBUG("CDROM", "[CDROM] ADPCM Muted!");
-			if ((value >> 5) & 1)
-				LOG_DEBUG("CDROM", "[CDROM] Audio volume changes \"applied\"!");
+				LOG_DEBUG("CDROM", "[CDROM] MUTE ADPCM");
+			if ((value >> 5) & 1) {
+				m_volume = m_shadow_volume;
+				LOG_DEBUG("CDROM", "[CDROM] APPLY VOLUME CHANGES");
+			}
 		}
 			break;
 		default:
@@ -300,8 +304,8 @@ namespace psx {
 					return 0;
 				}
 
-				if (m_curr_sector_size == FULL_SECTOR_SIZE) {
-					return m_curr_sector[0x920];
+				if (m_curr_sector_size == SECTOR_WITHOUT_SYNC_SIZE) {
+					return m_curr_sector[SECTOR_WITHOUT_SYNC_SIZE - 0x4];
 				}
 				else {
 					return m_curr_sector[LOGICAL_SECTOR_SIZE - 0x8];
@@ -360,7 +364,9 @@ namespace psx {
 		PAUSE = 0x9,
 		INIT = 0xA,
 		DEMUTE = 0xC,
-		READS = 0x1B
+		READS = 0x1B,
+		SETFILTER = 0xD,
+		MUTE = 0xB
 	};
 
 	void CDDrive::CommandExecute() {
@@ -404,6 +410,12 @@ namespace psx {
 			break;
 		case DriveCommands::READS:
 			Command_ReadS();
+			break;
+		case DriveCommands::SETFILTER:
+			Command_Setfilter();
+			break;
+		case DriveCommands::MUTE:
+			Command_Mute();
 			break;
 		default:
 			LOG_ERROR("CDROM", "[CDROM] Unknown/invalid command {:#x}",
@@ -618,41 +630,65 @@ namespace psx {
 			event_callback, this);
 	}
 
+#pragma optimize("", off)
 	void CDDrive::ReadCallback(u64 cycles_late) {
 		m_stat.seeking = false;
 		m_stat.reading = true;
 
-		decltype(m_curr_sector) sector{};
+		auto const& track = m_cdrom->GetTrack(m_cdrom->GetTrackNumber(m_seek_loc));
+		auto is_audio = track.track_type == TrackType::AUDIO;
 
-		if (m_mode.read_whole_sector) {
-			auto temp_sector = m_cdrom->ReadFullSector(m_seek_loc);
-			SectorMode2Form1* form1 = std::bit_cast<SectorMode2Form1*>(temp_sector.data());
-			std::copy_n(std::bit_cast<u8*>(&form1->header), 0x924, sector.data());
-		}
-		else {
-			sector = m_cdrom->ReadSector(m_seek_loc);
-		}
+		SectorMode2Form1 sector{};
+		m_cdrom->ReadSector(m_seek_loc, std::bit_cast<u8*>(&sector));
 
-		bool contains_data_response = false;
-		for (auto it = m_response_fifo.begin(); it != m_response_fifo.end(); ++it) {
-			if (it->interrupt == CdInterrupt::INT1_DATA_RESPONSE) {
-				contains_data_response = true;
-				break;
-			}
-		}
+		auto is_mode2 = sector.header.mode == 2;
 
-		if (m_response_fifo.full() || m_has_pending_read || contains_data_response) {
-			LOG_INFO("CDROM", "[CDROM] DELAYING SECTOR DELIVERY");
+		//Try deliver as XA-ADPCM
+		auto enable_xa_adpcm = m_mode.enable_xa_adpcm;
+		auto respects_filter = true;
+		if (m_mode.xa_filter_enable) {
+			respects_filter = sector.subheader.file == m_filter.file &&
+				sector.subheader.channel == m_filter.channel;
 		}
+		auto is_audio_realtime = sector.subheader.submode.audio && sector.subheader.submode.real_time;
 
-		if (!(m_response_fifo.full() || m_has_pending_read || contains_data_response)) {
-			PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
-				100);
-			m_has_data_to_load = true;
-			m_curr_sector_size = m_mode.read_whole_sector ?
-				0x924 : LOGICAL_SECTOR_SIZE;
-			m_curr_sector = sector;
+		if(enable_xa_adpcm && !is_audio && is_mode2 && respects_filter && is_audio_realtime) {
+			LOG_INFO("CDROM", "[CDROM] AUDIO SECTOR");
+			m_sys_status->sysbus->GetSPU().DecodeStoreXAADPCM(std::bit_cast<u8*>(&sector), 
+				!m_enable_audio || m_mute_adpcm, m_volume.left_to_left, m_volume.right_to_right, 
+				m_volume.left_to_right, m_volume.right_to_left);
 			m_seek_loc++;
+		}
+		else if(!is_audio || m_mode.allow_cd_da) {
+			bool contains_data_response = false;
+			for (auto it = m_response_fifo.begin(); it != m_response_fifo.end(); ++it) {
+				if (it->interrupt == CdInterrupt::INT1_DATA_RESPONSE) {
+					contains_data_response = true;
+					break;
+				}
+			}
+
+			if (m_response_fifo.full() || m_has_pending_read || contains_data_response) {
+				LOG_INFO("CDROM", "[CDROM] DELAYING SECTOR DELIVERY");
+			}
+
+			if (!(m_response_fifo.full() || m_has_pending_read || contains_data_response)) {
+				PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
+					100);
+				m_has_data_to_load = true;
+				m_curr_sector_size = m_mode.read_whole_sector ?
+					SECTOR_WITHOUT_SYNC_SIZE : LOGICAL_SECTOR_SIZE;
+
+				if (m_mode.read_whole_sector) {
+					std::copy_n(std::bit_cast<u8*>(&sector) + sizeof(sector.sync), SECTOR_WITHOUT_SYNC_SIZE,
+						m_curr_sector.data());
+				}
+				else {
+					std::copy_n(sector.data, LOGICAL_SECTOR_SIZE, m_curr_sector.data());
+				}
+
+				m_seek_loc++;
+			}
 		}
 
 		u64 read_time = m_mode.double_speed ? ResponseTimings::READ_DOUBLE_SPEED :
@@ -661,6 +697,7 @@ namespace psx {
 		m_read_event = m_sys_status->scheduler.Schedule( read_time,
 			read_callback, std::bit_cast<void*>(this));
 	}
+#pragma optimize("", on)
 
 	std::string const& CDDrive::GetConsoleRegion() const {
 		return m_sys_status->sys_conf->console_region;

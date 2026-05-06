@@ -441,6 +441,9 @@
     <ClInclude Include="include\psxemu\CdLocation.hpp">
       <Filter>Header Files\dev\cdrom</Filter>
     </ClInclude>
+    <ClInclude Include="include\psxemu\CDTrack.hpp">
+      <Filter>Header Files\dev\cdrom</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">

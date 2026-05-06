@@ -33,6 +33,8 @@ namespace psx {
 		//Maybe specific r/w for DMA?
 		void WriteSoundRam(const u16* buf, u64 count);
 
+		void DecodeStoreXAADPCM(const u8* buf, bool mute, u8 ll_vol, u8 rr_vol, u8 lr_vol, u8 rl_vol);
+
 		friend class DebugView;
 
 		static constexpr inline u64 RAM_SIZE = 512 * 1024;
@@ -125,5 +127,10 @@ namespace psx {
 		size_t m_curr_buffer_pos;
 
 		wave::File m_wavefile;
+
+		std::vector<i16> m_cd_samples_left;
+		std::vector<i16> m_cd_samples_right;
+		u32 m_cd_sample_count;
+		u32 m_cd_sample_pos;
 	};
 }

@@ -54,32 +54,11 @@ namespace psx {
 	CueBin::~CueBin()
 	{}
 
-	std::array<u8, FULL_SECTOR_SIZE> CueBin::ReadSector(CdLocation loc) {
-		auto track_index = GetTrackNumber(loc);
-		if (m_cue_sheet.GetTracks()[track_index].track_type == CueSheet::TrackType::AUDIO) {
-			LOG_ERROR("CDROM", "[CUE] READING TRACK {}, WHICH IS CD-DA, AS CD-XA", track_index);
-		}
-		auto sect = ReadFullSector(loc);
-
-		std::array<u8, FULL_SECTOR_SIZE> final_sect{};
-		SectorMode2Form1* form1 = std::bit_cast<SectorMode2Form1*>(sect.data());
-
-		std::copy_n(form1->data, LOGICAL_SECTOR_SIZE, final_sect.begin());
-		return final_sect;
-	}
-
-	/*
-	((mm * SECONDS_PER_MINUTE)
-				* SECTORS_PER_SECOND + 
-				(ss * SECTORS_PER_SECOND) + 
-				sect) * 0x930;
-	*/
-
-	std::array<u8, FULL_SECTOR_SIZE> CueBin::ReadFullSector(CdLocation loc) {
+	void CueBin::ReadSector(CdLocation loc, u8* data) {
 		if (loc.mm == 0 && loc.ss < 2) {
 			LOG_ERROR("CDROM", "[CUE] Cannot read sectors 0 and 1");
 			error::DebugBreak();
-			return {};
+			return;
 		}
 
 		auto track_index = GetTrackNumber(loc);
@@ -97,10 +76,29 @@ namespace psx {
 
 		auto& track_file = m_cd_files[track.path];
 		track_file.seekg(absolute_pos, std::ios::beg);
+		track_file.read(std::bit_cast<char*>(data), FULL_SECTOR_SIZE);
+	}
 
+	std::array<u8, FULL_SECTOR_SIZE> CueBin::ReadSectorData(CdLocation loc) {
 		std::array<u8, FULL_SECTOR_SIZE> sect{};
-		track_file.read(std::bit_cast<char*>(sect.data()), FULL_SECTOR_SIZE);
+		ReadSectorData(loc, sect.data());
 		return sect;
+	}
+
+	void CueBin::ReadSectorData(CdLocation loc, u8* data) {
+		SectorMode2Form1 sector{};
+		ReadSector(loc, std::bit_cast<u8*>(&sector));
+		std::copy_n(sector.data, LOGICAL_SECTOR_SIZE, data);
+	}
+
+	std::array<u8, FULL_SECTOR_SIZE> CueBin::ReadSector(CdLocation loc) {
+		std::array<u8, FULL_SECTOR_SIZE> sect{};
+		ReadSector(loc, sect.data());
+		return sect;
+	}
+
+	Track const& CueBin::GetTrack(u64 id) const {
+		return m_cue_sheet.GetTracks()[id];
 	}
 
 	u64 CueBin::GetFileSize(u64 track_index) const {
@@ -113,14 +111,14 @@ namespace psx {
 		auto const& tracks = m_cue_sheet.GetTracks();
 		switch (tracks[track_index].track_type)
 		{
-		case CueSheet::TrackType::MODE2_2352: {
+		case TrackType::MODE2_2352: {
 			u64 sectors = lba / LOGICAL_SECTOR_SIZE;
 			u64 physical_lba = sectors * FULL_SECTOR_SIZE;
 			auto loc = CdLocation::from_lba(physical_lba);
 			loc.ss += 2;
 			return loc;
 		} break;
-		case CueSheet::TrackType::AUDIO: {
+		case TrackType::AUDIO: {
 			auto loc = CdLocation::from_lba(lba);
 			loc.ss += 2;
 			return loc;

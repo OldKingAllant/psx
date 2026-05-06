@@ -1,4 +1,6 @@
 #include <psxemu/include/psxemu/ADPCM.hpp>
+#include <psxemu/include/psxemu/CDDriveStructs.hpp>
+#include <psxemu/include/psxemu/CDROM.hpp>
 
 #include <algorithm>
 
@@ -116,4 +118,120 @@ namespace psx {
 
 		return i16(out);
 	}
+
+#pragma optimize("", off)
+	u32 DecodeXAADPCMSector(const u8* data, i16* left, i16* right) {
+		const SectorMode2Form2* sector{ std::bit_cast<const SectorMode2Form2*>(data) };
+		constexpr u32 SAMPLES_PER_WORD = 8;
+		constexpr u32 WORDS_PER_BLOCK = 28;
+		constexpr u32 HEADER_SIZE = 16;
+		constexpr u32 BLOCK_SIZE = HEADER_SIZE + (WORDS_PER_BLOCK * sizeof(u32));
+		constexpr u32 TOTAL_BLOCKS = (u32)XA_FORM2_DATA_SIZE / BLOCK_SIZE;
+		constexpr u32 SAMPLES_PER_WORD_8BIT = 4;
+
+		auto left_orig = left;
+		auto right_orig = right;
+
+		//	src = src + 12 + 4 + 8; skip sync, header, subheader
+		//	for i = 0 to 11h
+		//		for blk = 0 to 3
+		//			IF stereo; left - samples(LO - nibbles), plus right - samples(HI - nibbles)
+		//				decode_28_nibbles(src, blk, 0, dst_left, old_left, older_left)
+		//				decode_28_nibbles(src, blk, 1, dst_right, old_right, older_right)
+		//			ELSE; first 28 samples(LO - nibbles), plus next 28 samples(HI - nibbles)
+		//				decode_28_nibbles(src, blk, 0, dst_mono, old_mono, older_mono)
+		//				decode_28_nibbles(src, blk, 1, dst_mono, old_mono, older_mono)
+		//			ENDIF
+		//		 next blk
+		//		 src = src + 128
+		//	 next i
+		//	 src = src + 14h + 4; skip padding, edc
+		const u8* src = std::bit_cast<const u8*>(&sector->data[0]);
+		i16 old_left{}, older_left{};
+		i16 old_right{}, older_right{};
+
+		// shift = 12 - (src[4 + blk * 2 + nibble] AND 0Fh)
+		// filter = (src[4 + blk * 2 + nibble] AND 30h) SHR 4
+		// f0 = pos_xa_adpcm_table[filter]
+		// f1 = neg_xa_adpcm_table[filter]
+		// for j = 0 to 27
+		// 	  t = signed4bit((src[16 + blk + j * 4] SHR(nibble * 4)) AND 0Fh)
+		// 	  s = (t SHL shift) + ((old * f0 + older * f1 + 32) / 64);
+		// 	  s = MinMax(s, -8000h, +7FFFh)
+		// 	  halfword[dst] = s, dst = dst + 2, older = old, old = s
+		// next j
+		auto decode_28 = [](const u8* src, u32 blk, u32 nibble_index, i16*& dst, i16& old, i16& older) {
+			auto shift = src[4 + blk * 2 + nibble_index] & 0xF;
+			if (shift > 12) {
+				shift = 9;
+			}
+			auto filter = std::min<u8>(3, u8(src[4 + blk * 2 + nibble_index] & 0x30) >> 4);
+			auto f0 = POS_XA_ADPCM_TABLE[filter];
+			auto f1 = NEG_XA_ADPCM_TABLE[filter];
+			for (u32 j = 0; j < 28; j++) {
+				i16 nibble = (src[16 + blk + j * 4] >> (4 * nibble_index)) & 0xF;
+				i32 sext_nibble = (i32)(i16)(nibble << 12);
+				i32 s = sext_nibble >> shift;
+				s += (old * f0 + older * f1 + 32) / 64;
+				s = std::clamp<i32>(s, -0x8000, 0x7FFF);
+
+				*dst = (i16)s;
+				dst += 1;
+				
+				older = old;
+				old = (i16)s;
+			}
+		};
+
+		for (u32 i = 0; i < TOTAL_BLOCKS; i++) {
+			for (u32 blk = 0; blk < 4; blk++) {
+				if (sector->subheader.codinginfo.channels == CodingChannels::STEREO) {
+					decode_28(src, blk, 0U, left, old_left, older_left);
+					decode_28(src, blk, 1U, right, old_right, older_right);
+				}
+				else {
+					i16* left_temp = left;
+					decode_28(src, blk, 0U, left, older_left, older_left);
+					decode_28(src, blk, 1U, left, older_left, older_left);
+					auto num_samples = std::distance(left_temp, left);
+					std::copy_n(left_temp, num_samples, right);
+					right += num_samples;
+				}
+			}
+			src = src + BLOCK_SIZE;
+		}
+
+		u32 sample_count_per_channel{ SAMPLES_PER_WORD * WORDS_PER_BLOCK * TOTAL_BLOCKS };
+		if(sector->subheader.codinginfo.bits_per_sample == CodingBitsSample::BIT8) {
+			sample_count_per_channel /= 2;
+		}
+
+		if (sector->subheader.codinginfo.channels == CodingChannels::STEREO) {
+			sample_count_per_channel /= 2;
+		}
+
+		if (sector->subheader.codinginfo.sample_rate == CodingSampleRate::HZ18900) {
+			u32 curr_interpolated_sample = 0;
+			for (u32 curr_sample = 0; curr_sample < sample_count_per_channel; curr_sample += 2, curr_interpolated_sample++) {
+				{
+					auto sample0 = (i32)left_orig[curr_sample];
+					auto sample1 = (i32)left_orig[curr_sample + 1];
+					auto new_sample = (sample0 + sample1) / 2;
+					left[curr_interpolated_sample] = (i16)new_sample;
+				}
+				
+				{
+					auto sample0 = (i32)right_orig[curr_sample];
+					auto sample1 = (i32)right_orig[curr_sample + 1];
+					auto new_sample = (sample0 + sample1) / 2;
+					right[curr_interpolated_sample] = (i16)new_sample;
+				}
+			}
+
+			sample_count_per_channel /= 2;
+		}
+
+		return sample_count_per_channel;
+	}
+#pragma optimize("", on)
 }

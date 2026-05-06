@@ -133,10 +133,11 @@ namespace psx {
 	}
 
 	void CDDrive::Command_SetLoc() {
+		m_stat.motor_on = m_motor_on;
+
 		if (!ValidateParams(3))
 			return;
-
-		m_stat.motor_on = m_motor_on;
+		
 
 		u8 amm = m_param_fifo.deque();
 		u8 ass = m_param_fifo.deque();
@@ -266,7 +267,9 @@ namespace psx {
 		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
 			ResponseTimings::GETSTAT_NORMAL);
 
-		LOG_ERROR("CDROM", "[CDROM] STUBBED FUNCTION Demute()");
+		m_enable_audio = true;
+
+		LOG_DEBUG("CDROM", "[CDROM] Demute() -> INT3({:#x})", m_stat.reg);
 	}
 
 	void CDDrive::Command_ReadS() {
@@ -294,5 +297,36 @@ namespace psx {
 
 		LOG_DEBUG("CDROM", "[CDROM] ReadS() -> INT3({:#x})",
 			m_stat.reg);
+	}
+
+	void CDDrive::Command_Setfilter() {
+		m_stat.motor_on = m_motor_on;
+
+		if (!ValidateParams(2))
+			return;
+
+		u8 file = m_param_fifo.deque();
+		u8 channel = m_param_fifo.deque();
+
+		m_filter.file = file;
+		m_filter.channel = channel;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		LOG_DEBUG("CDROM", "[CDROM] Setfilter(file={:#04x}, channel={:#04x}) -> INT3({:#x})",
+			file, channel, m_stat.reg);
+	}
+	
+	void CDDrive::Command_Mute() {
+		m_motor_on = true;
+		m_stat.motor_on = m_motor_on;
+
+		PushResponse(CdInterrupt::INT3_FIRST_RESPONSE, { m_stat.reg },
+			ResponseTimings::GETSTAT_NORMAL);
+
+		m_enable_audio = false;
+
+		LOG_DEBUG("CDROM", "[CDROM] Mute() -> INT3({:#x})", m_stat.reg);
 	}
 }

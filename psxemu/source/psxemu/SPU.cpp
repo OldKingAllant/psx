@@ -8,6 +8,7 @@
 #include <psxemu/include/psxemu/SystemBus.hpp>
 #include <psxemu/include/psxemu/DmaController.hpp>
 #include <psxemu/include/psxemu/SPUDma.hpp>
+#include <psxemu/include/psxemu/ADPCM.hpp>
 
 #include <psxemu/audio/AudioBackend.hpp>
 
@@ -39,7 +40,9 @@ namespace psx {
 		m_fir_right{},
 		m_backend{},
 		m_curr_buffer_pos{},
-		m_wavefile{} {
+		m_wavefile{},
+		m_cd_samples_left{}, m_cd_samples_right{},
+		m_cd_sample_count{}, m_cd_sample_pos{} {
 		static_assert((AUDIO_BUFFER_SIZE & 1) == 0, "AUDIO BUFFER SIZE NOT DIVISIBLE BY 2");
 		//if ((AUDIO_BUFFER_SIZE & 1) != 0) {
 		//	LOG_ERROR("SPU", "[SPU] AUDIO BUFFER SIZE NOT DIVISIBLE BY 2");
@@ -577,6 +580,43 @@ namespace psx {
 		}
 	}
 
+#pragma optimize("", off)
+	void SPU::DecodeStoreXAADPCM(const u8* buf, bool mute, u8 ll_vol, u8 rr_vol, u8 lr_vol, u8 rl_vol) {
+		if (!m_regs.m_cnt.cd_audio_en) {
+			return;
+		}
+
+		constexpr u32 TOTAL_SAMPLES_PER_SECTOR = 4032;
+		if (m_cd_samples_left.empty() || m_cd_samples_right.empty()) {
+			m_cd_samples_left.resize(TOTAL_SAMPLES_PER_SECTOR);
+			m_cd_samples_right.resize(TOTAL_SAMPLES_PER_SECTOR);
+		}
+
+		m_cd_sample_count = DecodeXAADPCMSector(buf, m_cd_samples_left.data(), m_cd_samples_right.data());
+		m_cd_sample_pos = 0;
+
+		if (mute) {
+			std::fill_n(m_cd_samples_left.data(), m_cd_sample_count, 0x0);
+			std::fill_n(m_cd_samples_right.data(), m_cd_sample_count, 0x0);
+		}
+
+		i16 ll_expanded = (i16)ll_vol << 8;
+		i16 rr_expanded = (i16)rr_vol << 8;
+		i16 lr_expanded = (i16)lr_vol << 8;
+		i16 rl_expanded = (i16)rl_vol << 8;
+		for (u32 curr_index = 0; curr_index < m_cd_sample_count; curr_index++) {
+			auto sample_left =  (u32)m_cd_samples_left[curr_index];
+			auto sample_right = (u32)m_cd_samples_right[curr_index];
+			
+			auto new_sample_left = std::clamp<i16>(((sample_left * ll_expanded) >> 15) + ((sample_right * rl_expanded) >> 15), SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+			auto new_sample_right = std::clamp<i16>(((sample_right * rr_expanded) >> 15) + ((sample_left * lr_expanded) >> 15), SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+
+			m_cd_samples_left[curr_index] = new_sample_left;
+			m_cd_samples_right[curr_index] = new_sample_right;
+		}
+	}
+#pragma optimize("", on)
+
 	SPU::~SPU()
 	{}
 
@@ -675,7 +715,30 @@ namespace psx {
 			}
 		}
 
-		auto [calc_reverb_l, calc_reverb_r] = DoReverb(sum_left, sum_right);
+		if (m_regs.m_cnt.cd_audio_en) {
+			if (m_cd_sample_pos < m_cd_sample_count) {
+				auto l = m_cd_samples_left[m_cd_sample_pos];
+				auto r = m_cd_samples_right[m_cd_sample_pos];
+
+				l = (i16)(((i32)l * (i32)m_regs.m_cd_audio_in_vol_left) >> 15);
+				r = (i16)(((i32)r * (i32)m_regs.m_cd_audio_in_vol_right) >> 15);
+
+				sum_left = std::clamp<i32>(sum_left + l, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+				sum_right = std::clamp<i32>(sum_right + r, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+
+				if (m_regs.m_cnt.cd_audio_reverb) {
+					reverb_left = std::clamp(reverb_left + l, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+					reverb_right = std::clamp(reverb_right + r, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+				}
+
+				m_cd_sample_pos++;
+			}
+		} else {
+			m_cd_sample_pos = 0;
+			m_cd_sample_count = 0;
+		}
+
+		auto [calc_reverb_l, calc_reverb_r] = DoReverb(reverb_left, reverb_right);
 		sum_left = std::clamp<i32>(sum_left   + calc_reverb_l, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
 		sum_right = std::clamp<i32>(sum_right + calc_reverb_r, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
 

@@ -7,6 +7,8 @@
 
 #include <common/Defs.hpp>
 
+#include "CDTrack.hpp"
+
 namespace psx {
 	/*
 	  000h 0Ch  Sync   (00h,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,FFh,00h)
@@ -35,10 +37,25 @@ namespace psx {
 		u8 eof		 : 1;
 	};
 
+	enum class CodingSampleRate : u8 {
+		HZ37800,
+		HZ18900
+	};
+
+	enum class CodingBitsSample : u8 {
+		BIT4,
+		BIT8
+	};
+
+	enum class CodingChannels : u8 {
+		MONO,
+		STEREO
+	};
+	
 	struct CodingInfoByte {
-		u8 is_stereo       : 2;
-		u8 sample_rate     : 2;
-		u8 bits_per_sample : 2;
+		CodingChannels   channels        : 2;
+		CodingSampleRate sample_rate     : 2;
+		CodingBitsSample bits_per_sample : 2;
 		u8 emphasis        : 1;
 		u8 reserved        : 1;
 	};
@@ -62,6 +79,17 @@ namespace psx {
 	};
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+	struct SectorMode2Form2 {
+		char sync[0xC];
+		SectorHeader header;
+		SectorMode2SubHeader subheader;
+		SectorMode2SubHeader subheader_copy;
+		char data[XA_FORM2_DATA_SIZE];
+		u32 edc;
+	};
+#pragma pack(pop)
+
 	class CDROM {
 	public :
 		CDROM(std::filesystem::path const& rom_path) :
@@ -76,8 +104,13 @@ namespace psx {
 		virtual u64 GetTrackNumber(CdLocation loc) const = 0;
 		virtual u64 GetTrackNumber(u64 lba) const = 0;
 
+		virtual Track const& GetTrack(u64 id) const = 0;
+
 		virtual std::array<u8, FULL_SECTOR_SIZE> ReadSector(CdLocation loc) = 0;
-		virtual std::array<u8, FULL_SECTOR_SIZE> ReadFullSector(CdLocation loc) = 0;
+		virtual void ReadSector(CdLocation loc, u8* data) = 0;
+
+		virtual std::array<u8, FULL_SECTOR_SIZE> ReadSectorData(CdLocation loc) = 0;
+		virtual void ReadSectorData(CdLocation loc, u8* data) = 0;
 
 		virtual u64 GetFileSize(u64 track) const = 0;
 		virtual CdLocation LogicalToPhysical(u64 lba) const = 0;

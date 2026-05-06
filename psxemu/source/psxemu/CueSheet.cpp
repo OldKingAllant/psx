@@ -129,7 +129,7 @@ namespace psx {
 		return !m_tracks.empty();
 	}
 
-	std::optional<CueSheet::Track> CueSheet::ReadTrackEntry(std::vector<std::string>::iterator base, std::vector<std::string>::iterator& iter, std::vector<std::string>::iterator end)
+	std::optional<Track> CueSheet::ReadTrackEntry(std::vector<std::string>::iterator base, std::vector<std::string>::iterator& iter, std::vector<std::string>::iterator end)
 	{
 		if (iter == end) {
 			return std::nullopt;

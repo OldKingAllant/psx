@@ -11,6 +11,8 @@ namespace psx {
 
 	static constexpr u64 LOGICAL_SECTOR_SIZE = 0x800;
 	static constexpr u64 FULL_SECTOR_SIZE = 0x930;
+	static constexpr u64 SECTOR_WITHOUT_SYNC_SIZE = 0x924;
+	static constexpr u64 XA_FORM2_DATA_SIZE = 0x914;
 
 	struct CdLocation {
 		u64 mm;
