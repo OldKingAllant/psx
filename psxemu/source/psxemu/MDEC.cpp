@@ -36,7 +36,6 @@ namespace psx {
 		m_out_fifo = std::make_unique<jnk0le::Ringbuffer<u32, RINGBUF_SIZE>>();
 	}
 
-#pragma optimize("", off)
 	void MDEC::WriteCommand(u32 value) {
 		//All writes require the decoding to
 		//be halted
@@ -1054,5 +1053,4 @@ namespace psx {
 			m_start_decode.store(false);
 		}
 	}
-#pragma optimize("", on)
 }

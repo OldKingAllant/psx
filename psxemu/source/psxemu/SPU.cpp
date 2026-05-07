@@ -580,7 +580,6 @@ namespace psx {
 		}
 	}
 
-#pragma optimize("", off)
 	void SPU::DecodeStoreXAADPCM(const u8* buf, bool mute, u8 ll_vol, u8 rr_vol, u8 lr_vol, u8 rl_vol) {
 		if (!m_regs.m_cnt.cd_audio_en) {
 			return;
@@ -615,7 +614,6 @@ namespace psx {
 			m_cd_samples_right[curr_index] = new_sample_right;
 		}
 	}
-#pragma optimize("", on)
 
 	SPU::~SPU()
 	{}

@@ -188,10 +188,10 @@ int main(int argc, char* argv[]) {
 	display.SetGdbServer(server);
 
 	{
-		//auto& mdec = sys.GetStatus()
-		//	.sysbus->GetMDEC();
+		auto& mdec = sys.GetStatus()
+			.sysbus->GetMDEC();
 		//mdec.StartDecodeThread();
-		//mdec.UseSimd();
+		mdec.UseSimd();
 		//mdec.UseInaccurateIdct();
 
 		//auto& dma_control = sys.GetStatus()

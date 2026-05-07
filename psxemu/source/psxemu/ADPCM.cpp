@@ -119,7 +119,6 @@ namespace psx {
 		return i16(out);
 	}
 
-#pragma optimize("", off)
 	u32 DecodeXAADPCMSector(const u8* data, i16* left, i16* right) {
 		const SectorMode2Form2* sector{ std::bit_cast<const SectorMode2Form2*>(data) };
 		constexpr u32 SAMPLES_PER_WORD = 8;
@@ -233,5 +232,4 @@ namespace psx {
 
 		return sample_count_per_channel;
 	}
-#pragma optimize("", on)
 }

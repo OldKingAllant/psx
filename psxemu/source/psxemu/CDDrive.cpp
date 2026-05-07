@@ -524,9 +524,11 @@ namespace psx {
 			u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 			i64 diff = (i64)curr_time - (response.timestamp + response.delay);
 			if (response.delay == 0 || diff >= 0) {
-				LOG_DEBUG("CDROM", "[CDROM] Immediate INT request {:#x}", 
+				LOG_DEBUG("CDROM", "[CDROM] Immediate INT request {:#x}, DELAYING", 
 					(u8)response.interrupt);
-				RequestInterrupt(response.interrupt);
+				constexpr u64 INT_DELAY = 500;
+				ScheduleInterrupt(INT_DELAY);
+				//RequestInterrupt(response.interrupt);
 			}
 			else {
 				LOG_DEBUG("CDROM", "[CDROM] Schedule {} clocks starting from now", 
@@ -630,7 +632,6 @@ namespace psx {
 			event_callback, this);
 	}
 
-#pragma optimize("", off)
 	void CDDrive::ReadCallback(u64 cycles_late) {
 		m_stat.seeking = false;
 		m_stat.reading = true;
@@ -660,6 +661,7 @@ namespace psx {
 			m_seek_loc++;
 		}
 		else if(!is_audio || m_mode.allow_cd_da) {
+			LOG_INFO("CDROM", "[CDROM] DATA SECTOR");
 			bool contains_data_response = false;
 			for (auto it = m_response_fifo.begin(); it != m_response_fifo.end(); ++it) {
 				if (it->interrupt == CdInterrupt::INT1_DATA_RESPONSE) {
@@ -697,7 +699,6 @@ namespace psx {
 		m_read_event = m_sys_status->scheduler.Schedule( read_time,
 			read_callback, std::bit_cast<void*>(this));
 	}
-#pragma optimize("", on)
 
 	std::string const& CDDrive::GetConsoleRegion() const {
 		return m_sys_status->sys_conf->console_region;
