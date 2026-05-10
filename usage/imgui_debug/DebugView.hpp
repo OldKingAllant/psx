@@ -79,6 +79,8 @@ private :
 
 	void GdbWindow();
 
+	void SpuWindow();
+
 	void TaskBarWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);
