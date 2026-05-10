@@ -211,23 +211,22 @@ namespace psx {
 
 		if (sector->subheader.codinginfo.sample_rate == CodingSampleRate::HZ18900) {
 			u32 curr_interpolated_sample = 0;
-			for (u32 curr_sample = 0; curr_sample < sample_count_per_channel; curr_sample += 2, curr_interpolated_sample++) {
+			// Do no interpolation, just duplicate the sample
+			for (u32 curr_sample = 0; curr_sample < sample_count_per_channel; curr_sample++, curr_interpolated_sample += 2) {
 				{
-					auto sample0 = (i32)left_orig[curr_sample];
-					auto sample1 = (i32)left_orig[curr_sample + 1];
-					auto new_sample = (sample0 + sample1) / 2;
-					left[curr_interpolated_sample] = (i16)new_sample;
+					auto sample0 = left_orig[curr_sample];
+					left[curr_interpolated_sample + 0] = sample0;
+					left[curr_interpolated_sample + 1] = sample0;
 				}
 				
 				{
-					auto sample0 = (i32)right_orig[curr_sample];
-					auto sample1 = (i32)right_orig[curr_sample + 1];
-					auto new_sample = (sample0 + sample1) / 2;
-					right[curr_interpolated_sample] = (i16)new_sample;
+					auto sample0 = right_orig[curr_sample];
+					right[curr_interpolated_sample + 0] = sample0;
+					right[curr_interpolated_sample + 1] = sample0;
 				}
 			}
 
-			sample_count_per_channel /= 2;
+			sample_count_per_channel *= 2;
 		}
 
 		return sample_count_per_channel;

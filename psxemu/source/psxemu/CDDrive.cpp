@@ -675,18 +675,21 @@ namespace psx {
 			}
 
 			if (!(m_response_fifo.full() || m_has_pending_read || contains_data_response)) {
-				PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
-					100);
-				m_has_data_to_load = true;
-				m_curr_sector_size = m_mode.read_whole_sector ?
-					SECTOR_WITHOUT_SYNC_SIZE : LOGICAL_SECTOR_SIZE;
+				// Do not deliver sector if filter is enabled and sector mode is audio + realtime
+				if (!m_mode.xa_filter_enable || !is_audio_realtime) {
+					PushResponse(CdInterrupt::INT1_DATA_RESPONSE, { m_stat.reg },
+						100);
+					m_has_data_to_load = true;
+					m_curr_sector_size = m_mode.read_whole_sector ?
+						SECTOR_WITHOUT_SYNC_SIZE : LOGICAL_SECTOR_SIZE;
 
-				if (m_mode.read_whole_sector) {
-					std::copy_n(std::bit_cast<u8*>(&sector) + sizeof(sector.sync), SECTOR_WITHOUT_SYNC_SIZE,
-						m_curr_sector.data());
-				}
-				else {
-					std::copy_n(sector.data, LOGICAL_SECTOR_SIZE, m_curr_sector.data());
+					if (m_mode.read_whole_sector) {
+						std::copy_n(std::bit_cast<u8*>(&sector) + sizeof(sector.sync), SECTOR_WITHOUT_SYNC_SIZE,
+							m_curr_sector.data());
+					}
+					else {
+						std::copy_n(sector.data, LOGICAL_SECTOR_SIZE, m_curr_sector.data());
+					}
 				}
 
 				m_seek_loc++;

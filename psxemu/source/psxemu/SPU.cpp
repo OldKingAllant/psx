@@ -17,6 +17,7 @@
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
 
 #include <fstream>
+#include <cmath>
 
 namespace psx {
 	static constexpr inline u64 AUDIO_BUFFER_SIZE = 256;
@@ -61,10 +62,14 @@ namespace psx {
 		}
 
 		m_backend->Start();
-		m_wavefile.Open("audio_dump.wav", wave::OpenMode::kOut);
-		m_wavefile.set_channel_number(2);
-		m_wavefile.set_sample_rate(44100);
-		m_wavefile.set_bits_per_sample(16);
+
+		auto wave_result = wav::SimpleWav::CreateWav("audio_dump.wav", wav::SampleFormat::PCM, 2, 16, 44100);
+		if (!wave_result.has_value()) {
+			LOG_ERROR("SPU", "[SPU] Open wavefile failed: {}", magic_enum::enum_name(wave_result.error()));
+		}
+		else {
+			m_wavefile = std::make_shared<wav::SimpleWav>(std::move(wave_result.value()));
+		}
 	}
 
 	void SPU::SetupEvents() {
@@ -585,33 +590,115 @@ namespace psx {
 			return;
 		}
 
-		constexpr u32 TOTAL_SAMPLES_PER_SECTOR = 4032;
-		if (m_cd_samples_left.empty() || m_cd_samples_right.empty()) {
-			m_cd_samples_left.resize(TOTAL_SAMPLES_PER_SECTOR);
-			m_cd_samples_right.resize(TOTAL_SAMPLES_PER_SECTOR);
+		constexpr double RESAMPLE_RATE = 44100.0 / 37800.0;
+		constexpr u32 TOTAL_SAMPLES_PER_SECTOR = 4032 * 2;
+		constexpr u32 RESAMPLED_TOTAL_SAMPLES_PER_SECTOR = (u32)(TOTAL_SAMPLES_PER_SECTOR * RESAMPLE_RATE);
+
+		static std::vector<i16> left_temp{}, right_temp{};
+		if (left_temp.empty() || right_temp.empty()) {
+			left_temp.resize(TOTAL_SAMPLES_PER_SECTOR);
+			right_temp.resize(TOTAL_SAMPLES_PER_SECTOR);
 		}
 
-		m_cd_sample_count = DecodeXAADPCMSector(buf, m_cd_samples_left.data(), m_cd_samples_right.data());
+		if (m_cd_samples_left.empty() || m_cd_samples_right.empty()) {
+			m_cd_samples_left.resize(RESAMPLED_TOTAL_SAMPLES_PER_SECTOR);
+			m_cd_samples_right.resize(RESAMPLED_TOTAL_SAMPLES_PER_SECTOR);
+		}
+
+		m_cd_sample_count = DecodeXAADPCMSector(buf, left_temp.data(), right_temp.data());
 		m_cd_sample_pos = 0;
 
-		if (mute) {
+		auto all_volumes_are_zero = (ll_vol == 0) && (rr_vol == 0) && (lr_vol == 0) && (rl_vol == 0);
+		if (mute || all_volumes_are_zero) {
+			m_cd_sample_count *= RESAMPLE_RATE;
 			std::fill_n(m_cd_samples_left.data(), m_cd_sample_count, 0x0);
 			std::fill_n(m_cd_samples_right.data(), m_cd_sample_count, 0x0);
 		}
+		else {
+			// Resample from 37.8 KHz to 44.1 KHz
+			// 6 samples become 7
+			auto zigzag_interpolate = [](i16* ringbuf, u32 pos, u32 table) {
+				constexpr i32 RESAMPLE_LUT[29 * 7] = {
+					0     , 0     , 0     , 0     ,      -0x0001, +0x0002, -0x0005,
+					0     , 0     , 0     ,     -0x0001, +0x0003, -0x0008, +0x0011,
+					0     , 0     ,    -0x0001, +0x0003, -0x0008, +0x0010, -0x0023,
+					0     , -0x0002,   +0x0003, -0x0008, +0x0011, -0x0023, +0x0046,
+					0     , 0     ,    -0x0002, +0x0006, -0x0010, +0x002B, -0x0017,
+					- 0x0002, +0x0003, -0x0005, +0x0005, +0x000A, +0x001A, -0x0044,
+					+ 0x000A, -0x0013, +0x001F, -0x001B, +0x006B, -0x00EB, +0x015B,
+					- 0x0022, +0x003C, -0x004A, +0x00A6, -0x016D, +0x027B, -0x0347,
+					+ 0x0041, -0x004B, +0x00B3, -0x01A8, +0x0350, -0x0548, +0x080E,
+					- 0x0054, +0x00A2, -0x0192, +0x0372, -0x0623, +0x0AFA, -0x1249,
+					+ 0x0034, -0x00E3, +0x02B1, -0x05BF, +0x0BCD, -0x16FA, +0x3C07,
+					+ 0x0009, +0x0132, -0x039E, +0x09B8, -0x1780, +0x53E0, +0x53E0,
+					- 0x010A, -0x0043, +0x04F8, -0x11B4, +0x6794, +0x3C07, -0x16FA,
+					+ 0x0400, -0x0267, -0x05A6, +0x74BB, +0x234C, -0x1249, +0x0AFA,
+					- 0x0A78, +0x0C9D, +0x7939, +0x0C9D, -0x0A78, +0x080E, -0x0548,
+					+ 0x234C, +0x74BB, -0x05A6, -0x0267, +0x0400, -0x0347, +0x027B,
+					+ 0x6794, -0x11B4, +0x04F8, -0x0043, -0x010A, +0x015B, -0x00EB,
+					- 0x1780, +0x09B8, -0x039E, +0x0132, +0x0009, -0x0044, +0x001A,
+					+ 0x0BCD, -0x05BF, +0x02B1, -0x00E3, +0x0034, -0x0017, +0x002B,
+					- 0x0623, +0x0372, -0x0192, +0x00A2, -0x0054, +0x0046, -0x0023,
+					+ 0x0350, -0x01A8, +0x00B3, -0x004B, +0x0041, -0x0023, +0x0010,
+					- 0x016D, +0x00A6, -0x004A, +0x003C, -0x0022, +0x0011, -0x0008,
+					+ 0x006B, -0x001B, +0x001F, -0x0013, +0x000A, -0x0005, +0x0002,
+					+ 0x000A, +0x0005, -0x0005, +0x0003, -0x0001, 0     , 0,
+					- 0x0010, +0x0006, -0x0002, 0     , 0       , 0     , 0,
+					+ 0x0011, -0x0008, +0x0003, -0x0002, +0x0001, 0     , 0,
+					- 0x0008, +0x0003, -0x0001, 0     , 0       , 0     , 0,
+					+ 0x0003, -0x0001, 0      , 0     , 0       , 0     , 0,
+					- 0x0001, 0      , 0      , 0     , 0       , 0     , 0
+				};
 
-		i16 ll_expanded = (i16)ll_vol << 8;
-		i16 rr_expanded = (i16)rr_vol << 8;
-		i16 lr_expanded = (i16)lr_vol << 8;
-		i16 rl_expanded = (i16)rl_vol << 8;
-		for (u32 curr_index = 0; curr_index < m_cd_sample_count; curr_index++) {
-			auto sample_left =  (u32)m_cd_samples_left[curr_index];
-			auto sample_right = (u32)m_cd_samples_right[curr_index];
-			
-			auto new_sample_left = std::clamp<i16>(((sample_left * ll_expanded) >> 15) + ((sample_right * rl_expanded) >> 15), SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
-			auto new_sample_right = std::clamp<i16>(((sample_right * rr_expanded) >> 15) + ((sample_left * lr_expanded) >> 15), SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+				/*
+				sum=0
+                for i=1 to 29, sum=sum+(ringbuf[(p-i) AND 1Fh]*TableX[i])/8000h, next i
+                return MinMax(sum,-8000h,+7FFFh)
+				*/
+				i32 sum{};
+				for (u32 i = 0; i < 29; i++) {
+					sum = sum + ((ringbuf[(pos - i) & 0x1F] * RESAMPLE_LUT[i * 7 + table]) >> 15);
+				}
+				return (i16)std::clamp<i32>(sum, SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+			};
 
-			m_cd_samples_left[curr_index] = new_sample_left;
-			m_cd_samples_right[curr_index] = new_sample_right;
+			static i16 ringbuf_l[32] = {};
+			static i16 ringbuf_r[32] = {};
+			static u32 sixstep = { 6 };
+
+			u32 resampled_pos = {};
+
+			for (u32 curr_index = 0; curr_index < m_cd_sample_count; curr_index++) {
+				ringbuf_l[curr_index & 0x1F] = left_temp[curr_index];
+				ringbuf_r[curr_index & 0x1F] = right_temp[curr_index];
+				sixstep--;
+
+				if (sixstep == 0) {
+					sixstep = 6;
+					for (u32 table = 0; table < 7; table++) {
+						m_cd_samples_left[(size_t)resampled_pos + table] = zigzag_interpolate(ringbuf_l, curr_index, table);
+						m_cd_samples_right[(size_t)resampled_pos + table] = zigzag_interpolate(ringbuf_r, curr_index, table);
+					}
+					resampled_pos += 7;
+				}
+			}
+
+			m_cd_sample_count *= RESAMPLE_RATE;
+
+			i16 ll_expanded = (i16)ll_vol << 8;
+			i16 rr_expanded = (i16)rr_vol << 8;
+			i16 lr_expanded = (i16)lr_vol << 8;
+			i16 rl_expanded = (i16)rl_vol << 8;
+			for (u32 curr_index = 0; curr_index < m_cd_sample_count; curr_index++) {
+				auto sample_left = (u32)m_cd_samples_left[curr_index];
+				auto sample_right = (u32)m_cd_samples_right[curr_index];
+
+				auto new_sample_left = std::clamp<i16>(((sample_left * ll_expanded) >> 15) + ((sample_right * rl_expanded) >> 15), SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+				auto new_sample_right = std::clamp<i16>(((sample_right * rr_expanded) >> 15) + ((sample_left * lr_expanded) >> 15), SPUVoice::MIN_VOLUME, SPUVoice::MAX_VOLUME);
+
+				m_cd_samples_left[curr_index] = new_sample_left;
+				m_cd_samples_right[curr_index] = new_sample_right;
+			}
 		}
 	}
 
@@ -768,10 +855,10 @@ namespace psx {
 			m_curr_buffer_pos = 0;
 		}
 
-		//m_wavefile.Write({
-		//	float(sum_left) / std::numeric_limits<int16_t>::max(), 
-		//	float(sum_right) / std::numeric_limits<int16_t>::max() 
-		//});
+		i16 samples[] = {sum_left, sum_right};
+		if (m_wavefile) {
+			m_wavefile->WriteSamples({ std::bit_cast<u8*>(&samples[0]), 4 });
+		}
 
 		u64 curr_time = m_sys_status->scheduler.GetTimestamp();
 		u64 sample_time = (curr_time + CYCLES_PER_SAMPLE);

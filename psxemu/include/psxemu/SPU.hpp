@@ -8,7 +8,7 @@
 #include "SPUStructs.hpp"
 #include "FirResample.hpp"
 
-#include <thirdparty/wave/src/wave/file.h>
+#include <wave/SimpleWav.hpp>
 
 namespace psx {
 	struct system_status;
@@ -126,7 +126,7 @@ namespace psx {
 		std::vector<i16> m_audio_buffer;
 		size_t m_curr_buffer_pos;
 
-		wave::File m_wavefile;
+		std::shared_ptr<wav::SimpleWav> m_wavefile;
 
 		std::vector<i16> m_cd_samples_left;
 		std::vector<i16> m_cd_samples_right;

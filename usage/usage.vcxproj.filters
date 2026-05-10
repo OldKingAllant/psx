@@ -81,6 +81,9 @@
     <ClCompile Include="imgui_debug\GdbWindow.cpp">
       <Filter>Source Files\debug</Filter>
     </ClCompile>
+    <ClCompile Include="imgui_debug\SPUDebug.cpp">
+      <Filter>Source Files\debug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tty\TTY_Console.hpp">
