@@ -152,10 +152,27 @@ namespace psx {
 				m_recorded_cmds.emplace_back(cmd_copy);
 			}
 			break;
-		default:
-			LOG_ERROR("GPU", "[GPU] Unimplemented MISC command 0x{:x}", (u32)type);
-			error::DebugBreak();
-			break;
+		default: {
+			// GP0(04h..1Eh,E0h,E7h..EFh) - Mirrors of GP0(00h) 
+			auto type_as_u32 = (u32)type;
+			if ((0x4 <= type_as_u32 && type_as_u32 <= 0x1E) || type_as_u32 == 0xE0 || (0xE7 <= type_as_u32 && type_as_u32 <= 0xEF)) {
+				if (m_recording_commands) {
+					GPUCommand cmd_copy{};
+					cmd_copy.value = cmd;
+					cmd_copy.reg = CommandRegister::GP0;
+					cmd_copy.frame_of_recording = m_curr_vblank_count;
+					cmd_copy.gp0.type = GP0CommandType::MISC;
+					cmd_copy.gp0.misc.type = MiscCommandType::NOP;
+					cmd_copy.gp0.misc.cmd = cmd;
+					cmd_copy.start_index = m_latest_idle_index;
+					m_recorded_cmds.emplace_back(cmd_copy);
+				}
+			}
+			else {
+				LOG_ERROR("GPU", "[GPU] Unimplemented MISC command 0x{:x}", type_as_u32);
+				error::DebugBreak();
+			}
+		} break;
 		}
 	}
 

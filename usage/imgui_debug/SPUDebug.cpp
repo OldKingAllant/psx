@@ -11,7 +11,7 @@ void DebugView::SpuWindow() {
 	}
 	ImGui::Begin("SPU Window", &m_is_main_window_open["SPU Window"]);
 
-
+	
 
 	ImGui::End();
 }
