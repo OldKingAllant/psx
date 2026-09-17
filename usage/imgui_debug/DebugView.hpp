@@ -80,6 +80,10 @@ private :
 	void GdbWindow();
 
 	void SpuWindow();
+	void SpuControlWindow();
+	void SpuReverbWindow();
+	void SpuOtherRegistersWindow();
+	void SpuVoicesWindow();
 
 	void TaskBarWindow();
 

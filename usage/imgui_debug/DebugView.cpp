@@ -12,8 +12,6 @@
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
 
-#include <psxemu/include/psxemu/GPUCommands.hpp>
-
 #include <GL/glew.h>
 
 static ImGuiContext* g_imgui_ctx{nullptr};

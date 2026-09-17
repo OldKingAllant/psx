@@ -84,9 +84,6 @@ namespace psx {
 			SPU_VoiceVolume m_mainvolume_left;
 			SPU_VoiceVolume m_mainvolume_right;
 
-			i16 m_reverb_vol_left;
-			i16 m_reverb_vol_right;
-
 			SPU_ReverbRegs m_reverb;
 			SPU_Cnt m_cnt;
 			SPU_Stat m_stat;
