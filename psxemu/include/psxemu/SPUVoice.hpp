@@ -93,6 +93,8 @@ namespace psx {
 			i16 noise_level;
 		};
 
+		friend class DebugView;
+
 	private :
 		AdsrPhase GetNextAdsrPhase();
 		void ResetAdsrPhase();
