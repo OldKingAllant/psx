@@ -46,7 +46,7 @@
 // [SECTION] Obsolete API
 
 #pragma once
-#include "imgui.h"
+#include <thirdparty/imgui/imgui.h>
 #ifndef IMGUI_DISABLE
 
 //-----------------------------------------------------------------------------

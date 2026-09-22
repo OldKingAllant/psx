@@ -84,6 +84,7 @@ private :
 	void SpuReverbWindow();
 	void SpuOtherRegistersWindow();
 	void SpuVoicesWindow();
+	void SpuOutputWindow();
 
 	void TaskBarWindow();
 

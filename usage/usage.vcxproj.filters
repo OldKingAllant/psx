@@ -31,6 +31,9 @@
     <Filter Include="Source Files\ImGuiFileDialog">
       <UniqueIdentifier>{35e3152f-cf5a-45a9-8cb1-42496036f195}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\implot">
+      <UniqueIdentifier>{50d4aa7c-8855-4064-8f9f-3949ea615fc6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\psxemu\platform\memory_mirroring.cpp">
@@ -83,6 +86,12 @@
     </ClCompile>
     <ClCompile Include="imgui_debug\SPUDebug.cpp">
       <Filter>Source Files\debug</Filter>
+    </ClCompile>
+    <ClCompile Include="..\thirdparty\implot\implot.cpp">
+      <Filter>Source Files\implot</Filter>
+    </ClCompile>
+    <ClCompile Include="..\thirdparty\implot\implot_items.cpp">
+      <Filter>Source Files\implot</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

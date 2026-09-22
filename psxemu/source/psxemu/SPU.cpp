@@ -41,9 +41,9 @@ namespace psx {
 		m_fir_right{},
 		m_backend{},
 		m_curr_buffer_pos{},
-		m_wavefile{},
 		m_cd_samples_left{}, m_cd_samples_right{},
-		m_cd_sample_count{}, m_cd_sample_pos{} {
+		m_cd_sample_count{}, m_cd_sample_pos{},
+		m_debug_data{} {
 		static_assert((AUDIO_BUFFER_SIZE & 1) == 0, "AUDIO BUFFER SIZE NOT DIVISIBLE BY 2");
 		//if ((AUDIO_BUFFER_SIZE & 1) != 0) {
 		//	LOG_ERROR("SPU", "[SPU] AUDIO BUFFER SIZE NOT DIVISIBLE BY 2");
@@ -63,13 +63,8 @@ namespace psx {
 
 		m_backend->Start();
 
-		auto wave_result = wav::SimpleWav::CreateWav("audio_dump.wav", wav::SampleFormat::PCM, 2, 16, 44100);
-		if (!wave_result.has_value()) {
-			LOG_ERROR("SPU", "[SPU] Open wavefile failed: {}", magic_enum::enum_name(wave_result.error()));
-		}
-		else {
-			m_wavefile = std::make_shared<wav::SimpleWav>(std::move(wave_result.value()));
-		}
+		m_debug_data.samples_before_clear.store(decltype(m_debug_data)::DEFAULT_LIMIT);
+		m_debug_data.samples_before_update.store(decltype(m_debug_data)::DEFAULT_PERIOD);
 	}
 
 	void SPU::SetupEvents() {
@@ -855,9 +850,22 @@ namespace psx {
 			m_curr_buffer_pos = 0;
 		}
 
-		i16 samples[] = {sum_left, sum_right};
-		if (m_wavefile) {
-			m_wavefile->WriteSamples({ std::bit_cast<u8*>(&samples[0]), 4 });
+		if (m_debug_data.record_samples.load()) {
+			m_debug_data.staging_samples_l.push_back(sum_left);
+			m_debug_data.staging_samples_r.push_back(sum_right);
+			if (0 == m_debug_data.staging_samples_l.size() % m_debug_data.samples_before_update) {
+				std::unique_lock _lk{ m_debug_data.sample_mutex };
+				m_debug_data.samples_l.append_range(m_debug_data.staging_samples_l);
+				m_debug_data.samples_r.append_range(m_debug_data.staging_samples_r);
+				m_debug_data.staging_samples_l.clear();
+				m_debug_data.staging_samples_r.clear();
+				if (m_debug_data.samples_l.size() > m_debug_data.samples_before_clear) {
+					const auto SAMPLES_TO_REMOVE = m_debug_data.samples_l.size() - m_debug_data.samples_before_clear;
+					std::shift_left(m_debug_data.samples_l.begin(), m_debug_data.samples_l.end(), SAMPLES_TO_REMOVE);
+					std::shift_left(m_debug_data.samples_r.begin(), m_debug_data.samples_r.end(), SAMPLES_TO_REMOVE);
+				}
+				m_debug_data.update_sn++;
+			}
 		}
 
 		u64 curr_time = m_sys_status->scheduler.GetTimestamp();

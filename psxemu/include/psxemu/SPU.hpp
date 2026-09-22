@@ -4,6 +4,8 @@
 #include <common/Queue.hpp>
 #include <vector>
 #include <memory>
+#include <mutex>
+#include <atomic>
 
 #include "SPUStructs.hpp"
 #include "FirResample.hpp"
@@ -123,11 +125,23 @@ namespace psx {
 		std::vector<i16> m_audio_buffer;
 		size_t m_curr_buffer_pos;
 
-		std::shared_ptr<wav::SimpleWav> m_wavefile;
-
 		std::vector<i16> m_cd_samples_left;
 		std::vector<i16> m_cd_samples_right;
 		u32 m_cd_sample_count;
 		u32 m_cd_sample_pos;
+
+		struct {
+			static constexpr size_t DEFAULT_PERIOD = 2048;
+			static constexpr size_t DEFAULT_LIMIT = SAMPLE_FREQUENCY * 10;
+			std::mutex sample_mutex;
+			std::atomic<size_t> samples_before_update;
+			std::atomic<size_t> samples_before_clear;
+			std::atomic<bool> record_samples;
+			std::vector<i16> staging_samples_l;
+			std::vector<i16> staging_samples_r;
+			std::vector<i16> samples_l;
+			std::vector<i16> samples_r;
+			std::atomic<size_t> update_sn{};
+		} m_debug_data;
 	};
 }

@@ -7,12 +7,17 @@
 #include <psxemu/include/psxemu/SPU.hpp>
 #include <psxemu/include/psxemu/SPUVoice.hpp>
 
+#include <wave/SimpleWav.hpp>
+
 #include <thirdparty/imgui/imgui.h>
+#include <thirdparty/implot/implot.h>
+#include <thirdparty/ImGuiFileDialog/ImGuiFileDialog.h>
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
 #include <fmt/format.h>
 
 #include <array>
 #include <bit>
+#include <fstream>
 
 void DebugView::SpuControlWindow() {
 	psx::SPU& spu = m_psx->GetStatus().sysbus->GetSPU();
@@ -357,9 +362,9 @@ void DebugView::SpuVoicesWindow() {
 		auto str_noise_id = fmt::format("##voice_{}_noise", curr_voice);
 		auto str_reverb_id = fmt::format("##voice_{}_reverb", curr_voice);
 
-		auto pm = spu.m_regs.m_pmon.is_channel_modulated(curr_voice);
-		auto noise = spu.m_regs.m_noise_en.is_channel_noise(curr_voice);
-		auto reverb = spu.m_regs.m_reverb_en.is_channel_reverb(curr_voice);
+		auto pm = spu.m_regs.m_pmon.is_channel_modulated((psx::u32)curr_voice);
+		auto noise = spu.m_regs.m_noise_en.is_channel_noise((psx::u32)curr_voice);
+		auto reverb = spu.m_regs.m_reverb_en.is_channel_reverb((psx::u32)curr_voice);
 		auto on = voice.m_is_on;
 
 		ImGui::SameLine();
@@ -758,6 +763,349 @@ void DebugView::SpuVoicesWindow() {
 	}
 }
 
+void DebugView::SpuOutputWindow() {
+	psx::SPU& spu = m_psx->GetStatus().sysbus->GetSPU();
+	using u8 = psx::u8;
+	using i32 = psx::i32;
+	using i16 = psx::i16;
+
+	auto recording = spu.m_debug_data.record_samples.load();
+	auto samples_before_update = spu.m_debug_data.samples_before_update.load();
+	auto samples_before_clear = spu.m_debug_data.samples_before_clear.load();
+
+	ImGui::BeginTable("##sample_recording", 2);
+
+	ImGui::TableNextColumn();
+	ImGui::Text("Record Samples");
+	ImGui::TableNextColumn();
+	if (ImGui::Checkbox("##record_enable", &recording)) {
+		spu.m_debug_data.record_samples.store(recording);
+	}
+	ImGui::TableNextRow();
+
+	ImGui::TableNextColumn();
+	ImGui::Text("Graph Update Period");
+	ImGui::TableNextColumn();
+	if (ImGui::InputScalar("##graph_period", ImGuiDataType_U64,
+		std::bit_cast<void*>(&samples_before_update))) {
+		spu.m_debug_data.samples_before_update.store(samples_before_update & ~1);
+	}
+	ImGui::TableNextRow();
+
+	ImGui::TableNextColumn();
+	ImGui::Text("Record Limit");
+	ImGui::TableNextColumn();
+	if (ImGui::InputScalar("##record_limit", ImGuiDataType_U64,
+		std::bit_cast<void*>(&samples_before_clear))) {
+		spu.m_debug_data.samples_before_clear.store(samples_before_clear & ~1);
+	}
+	ImGui::TableNextRow();
+
+	static size_t max_graph_points{psx::SPU::SAMPLE_FREQUENCY * 2};
+
+	ImGui::TableNextColumn();
+	ImGui::Text("Max. graph samples");
+	ImGui::TableNextColumn();
+	bool resample{ false };
+	if (ImGui::InputScalar("##max_graph_samples", ImGuiDataType_U64,
+		std::bit_cast<void*>(&max_graph_points))) {
+		resample = true;
+	}
+	ImGui::TableNextRow();
+
+	ImGui::EndTable();
+
+	if (samples_before_update > samples_before_clear) {
+		samples_before_clear = samples_before_update * 2;
+		spu.m_debug_data.samples_before_update.store(samples_before_update & ~1);
+		spu.m_debug_data.samples_before_clear.store(samples_before_clear & ~1);
+	}
+
+	static std::vector<ImPlotPoint> downsampled_samples_l{};
+	static std::vector<ImPlotPoint> downsampled_samples_r{};
+	static size_t last_update_sn{};
+	static size_t prev_start_x_l{};
+	static size_t prev_end_x_l{};
+	static size_t prev_start_x_r{};
+	static size_t prev_end_x_r{};
+
+	std::unique_lock _lk{ spu.m_debug_data.sample_mutex };
+
+	if (last_update_sn != spu.m_debug_data.update_sn.load()) {
+		last_update_sn = spu.m_debug_data.update_sn.load();
+		resample = true;
+	}
+
+	auto samples_for_channel = spu.m_debug_data.samples_l.size();
+	auto text = fmt::format("Recorded {} samples per channel", samples_for_channel);
+	ImGui::Text(text.c_str());
+
+	if (ImPlot::BeginPlot("Left Channel")) {
+		auto limits = ImPlot::GetPlotLimits();
+		size_t curr_start_x = (size_t)limits.X.Min;
+		size_t curr_end_x = (size_t)limits.X.Max;
+
+		bool resample_l = resample || (curr_start_x != prev_start_x_l) || (curr_end_x != prev_end_x_l);
+
+		prev_start_x_l = curr_start_x;
+		prev_end_x_l = curr_end_x;
+
+		auto start_x = (size_t)std::clamp<std::int64_t>(prev_start_x_l, 0, spu.m_debug_data.samples_l.size());
+		auto end_x = (size_t)std::clamp<std::int64_t>(prev_end_x_l, 0, spu.m_debug_data.samples_l.size());
+		if (start_x > end_x) {
+			std::swap(start_x, end_x);
+		}
+
+		if (resample_l) {
+			downsampled_samples_l.clear();
+
+			const auto NUM_SAMPLES_RAW = (end_x == start_x) ? 0 : (end_x - start_x) + 1;
+			
+			downsampled_samples_l.reserve(NUM_SAMPLES_RAW);
+
+			if (NUM_SAMPLES_RAW >= max_graph_points) {
+				// Do resampling
+				size_t sample_offset{start_x};
+				auto every = ((double)NUM_SAMPLES_RAW) / ((double)max_graph_points);
+				size_t l_index{};
+
+				downsampled_samples_l.push_back(ImPlotPoint((double)sample_offset, spu.m_debug_data.samples_l[sample_offset]));
+
+				for (size_t curr_sample = 0; curr_sample < max_graph_points - 2; curr_sample++) {
+					auto avg_range_start = (size_t)(curr_sample * every) + 1;
+					auto avg_range_end = (size_t)((curr_sample + 1) * every) + 1;
+					if (avg_range_end > max_graph_points)
+						avg_range_end = max_graph_points;
+
+					auto avg_range_len = avg_range_end - avg_range_start;
+					double avg_l{};
+					double avg_x{};
+					for (; avg_range_start < avg_range_end; avg_range_start++) {
+						auto sample_l = ImPlotPoint((double)(sample_offset + avg_range_start),
+							spu.m_debug_data.samples_l[sample_offset + avg_range_start]);
+
+						avg_l += sample_l.y;
+						avg_x += sample_l.x;
+					}
+
+					avg_l /= avg_range_len;
+					avg_x /= avg_range_len;
+
+					auto range_off = (size_t)(curr_sample * every) + 1;
+					auto range_to = (size_t)((curr_sample + 1) * every) + 1;
+					if (range_to > max_graph_points) {
+						range_to = max_graph_points;
+					}
+
+					auto prev_sample_l = ImPlotPoint((double)(sample_offset + l_index),
+						spu.m_debug_data.samples_l[sample_offset + l_index]);
+
+					auto max_area_l = -1.0;
+					size_t next_l_index = range_off;
+					for (; range_off < range_to; range_off++) {
+						auto sample_l_at_off = ImPlotPoint((double)(sample_offset + range_off),
+							spu.m_debug_data.samples_l[sample_offset + range_off]);
+						
+						double area_l = fabs((prev_sample_l.x - avg_x) *
+							(sample_l_at_off.y - prev_sample_l.y) - (prev_sample_l.x -
+								sample_l_at_off.x) * (avg_l - prev_sample_l.y)) / 2.0;
+						
+						if (area_l > max_area_l) {
+							max_area_l = area_l;
+							next_l_index = range_off;
+						}
+					}
+
+					downsampled_samples_l.push_back(ImPlotPoint((double)(sample_offset + next_l_index),
+						spu.m_debug_data.samples_l[sample_offset + next_l_index]));
+
+					l_index = next_l_index;
+				}
+
+				downsampled_samples_l.push_back(ImPlotPoint((double)(sample_offset + NUM_SAMPLES_RAW - 1),
+					spu.m_debug_data.samples_l[sample_offset + NUM_SAMPLES_RAW - 1]));
+			}
+			else {
+				for (size_t curr_sample = start_x; end_x > curr_sample; curr_sample++) {
+					downsampled_samples_l.push_back(ImPlotPoint((double)curr_sample, spu.m_debug_data.samples_l[curr_sample]));
+				}
+			}
+		}
+
+		auto point_getter = [](i32 idx, void* data) {
+			auto points = std::bit_cast<ImPlotPoint*>(data);
+			return ImPlotPoint(points[idx].x, points[idx].y);
+		};
+
+		ImPlot::PlotLineG("Left Channel", point_getter,
+			std::bit_cast<void*>(downsampled_samples_l.data()),
+			(int32_t)downsampled_samples_l.size());
+		
+		ImPlot::EndPlot();
+	}
+
+	if (ImPlot::BeginPlot("Right Channel")) {
+		auto limits = ImPlot::GetPlotLimits();
+		size_t curr_start_x = (size_t)limits.X.Min;
+		size_t curr_end_x = (size_t)limits.X.Max;
+
+		bool resample_r = resample || (curr_start_x != prev_start_x_r) || (curr_end_x != prev_end_x_r);
+
+		prev_start_x_r = curr_start_x;
+		prev_end_x_r = curr_end_x;
+
+		auto start_x = (size_t)std::clamp<std::int64_t>(prev_start_x_r, 0, spu.m_debug_data.samples_l.size());
+		auto end_x = (size_t)std::clamp<std::int64_t>(prev_end_x_r, 0, spu.m_debug_data.samples_l.size());
+		if (start_x > end_x) {
+			std::swap(start_x, end_x);
+		}
+
+		if (resample_r) {
+			downsampled_samples_r.clear();
+
+			const auto NUM_SAMPLES_RAW = (end_x == start_x) ? 0 : (end_x - start_x) + 1;
+
+			downsampled_samples_r.reserve(NUM_SAMPLES_RAW);
+
+			if (NUM_SAMPLES_RAW >= max_graph_points) {
+				// Do resampling
+				size_t sample_offset{ start_x };
+				auto every = ((double)NUM_SAMPLES_RAW) / ((double)max_graph_points);
+				size_t r_index{};
+
+				downsampled_samples_r.push_back(ImPlotPoint((double)sample_offset, spu.m_debug_data.samples_r[sample_offset]));
+
+				for (size_t curr_sample = 0; curr_sample < max_graph_points - 2; curr_sample++) {
+					auto avg_range_start = (size_t)(curr_sample * every) + 1;
+					auto avg_range_end = (size_t)((curr_sample + 1) * every) + 1;
+					if (avg_range_end > max_graph_points)
+						avg_range_end = max_graph_points;
+
+					auto avg_range_len = avg_range_end - avg_range_start;
+					double avg_r{};
+					double avg_x{};
+					for (; avg_range_start < avg_range_end; avg_range_start++) {
+						auto sample_r = ImPlotPoint((double)(sample_offset + avg_range_start),
+							spu.m_debug_data.samples_r[sample_offset + avg_range_start]);
+
+						avg_r += sample_r.y;
+						avg_x += sample_r.x;
+					}
+
+					avg_r /= avg_range_len;
+					avg_x /= avg_range_len;
+
+					auto range_off = (size_t)(curr_sample * every) + 1;
+					auto range_to = (size_t)((curr_sample + 1) * every) + 1;
+					if (range_to > max_graph_points) {
+						range_to = max_graph_points;
+					}
+
+					auto prev_sample_r = ImPlotPoint((double)(sample_offset + r_index),
+						spu.m_debug_data.samples_r[sample_offset + r_index]);
+
+					auto max_area_r = -1.0;
+					size_t next_r_index = range_off;
+					for (; range_off < range_to; range_off++) {
+						auto sample_r_at_off = ImPlotPoint((double)(sample_offset + range_off),
+							spu.m_debug_data.samples_r[sample_offset + range_off]);
+
+						double area_r = fabs((prev_sample_r.x - avg_x) *
+							(sample_r_at_off.y - prev_sample_r.y) - (prev_sample_r.x -
+								sample_r_at_off.x) * (avg_r - prev_sample_r.y)) / 2.0;
+
+						if (area_r > max_area_r) {
+							max_area_r = area_r;
+							next_r_index = range_off;
+						}
+					}
+
+					downsampled_samples_r.push_back(ImPlotPoint((double)(sample_offset + next_r_index),
+						spu.m_debug_data.samples_r[sample_offset + next_r_index]));
+
+					r_index = next_r_index;
+				}
+
+				downsampled_samples_r.push_back(ImPlotPoint((double)(sample_offset + NUM_SAMPLES_RAW - 1),
+					spu.m_debug_data.samples_r[sample_offset + NUM_SAMPLES_RAW - 1]));
+			}
+			else {
+				for (size_t curr_sample = start_x; end_x > curr_sample; curr_sample++) {
+					downsampled_samples_r.push_back(ImPlotPoint((double)curr_sample, spu.m_debug_data.samples_r[curr_sample]));
+				}
+			}
+		}
+
+		auto point_getter = [](i32 idx, void* data) {
+			auto points = std::bit_cast<ImPlotPoint*>(data);
+			return ImPlotPoint(points[idx].x, points[idx].y);
+		};
+
+		ImPlot::PlotLineG("Right Channel", point_getter,
+			std::bit_cast<void*>(downsampled_samples_r.data()),
+			(int32_t)downsampled_samples_r.size());
+
+		ImPlot::EndPlot();
+	}
+
+	if (ImGui::Button("Clear")) {
+		spu.m_debug_data.samples_l.clear();
+		spu.m_debug_data.samples_r.clear();
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Save")) {
+		ImGuiFileDialog::Instance()->OpenDialog("SaveWav", 
+			"Save .wav", ".wav");
+	}
+	if (ImGuiFileDialog::Instance()->Display("SaveWav")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+			auto maybe_wav_file = psx::wav::SimpleWav::CreateWav(filePathName,
+				psx::wav::SampleFormat::PCM,
+				2,
+				16,
+				psx::SPU::SAMPLE_FREQUENCY);
+
+			bool show_error_dialog{ false };
+			if (!maybe_wav_file.has_value()) {
+				show_error_dialog = true;
+			}
+			else {
+				auto wav_file = std::move(maybe_wav_file.value());
+				std::vector<i16> all_samples{};
+				all_samples.resize(spu.m_debug_data.samples_l.size() * 2);
+				for (size_t curr_sample = 0; spu.m_debug_data.samples_l.size() > curr_sample; curr_sample++) {
+					all_samples[curr_sample << 1]       = spu.m_debug_data.samples_l[curr_sample];
+					all_samples[(curr_sample << 1) + 1] = spu.m_debug_data.samples_r[curr_sample];
+				}
+				wav_file.WriteSamples(std::span{
+					std::bit_cast<u8*>(all_samples.data()), 
+					all_samples.size() << 1
+				});
+				wav_file.FlushData();
+			}
+
+			if (!show_error_dialog) {
+				ImGuiFileDialog::Instance()->Close();
+			}
+			else {
+				ImGui::OpenPopup("Create .wav error");
+			}
+		}
+
+		if (ImGui::BeginPopupModal("Create .wav error", nullptr, ImGuiWindowFlags_NoResize)) {
+			ImGui::Text("Could not save .wav");
+			if (ImGui::Button("OK")) {
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+	}
+}
+
 void DebugView::SpuWindow() {
 	if (!m_is_main_window_open.contains("SPU Window")) {
 		m_is_main_window_open["SPU Window"] = true;
@@ -791,6 +1139,11 @@ void DebugView::SpuWindow() {
 
 	if (ImGui::BeginTabItem("Voices")) {
 		SpuVoicesWindow();
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Output")) {
+		SpuOutputWindow();
 		ImGui::EndTabItem();
 	}
 	ImGui::EndTabBar();

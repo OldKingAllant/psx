@@ -8,6 +8,7 @@
 #include <thirdparty/imgui/backends/imgui_impl_sdl2.h>
 #include <thirdparty/imgui/backends/imgui_impl_opengl3.h>
 #include <thirdparty/magic_enum/include/magic_enum/magic_enum.hpp>
+#include <thirdparty/implot/implot.h>
 
 #include <psxemu/include/psxemu/System.hpp>
 #include <psxemu/include/psxemu/SystemStatus.hpp>
@@ -15,6 +16,7 @@
 #include <GL/glew.h>
 
 static ImGuiContext* g_imgui_ctx{nullptr};
+static ImPlotContext* g_implot_ctx{nullptr};
 
 DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sys) 
 	: m_win{ win }, m_psx{ sys }, m_gl_ctx{ nullptr }, 
@@ -51,6 +53,8 @@ DebugView::DebugView(std::shared_ptr<psx::video::SdlWindow> win, psx::System* sy
 			m_except_init = true;
 			kernel.ScheduleExitHookRemoval(m_except_init_hook);
 	}).value();
+
+	g_implot_ctx = ImPlot::CreateContext();
 }
 
 DebugView::~DebugView() {
@@ -66,6 +70,7 @@ DebugView::~DebugView() {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext(g_imgui_ctx);
+	ImPlot::DestroyContext();
 }
 
 void DebugView::Update() {

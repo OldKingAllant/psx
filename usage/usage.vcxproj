@@ -151,6 +151,8 @@
     <ClCompile Include="..\thirdparty\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\thirdparty\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\thirdparty\imgui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="..\thirdparty\implot\implot.cpp" />
+    <ClCompile Include="..\thirdparty\implot\implot_items.cpp" />
     <ClCompile Include="config\ConfigLoader.cpp" />
     <ClCompile Include="display\DisplayWindow.cpp" />
     <ClCompile Include="imgui_debug\DebugView.cpp" />
