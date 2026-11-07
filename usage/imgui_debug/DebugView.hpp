@@ -86,6 +86,8 @@ private :
 	void SpuVoicesWindow();
 	void SpuOutputWindow();
 
+	void MemoryEditor();
+
 	void TaskBarWindow();
 
 	void ShowTimerImpl(uint32_t tmr_id);

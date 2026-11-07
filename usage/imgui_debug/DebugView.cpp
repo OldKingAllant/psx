@@ -114,6 +114,10 @@ void DebugView::Update() {
 		SpuWindow();
 	}
 
+	{
+		MemoryEditor();
+	}
+
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

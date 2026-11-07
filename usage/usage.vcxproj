@@ -158,6 +158,7 @@
     <ClCompile Include="imgui_debug\DebugView.cpp" />
     <ClCompile Include="imgui_debug\GdbWindow.cpp" />
     <ClCompile Include="imgui_debug\GPUDebug.cpp" />
+    <ClCompile Include="imgui_debug\MemoryDebug.cpp" />
     <ClCompile Include="imgui_debug\SPUDebug.cpp" />
     <ClCompile Include="tty\TTY_Console.cpp" />
   </ItemGroup>

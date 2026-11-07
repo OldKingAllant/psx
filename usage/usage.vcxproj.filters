@@ -93,6 +93,9 @@
     <ClCompile Include="..\thirdparty\implot\implot_items.cpp">
       <Filter>Source Files\implot</Filter>
     </ClCompile>
+    <ClCompile Include="imgui_debug\MemoryDebug.cpp">
+      <Filter>Source Files\debug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tty\TTY_Console.hpp">

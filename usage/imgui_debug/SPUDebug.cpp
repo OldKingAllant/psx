@@ -840,6 +840,8 @@ void DebugView::SpuOutputWindow() {
 	auto text = fmt::format("Recorded {} samples per channel", samples_for_channel);
 	ImGui::Text(text.c_str());
 
+	ImPlot::SetNextAxesLimits(.0, spu.m_debug_data.samples_before_clear.load(), std::numeric_limits<i16>::min(),
+		std::numeric_limits<i16>::max(), ImPlotCond_Once);
 	if (ImPlot::BeginPlot("Left Channel")) {
 		auto limits = ImPlot::GetPlotLimits();
 		size_t curr_start_x = (size_t)limits.X.Min;
@@ -944,6 +946,8 @@ void DebugView::SpuOutputWindow() {
 		ImPlot::EndPlot();
 	}
 
+	ImPlot::SetNextAxesLimits(.0, spu.m_debug_data.samples_before_clear.load(), std::numeric_limits<i16>::min(),
+		std::numeric_limits<i16>::max(), ImPlotCond_Once);
 	if (ImPlot::BeginPlot("Right Channel")) {
 		auto limits = ImPlot::GetPlotLimits();
 		size_t curr_start_x = (size_t)limits.X.Min;
