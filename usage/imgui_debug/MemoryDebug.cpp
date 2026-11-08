@@ -104,6 +104,12 @@ void DebugView::MemoryEditor() {
 	static std::optional<size_t> s_last_frame_edit_line_visible = std::nullopt;
 	static std::optional<size_t> s_edit_line_frame_blink_timer = std::nullopt;
 
+	static std::optional<psx::u32> s_highlited_start = std::nullopt;
+	static std::optional<psx::u32> s_highlited_end = std::nullopt;
+	static std::optional<size_t>   s_highlited_region = std::nullopt;
+
+	static bool s_was_mouse_dragging = false;
+
 	constexpr size_t EDIT_LINE_FRAME_BLINK_TIME = 30;
 
 	if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
@@ -166,6 +172,12 @@ void DebugView::MemoryEditor() {
 
 				s_write_buffer = std::nullopt;
 				s_write_region = std::nullopt;
+			}
+
+			if (s_highlited_region.has_value() && s_highlited_region.value() != region_n) {
+				s_highlited_region = std::nullopt;
+				s_highlited_start = std::nullopt;
+				s_highlited_end = std::nullopt;
 			}
 			std::optional<psx::u32> start_address{};
 			std::optional<psx::u32> end_address{};
@@ -271,16 +283,36 @@ void DebugView::MemoryEditor() {
 								s_last_frame_edit_line_visible = curr_frame;
 							}
 							ImGui::SameLine();
+
 							auto text_size = ImGui::CalcTextSize(formatted_byte.c_str());
+							auto single_char_x_size = ImGui::CalcTextSize("0").x;
+							auto rect_begin = ImVec2(curr_cursor_pos.x - single_char_x_size / 2.f,
+								curr_cursor_pos.y - text_size.y / 4.f);
+							auto rect_end = ImVec2(curr_cursor_pos.x + text_size.x + single_char_x_size / 2.f,
+								curr_cursor_pos.y + text_size.y + text_size.y / 4.f);
+
+							if (s_highlited_region.has_value() && s_highlited_region.value() == region_n) {
+								auto curr_addr = (row_address_rel + curr_col);
+								if (s_highlited_start.value() <= curr_addr && curr_addr <= s_highlited_end.value()) {
+									ImGui::GetWindowDrawList()->AddRectFilled(rect_begin, rect_end,
+										IM_COL32(150.f, 255.f, 150.f, 100.f));
+								}
+							}
+
 							if (s_selected_addr.has_value() && s_selected_addr_region.has_value()) {
 								if (s_selected_addr_region.value() == region_n &&
 									s_selected_addr.value() == (row_address_rel + curr_col)) {
-									ImGui::GetWindowDrawList()->AddRectFilled(curr_cursor_pos, 
-										ImVec2(curr_cursor_pos.x + text_size.x, curr_cursor_pos.y + text_size.y + 
-										text_size.y / 4.f), 
+									ImGui::GetWindowDrawList()->AddRectFilled(rect_begin, rect_end, 
 										IM_COL32(150.f, 150.f, 255.f, 100.f));
 								}
 							}
+
+							if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+								s_highlited_region = std::nullopt;
+								s_highlited_start = std::nullopt;
+								s_highlited_end = std::nullopt;
+							}
+
 							ImGui::Dummy(text_size);
 							if (s_selected_addr.has_value() && s_selected_addr_region.has_value()) {
 								if (s_selected_addr_region.value() == region_n &&
@@ -352,12 +384,40 @@ void DebugView::MemoryEditor() {
 									}
 								}
 							}
-							if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-								s_selected_addr = row_address_rel + curr_col;
-								s_selected_addr_region = region_n;
-								s_write_buffer = std::nullopt;
-								s_write_region = std::nullopt;
-								//ImGui::SetKeyboardFocusHere(-1);
+							if (ImGui::IsMouseDragging(ImGuiMouseButton_Left) && ImGui::IsWindowHovered()) {
+								if (ImGui::IsItemHovered()) {
+									
+									auto curr_addr = (row_address_rel + curr_col);
+									if (!s_was_mouse_dragging) {
+										s_highlited_start = std::nullopt;
+										s_highlited_end = std::nullopt;
+										s_highlited_region = std::nullopt;
+
+										s_highlited_region = region_n;
+										s_highlited_start = curr_addr;
+										s_highlited_end = curr_addr;
+									}
+									else {
+										if (s_highlited_start.has_value() && s_highlited_start.value() > curr_addr) {
+											s_highlited_start = curr_addr;
+										}
+										if (s_highlited_end.has_value() && s_highlited_end.value() < curr_addr) {
+											s_highlited_end = curr_addr;
+										}
+									}
+
+									s_was_mouse_dragging = true;
+								}
+							}
+							else {
+								if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+									s_selected_addr = row_address_rel + curr_col;
+									s_selected_addr_region = region_n;
+									s_write_buffer = std::nullopt;
+									s_write_region = std::nullopt;
+									//ImGui::SetKeyboardFocusHere(-1);
+								}
+								s_was_mouse_dragging = false;
 							}
 
 							if (s_num_cols != (curr_col + 1)) {
@@ -584,6 +644,24 @@ void DebugView::MemoryEditor() {
 					auto line_end = ImVec2(line_begin.x + content_avail.x, line_begin.y);
 					ImGui::GetWindowDrawList()->AddLine(line_begin, line_end, IM_COL32(255.f, 255.f, 255.f, 255.f));
 					ImGui::SetCursorScreenPos(ImVec2(line_begin.x, line_begin.y + text_line_height / 2.f));
+
+					static std::vector<std::string> s_data_formats = {
+						"Int8",
+						"Uint8",
+						"Int16",
+						"Uint16",
+						"Int32",
+						"Uint32",
+						"Int64",
+						"Uint64",
+						"Shift-JIS"
+					};
+
+					constexpr const char* ENDIANNES[] = {
+						"LE",
+						"BE"
+					};
+
 					ImGui::Text("Format:");
 					ImGui::Text("DEC");
 					ImGui::Text("HEX");
