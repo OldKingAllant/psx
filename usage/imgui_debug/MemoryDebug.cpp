@@ -377,6 +377,12 @@ void DebugView::MemoryEditor() {
 											s_write_buffer.value() += input_digit;
 
 											if (s_write_buffer.value().size() == 2) {
+												auto new_byte = (psx::u8)std::stoi(s_write_buffer.value(), nullptr, 16);
+
+												if (IS_REGION_WRITEABLE[region_n]) {
+													REGION_WRITE_FUNCS[region_n](s_selected_addr.value(), new_byte);
+												}
+
 												new_address_from_edit = s_selected_addr.value() + 1;
 												s_write_buffer = std::nullopt;
 											}
@@ -460,24 +466,29 @@ void DebugView::MemoryEditor() {
 				if (ImGui::IsWindowFocused() && s_selected_addr.has_value()) {
 					auto new_address = new_address_from_edit.has_value() ? 
 						new_address_from_edit.value() : s_selected_addr.value();
+					auto address_has_changed = new_address_from_edit.has_value();
 					if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
 						if (0 <= (int64_t)new_address - (int64_t)s_num_cols) {
 							new_address -= s_num_cols;
 						}
+						address_has_changed = true;
 					} 
 					else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
 						new_address += s_num_cols;
+						address_has_changed = true;
 					}
 					else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
 						new_address += 1;
+						address_has_changed = true;
 					}
 					else if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
 						if (0 <= (int64_t)new_address - (int64_t)1) {
 							new_address -= 1;
 						}
+						address_has_changed = true;
 					}
 					new_address = std::min(new_address, REGION_SIZES[s_selected_addr_region.value()] - 1);
-					if (start_address.has_value() && end_address.has_value()) {
+					if (start_address.has_value() && end_address.has_value() && address_has_changed) {
 						auto new_address_row = new_address / s_num_cols;
 						auto start_address_row = start_address.value() / s_num_cols;
 						auto end_address_row = end_address.value() / s_num_cols;
@@ -657,15 +668,160 @@ void DebugView::MemoryEditor() {
 						"Shift-JIS"
 					};
 
+					static std::vector<size_t> s_format_size = {
+						1,
+						1,
+						2,
+						2,
+						4,
+						4,
+						8,
+						8,
+						2
+					};
+
+					static std::vector<bool> s_is_signed = {
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						false
+					};
+
+					static std::vector<std::pair<size_t, size_t>> s_integer_fraction_sizes = {
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 },
+						{ 0,0 }
+					};
+
+					static std::vector<bool> s_is_numerical = {
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						true,
+						false
+					};
+
+					static std::vector<std::string> s_hex_print_formats = {
+						"{:#04x}",
+						"{:#04x}",
+						"{:#06x}",
+						"{:#06x}",
+						"{:#010x}",
+						"{:#010x}",
+						"{:#018x}",
+						"{:#018x}",
+						""
+					};
+
 					constexpr const char* ENDIANNES[] = {
 						"LE",
 						"BE"
 					};
 
+					static int32_t s_format_select = 0;
+					static int32_t s_endiannes_select = 0;
+
 					ImGui::Text("Format:");
-					ImGui::Text("DEC");
-					ImGui::Text("HEX");
-					ImGui::Text("BIN");
+					ImGui::SameLine();
+
+					auto preview_format_text = s_data_formats[s_format_select].c_str();
+					auto format_combo_w = ImGui::CalcTextSize(preview_format_text).x + 
+						ImGui::GetFrameHeight() * 2.f;
+
+					ImGui::SetNextItemWidth(format_combo_w);
+					ImGui::Combo("##select_format", &s_format_select, 
+						[](void* format_vec_v, int32_t idx) {
+							auto* format_vec = std::bit_cast<std::vector<std::string>*>(format_vec_v);
+							// if (idx < 0 || idx >= format_vec->size()) return false;
+							return format_vec->at(idx).c_str();
+						}, std::bit_cast<void*>(&s_data_formats),  (int32_t)s_data_formats.size());
+
+					if (s_is_numerical[s_format_select]) {
+						auto preview_endiannes_text = ENDIANNES[s_endiannes_select];
+						auto endiannes_combo_w = ImGui::CalcTextSize(preview_endiannes_text).x +
+							ImGui::GetFrameHeight() * 2.f;
+
+						ImGui::SameLine();
+						ImGui::SetNextItemWidth(endiannes_combo_w);
+						ImGui::Combo("##select_endiannes", &s_endiannes_select,
+							ENDIANNES, IM_ARRAYSIZE(ENDIANNES));
+					}
+
+					if (s_highlited_region.has_value() && s_highlited_region.value() == region_n) {
+						auto highlight_size = (s_highlited_end.value() - s_highlited_start.value()) + 1;
+						if (s_is_numerical[s_format_select]) {
+							if (s_format_size[s_format_select] <= highlight_size) {
+								uint64_t data = {};
+								auto wanted_bytes = s_format_size[s_format_select];
+								for (auto curr_byte = 0; curr_byte < wanted_bytes; curr_byte++) {
+									data |= (uint64_t)REGION_READ_FUNCS[region_n](s_highlited_start.value() + curr_byte)
+										<< (8 * curr_byte);
+								}
+								if (1 == s_endiannes_select) {
+									data = std::byteswap(data);
+									data >>= (64 - (8 * wanted_bytes));
+								}
+
+								auto int_fract_sizes = s_integer_fraction_sizes[s_format_select];
+								if (int_fract_sizes.first == int_fract_sizes.second) {
+									// Not fixed point
+									if (s_is_signed[s_format_select]) {
+										int64_t signed_data = data;
+										if (sizeof(int64_t) != s_format_size[s_format_select]) {
+											auto to_extend = sizeof(int64_t) - s_format_size[s_format_select];
+											signed_data <<= to_extend * 8;
+											signed_data >>= to_extend * 8;
+										}
+										ImGui::Text(fmt::format("DEC: {}", signed_data).c_str());
+									}
+									else {
+										ImGui::Text(fmt::format("DEC: {}", data).c_str());
+									}
+								}
+								else {
+									ImGui::Text("Unimplemented");
+								}
+								
+								ImGui::Text("HEX: %s", fmt::vformat(s_hex_print_formats[s_format_select], fmt::make_format_args(data)).c_str());
+
+								auto total_nibbles = s_format_size[s_format_select] * 2;
+								ImGui::Text("BIN:");
+								for (auto curr_nibble = 0; curr_nibble < total_nibbles; curr_nibble++) {
+									auto nibble_val = (data >> 4 * (total_nibbles - curr_nibble - 1)) & 0xF;
+									ImGui::SameLine();
+									ImGui::Text(fmt::format("{:04b}", nibble_val).c_str());
+									if (curr_nibble != total_nibbles - 1) {
+										ImGui::SameLine();
+										ImGui::Text(".");
+									}
+								}
+							}
+							else {
+								ImGui::Text("Select at least %d bytes", s_format_size[s_format_select]);
+							}
+						}
+						else {
+							ImGui::Text("Unimplemented");
+						}
+					}
+					else {
+						ImGui::Text("Highlight a range (in this tab) for the data preview");
+					}
 				}
 				
 				ImGui::EndChild();
