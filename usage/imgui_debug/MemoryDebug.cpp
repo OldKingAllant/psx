@@ -816,7 +816,13 @@ void DebugView::MemoryEditor() {
 							}
 						}
 						else {
-							ImGui::Text("Unimplemented");
+							auto total_chars = highlight_size / 2;
+							if (0 == total_chars) {
+								ImGui::Text("Select at least two bytes");
+							}
+							else {
+								ImGui::Text("Unimplemented");
+							}
 						}
 					}
 					else {
