@@ -3,6 +3,8 @@
 #include <common/Macros.hpp>
 #include <common/Defs.hpp>
 
+#include "GLError.hpp"
+
 #include <unordered_map>
 
 namespace psx::video {
@@ -109,4 +111,12 @@ namespace psx::video {
 
 	void SetCurrentGLContext(GLContext* ctx);
 	GLContext* GetCurrentGLContext();
+
+	/// <summary>
+	/// Convert OpenGL error value to
+	/// our representation
+	/// </summary>
+	/// <param name="_err">Error to convert</param>
+	/// <returns>New error representation</returns>
+	GLError ConvertGLErrorToEnum(uint32_t _err);
 }

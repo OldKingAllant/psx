@@ -3,8 +3,12 @@
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
 
+#include <common/Errors.hpp>
+
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
+
+#include "GLError.hpp"
 
 namespace psx::video {
 	GLContext GLContext::Create(void* window) {
@@ -195,5 +199,32 @@ namespace psx::video {
 
 	GLContext* GetCurrentGLContext() {
 		return g_curr_context;
+	}
+
+	GLError ConvertGLErrorToEnum(uint32_t _err) {
+		switch (_err)
+		{
+		case GL_NO_ERROR:
+			return GLError::OK;
+		case GL_INVALID_ENUM:
+			return GLError::INVALID_ENUM;
+		case GL_INVALID_VALUE:
+			return GLError::INVALID_VALUE;
+		case GL_INVALID_OPERATION:
+			return GLError::INVALID_OPERATION;
+		case GL_INVALID_FRAMEBUFFER_OPERATION:
+			return GLError::INVALID_FRAMEBUFFER_OPERATION;
+		case GL_OUT_OF_MEMORY:
+			return GLError::OUT_OF_MEMORY;
+		case GL_STACK_OVERFLOW:
+			return GLError::STACK_OVERFLOW;
+		case GL_STACK_UNDERFLOW:
+			return GLError::STACK_UNDERFLOW;
+		default:
+			return GLError::UNKNOWN;
+		}
+
+		error::Unreachable();
+		return GLError::OK;
 	}
 }

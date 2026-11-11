@@ -243,9 +243,6 @@
     <ClInclude Include="renderer\GLRenderer.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
-    <ClInclude Include="renderer\Buffer.hpp">
-      <Filter>Header Files\renderer</Filter>
-    </ClInclude>
     <ClInclude Include="renderer\VertexBuffer.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
@@ -444,6 +441,12 @@
     <ClInclude Include="include\psxemu\CDTrack.hpp">
       <Filter>Header Files\dev\cdrom</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\GLError.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer\GpuBuffer.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -528,9 +531,6 @@
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
     <ClCompile Include="renderer\GLRenderer.cpp">
-      <Filter>Resource Files\renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="renderer\Buffer.cpp">
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
     <ClCompile Include="renderer\VertexBuffer.cpp">
@@ -682,6 +682,9 @@
     </ClCompile>
     <ClCompile Include="source\psxemu\ServerAsyncCommands.cpp">
       <Filter>Resource Files\gdbstub</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\GpuBuffer.cpp">
+      <Filter>Resource Files\renderer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -233,11 +233,12 @@
     <ClInclude Include="include\psxemu\VirtualAddress.hpp" />
     <ClInclude Include="input\IInputManager.hpp" />
     <ClInclude Include="input\KeyboardManager.hpp" />
-    <ClInclude Include="renderer\Buffer.hpp" />
     <ClInclude Include="renderer\FrameBuffer.hpp" />
     <ClInclude Include="renderer\GLContext.hpp" />
+    <ClInclude Include="renderer\GLError.hpp" />
     <ClInclude Include="renderer\GlLoad.hpp" />
     <ClInclude Include="renderer\GLRenderer.hpp" />
+    <ClInclude Include="renderer\GpuBuffer.hpp" />
     <ClInclude Include="renderer\Pipeline.hpp" />
     <ClInclude Include="renderer\Renderdoc.hpp" />
     <ClInclude Include="renderer\SdlContext.hpp" />
@@ -253,11 +254,11 @@
     <ClCompile Include="..\common\SetThreadName.cpp" />
     <ClCompile Include="audio\AudioBackend.cpp" />
     <ClCompile Include="input\KeyboardManager.cpp" />
-    <ClCompile Include="renderer\Buffer.cpp" />
     <ClCompile Include="renderer\FrameBuffer.cpp" />
     <ClCompile Include="renderer\GLContext.cpp" />
     <ClCompile Include="renderer\GlLoad.cpp" />
     <ClCompile Include="renderer\GLRenderer.cpp" />
+    <ClCompile Include="renderer\GpuBuffer.cpp" />
     <ClCompile Include="renderer\Pipeline.cpp" />
     <ClCompile Include="renderer\Renderdoc.cpp" />
     <ClCompile Include="renderer\SdlContext.cpp" />

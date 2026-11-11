@@ -2,8 +2,9 @@
 
 #include <common/Defs.hpp>
 #include <common/Macros.hpp>
+#include <common/Errors.hpp>
 
-#include "Buffer.hpp"
+#include "GpuBuffer.hpp"
 
 #include <vector>
 #include <concepts>
@@ -65,10 +66,28 @@ namespace psx::video {
 		VertexBuffer(u32 max_vertices) :
 			m_max_verts{max_vertices},
 			m_curr_verts{}, 
-			m_buf{true, BufferMap::READWRITE, u32(sizeof(Vert) * (max_vertices)) },
+			m_buf{},
 			m_vertex_arr{} {
+
+			auto maybe_buf = GpuBuffer::CreateBuffer(sizeof(Vert) * (size_t)max_vertices,
+				BufferMapping::WRITE |
+				BufferMapping::PERSISTENT |
+				BufferMapping::COHERENT |
+				BufferMapping::DYNAMIC);
+
+			if (!maybe_buf.has_value()) {
+				error::DebugBreak();
+			}
+			m_buf = std::move(maybe_buf.value());
+
+			if (m_buf.MapBuffer(0, m_buf.GetBufferSize(), BufferMapping::WRITE | BufferMapping::PERSISTENT | BufferMapping::COHERENT)
+				.has_value()) {
+				error::DebugBreak();
+			}
+			//u32(sizeof(Vert) * (max_vertices))
+
 			m_vertex_arr = CreateVertexArray();
-			MakeCurrentArrayBuffer(m_buf.BufID());
+			MakeCurrentArrayBuffer(m_buf.GetBufferId());
 			MakeCurrentVertexArray(m_vertex_arr);
 
 			Vert dummy{};
@@ -86,7 +105,7 @@ namespace psx::video {
 				return false;
 
 			u64 off = m_curr_verts * sizeof(Vert);
-			auto ptr = m_buf.Get();
+			auto ptr = m_buf.GetHostBuffer().value();
 
 			std::memcpy((u8*)ptr + off, (const void*)&new_vert,
 				sizeof(Vert));
@@ -129,7 +148,7 @@ namespace psx::video {
 	private :
 		u32 m_max_verts;
 		u32 m_curr_verts;
-		Buffer m_buf;
+		GpuBuffer m_buf;
 		u32 m_vertex_arr;
 	};
 }
