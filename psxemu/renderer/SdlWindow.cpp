@@ -46,7 +46,7 @@ namespace psx::video {
 
 	SdlWindow::SdlWindow(std::string name, Rect size, bool reuse_ctx, bool resize, bool enable_debug)
 		: m_win{ nullptr }, m_gl_ctx{}, m_blit{ nullptr },
-		m_close{}, m_vert_buf{ nullptr }, m_tex_id{}, m_ev_callbacks{},
+		m_close{}, m_vert_buf{}, m_tex_id{}, m_ev_callbacks{},
 		m_forward_ev_handler{}, m_size{ size }, m_last_title_update_time{},
 		m_curr_frame_count{}, m_window_name{ name } {
 		if (reuse_ctx)
@@ -103,23 +103,28 @@ namespace psx::video {
 		}
 
 		m_last_title_update_time = std::chrono::system_clock::now();
-		//SDL_GL_SetSwapInterval(0);
 	}
 
 	SdlWindow::SdlWindow(std::string name, Rect size, std::string blit_loc, std::string blit_name, bool reuse_ctx, bool resize, bool enable_debug)
 		: SdlWindow(name, size, reuse_ctx, resize, enable_debug) {
+		
 		m_blit = new Shader(blit_loc, blit_name);
 		m_blit->SetLabel(fmt::format("window_{}_blit_shader", name));
 
-		m_vert_buf = new VertexBuffer<HostVertex2D>(6);
+		m_vert_buf = std::make_unique<VertexBuffer>(std::move(VertexBuffer::CreateVertexBuffer().value()));
+		auto maybe_err = m_vert_buf->AddBuffer<HostVertex2D>(0, 6);
+		if (maybe_err.has_value()) {
+			fmt::println("[SDLWINDOW] Add buffer failed: {}", (size_t)maybe_err.value());
+			throw std::runtime_error("Add buffer failed");
+		}
 
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  0.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  1.0, 1.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, 0.0, 1.0 });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ -1.0, 1.0,  0.0, 0.0 });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ 1.0, -1.0,  1.0, 1.0 });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ -1.0, -1.0, 0.0, 1.0 });
 
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, 0.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  1.0, 0.0 });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, 1.0, 1.0 });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ -1.0, 1.0, 0.0, 0.0 });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ 1.0, 1.0,  1.0, 0.0 });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ 1.0, -1.0, 1.0, 1.0 });
 
 		m_vert_buf->SetLabel(fmt::format("static_window_{}_vertex_buf", name));
 	}
@@ -160,7 +165,7 @@ namespace psx::video {
 	void SdlWindow::Blit(uint32_t texture_id) {
 		m_gl_ctx.SetCurrent(m_win);
 
-		if (!m_blit || !m_vert_buf)
+		if (!m_blit || !m_vert_buf->GetBufferSize(0).has_value())
 			throw std::runtime_error("Window is not ready for blit ops");
 
 		m_gl_ctx.ScissorDisable();
@@ -179,7 +184,7 @@ namespace psx::video {
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
-		m_vert_buf->Unbind();
+		//m_vert_buf->Unbind();
 	}
 
 	bool SdlWindow::HandleEvent(SDL_Event* ev) {
@@ -219,7 +224,6 @@ namespace psx::video {
 
 	SdlWindow::~SdlWindow() {
 		if(m_blit) delete m_blit;
-		if(m_vert_buf) delete m_vert_buf;
 		SDL_DestroyWindow((SDL_Window*)m_win);
 	}
 
@@ -242,7 +246,7 @@ namespace psx::video {
 	}
 
 	void SdlWindow::SetTextureWindow(u32 start_x, u32 start_y, Rect window_size, Rect texture_size) {
-		m_vert_buf->Clear();
+		m_vert_buf->ClearBuffer(0);
 
 		float w = float(window_size.w) / texture_size.w;
 		float h = float(window_size.h) / texture_size.h;
@@ -252,13 +256,13 @@ namespace psx::video {
 		float endx = xoff + w;
 		float endy = yoff + h;
 
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0,  xoff, yoff });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0,  endx, endy });
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, -1.0, xoff, endy });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ -1.0, 1.0,  xoff, yoff });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ 1.0, -1.0,  endx, endy });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ -1.0, -1.0, xoff, endy });
 
-		m_vert_buf->PushVertex(HostVertex2D{ -1.0, 1.0, xoff, yoff });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, 1.0,  endx, yoff });
-		m_vert_buf->PushVertex(HostVertex2D{ 1.0, -1.0, endx, endy });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ -1.0, 1.0, xoff, yoff });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ 1.0, 1.0,  endx, yoff });
+		m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ 1.0, -1.0, endx, endy });
 	}
 
 	uint32_t SdlWindow::GetWindowID() const {

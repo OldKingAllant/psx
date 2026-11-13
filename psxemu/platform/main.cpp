@@ -77,8 +77,12 @@ int main(int argc, char* argv[]) {
 
 	std::shared_ptr<psx::input::IInputManager> input_manager{std::make_shared<psx::input::KeyboardManager>()};
 
-	display.Listen(SdlEvent::KeyPressed, [input_manager](SdlEvent ev_type, std::any data) {
+	display.Listen(SdlEvent::KeyPressed, [input_manager, &renderdoc](SdlEvent ev_type, std::any data) {
 		auto key_name = std::any_cast<std::string_view>(data);
+
+		if (key_name == "PrintScreen") {
+			renderdoc->PrepareCapture();
+		}
 
 		using ButtonStatus = psx::input::KeyboardButtonStatus;
 

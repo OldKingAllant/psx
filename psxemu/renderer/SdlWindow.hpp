@@ -9,10 +9,27 @@
 #include <functional>
 #include <map>
 #include <chrono>
+#include <memory>
 
 union SDL_Event;
 
 namespace psx::video {
+	struct HostVertex2D {
+#pragma pack(push, 1)
+		float x, y;
+		float u, v;
+#pragma pack(pop)
+
+		std::vector<VertexAttribute> attributes() const {
+			return {
+				VertexAttribute{ VertexAttributeType::FLOAT, (u8*)&x - (u8*)this },
+				VertexAttribute{ VertexAttributeType::FLOAT, (u8*)&y - (u8*)this },
+				VertexAttribute{ VertexAttributeType::FLOAT, (u8*)&u - (u8*)this },
+				VertexAttribute{ VertexAttributeType::FLOAT, (u8*)&v - (u8*)this },
+			};
+		}
+	};
+
 	struct Rect {
 		size_t w, h;
 	};
@@ -74,7 +91,7 @@ namespace psx::video {
 		GLContext m_gl_ctx;
 		Shader* m_blit;
 		bool m_close;
-		VertexBuffer<HostVertex2D>* m_vert_buf;
+		std::unique_ptr<VertexBuffer> m_vert_buf;
 		u32 m_tex_id;
 		std::multimap<SdlEvent, EventCallback> m_ev_callbacks;
 		std::function<void(SDL_Event*)> m_forward_ev_handler;

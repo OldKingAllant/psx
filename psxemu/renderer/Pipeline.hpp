@@ -37,12 +37,14 @@ namespace psx::video {
 
 	void PerformDraw(Primitive primitive_type, u32 offset, u32 count);
 
-	template <Primitive Prim, Vertex Vert, typename PrimitiveData, typename... Uniforms>
+	template <Primitive Prim, detail::Vertex Vert, typename PrimitiveData, typename... Uniforms>
 	class Pipeline {
 	public :
 		Pipeline(std::string const& shader_loc, std::string const& shader_name) :
-			m_buffer{MAX_VERTEX_COUNT}, m_shader(shader_loc, shader_name),
-			m_per_primitive_data{}, m_curr_primitive{}, m_label{} {}
+			m_buffer{ VertexBuffer::CreateVertexBuffer().value() }, m_shader(shader_loc, shader_name),
+			m_per_primitive_data{}, m_curr_primitive{}, m_label{} {
+			m_buffer.AddBuffer<Vert>(0, MAX_VERTEX_COUNT);
+		}
 
 		void Draw(u32 offset, u32 vertex_count, std::pair<std::string_view, Uniforms>... uniforms) {
 			m_shader.BindProgram();
@@ -55,15 +57,15 @@ namespace psx::video {
 		}
 
 		void PushVertex(Vert vertex) {
-			m_buffer.PushVertex(vertex);
+			m_buffer.PushVertexDataUntyped(0, vertex);
 		}
 
 		void ClearVertices() {
-			m_buffer.Clear();
+			m_buffer.ClearBuffer(0);
 		}
 
 		u32 VertexCount() const {
-			return m_buffer.VertexCount();
+			return (u32)m_buffer.GetBufferSize(0).value();
 		}
 
 		void AddPrimitiveData(PrimitiveData data) {
@@ -94,7 +96,7 @@ namespace psx::video {
 		static constexpr u32 VERTEX_COUNT_PER_PRIMITIVE = vertex_count_per_primitive(Prim);
 
 	private :
-		VertexBuffer<Vert> m_buffer;
+		VertexBuffer m_buffer;
 		Shader m_shader;
 		PrimitiveData m_per_primitive_data[MAX_PRIMITIVE_COUNT];
 		u32 m_curr_primitive;

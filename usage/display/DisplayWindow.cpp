@@ -84,7 +84,7 @@ DisplayWindow::~DisplayWindow() {
 }
 
 void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_size, Rect texture_size) {
-	m_vert_buf->Clear();
+	m_vert_buf->ClearBuffer(0);
 
 	float w = float(window_size.w) / texture_size.w;
 	float h = float(window_size.h) / texture_size.h;
@@ -96,13 +96,13 @@ void DisplayWindow::SetTextureWindow24(u32 start_x, u32 start_y, Rect window_siz
 
 	using psx::video::HostVertex2D;
 
-	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 0.0  });
-	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 1.0  });
-	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 1.0 });
+	m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ xoff, yoff, 0.0, 0.0  });
+	m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ xoff, yoff, 1.0, 1.0  });
+	m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ xoff, yoff, 0.0, 1.0 });
 	
-	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 0.0, 0.0 });
-	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 0.0 });
-	m_vert_buf->PushVertex(HostVertex2D{ xoff, yoff, 1.0, 1.0 });
+	m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ xoff, yoff, 0.0, 0.0 });
+	m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ xoff, yoff, 1.0, 0.0 });
+	m_vert_buf->PushVertexDataTyped(0, HostVertex2D{ xoff, yoff, 1.0, 1.0 });
 
 	m_blit24_shader->BindProgram();
 	m_blit24_shader->UpdateUniform("resolution_x", float(window_size.w));
@@ -115,7 +115,7 @@ void DisplayWindow::Blit24(uint32_t texture_id) {
 	m_gl_ctx.BlendDisable();
 	m_gl_ctx.BindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	if (!m_blit || !m_vert_buf)
+	if (!m_blit || !m_vert_buf->GetBufferSize(0).has_value())
 		throw std::runtime_error("Window is not ready for blit ops");
 
 	m_gl_ctx.SetViewport(0, 0, m_size.w, m_size.h);

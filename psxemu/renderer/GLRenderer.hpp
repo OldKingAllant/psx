@@ -280,13 +280,13 @@ namespace psx::video {
 			BasicGouraudVertex, NullData> m_basic_gouraud_pipeline;
 		Pipeline<Primitive::TRIANGLES,
 			TexturedVertex, NullData> m_textured_pipeline;
-		VertexBuffer<BlitVertex> m_blit_vertex_buf;
+		VertexBuffer m_blit_vertex_buf;
 		Shader m_blit_shader;
 		UniformBuffer<GlobalUniforms> m_uniform_buf;
 		ScissorBox m_scissor;
 		std::list<DrawCommand> m_commands;
 		Renderdoc* m_renderdoc;
-		VertexBuffer<VramBlitVertex> m_vram_blit_vertex_buf;
+		VertexBuffer m_vram_blit_vertex_buf;
 		Shader m_vram_blit_shader;
 		Pipeline<Primitive::LINES,
 			UntexturedOpaqueFlatVertex, NullData> m_mono_line_pipeline;

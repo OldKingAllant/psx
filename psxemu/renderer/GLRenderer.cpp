@@ -5,6 +5,7 @@
 
 #include <fmt/format.h>
 #include <array>
+#include <string_view>
 
 #include <psxemu/include/psxemu/Logger.hpp>
 #include <psxemu/include/psxemu/LoggerMacros.hpp>
@@ -21,12 +22,12 @@ namespace psx::video {
 		m_untextured_opaque_flat_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_basic_gouraud_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
 		m_textured_pipeline(std::string("../shaders"), std::string("textured_triangle")),
-		m_blit_vertex_buf(6),
+		m_blit_vertex_buf{std::move(VertexBuffer::CreateVertexBuffer().value())},
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_uniform_buf{},
 		m_scissor{},
 		m_commands{}, m_renderdoc{nullptr},
-		m_vram_blit_vertex_buf(6),
+		m_vram_blit_vertex_buf(std::move(VertexBuffer::CreateVertexBuffer().value())),
 		m_vram_blit_shader(std::string("../shaders"), std::string("vram_vram_blit")),
 		m_mono_line_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
 		m_shaded_line_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
@@ -34,19 +35,21 @@ namespace psx::video {
 		m_blank_image{},
 		m_gl_ctx{GetCurrentGLContext()}
 	{
+		m_blit_vertex_buf.AddBuffer<BlitVertex>(0, 6);
+		m_vram_blit_vertex_buf.AddBuffer<VramBlitVertex>(0, 6);
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_framebuffer.RebuildUpscaledFbo(m_resolution_multiplier);
 		m_blit_shader.SetLabel("vram_blit_shader");
 		m_untextured_opaque_flat_pipeline.SetLabel("untextured_opaque_flat_pipeline");
 		m_basic_gouraud_pipeline.SetLabel("basic_gouraud_pipeline");
 		m_textured_pipeline.SetLabel("textured_pipeline");
-		m_blit_vertex_buf.SetLabel("vram_blit_vertex_buf");
+		m_blit_vertex_buf.SetLabel(std::string_view{ "vram_blit_vertex_buf" });
 		m_uniform_buf.SetLabel("global_uniform_buffer");
 		m_uniform_buf.buffer.resolution_multiplier = m_resolution_multiplier;
 		m_uniform_buf.Bind();
 		m_uniform_buf.Upload();
 		m_uniform_buf.BindRange(2);
-		m_vram_blit_vertex_buf.SetLabel("vram_vram_blit_vertex_buf");
+		m_vram_blit_vertex_buf.SetLabel(std::string_view{ "vram_vram_blit_vertex_buf" });
 		m_vram_blit_shader.SetLabel("vram_vram_blit_shader");
 		m_mono_line_pipeline.SetLabel("mono_line_pipeline");
 		m_shaded_line_pipeline.SetLabel("shaded_line_pipeline");
@@ -533,15 +536,15 @@ namespace psx::video {
 	void Renderer::CpuVramBlit(u32 xoff, u32 yoff, u32 w, u32 h) {
 		m_vram.UploadForBlit(xoff, yoff, w, h);
 
-		m_blit_vertex_buf.Clear();
+		m_blit_vertex_buf.ClearBuffer(0);
 
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff + h });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
+		m_blit_vertex_buf.PushVertexDataUntyped(0, BlitVertex{ xoff, yoff });
+		m_blit_vertex_buf.PushVertexDataUntyped(0, BlitVertex{ xoff, yoff + h });
+		m_blit_vertex_buf.PushVertexDataUntyped(0, BlitVertex{ xoff + w, yoff + h });
 
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff, yoff });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff + h });
-		m_blit_vertex_buf.PushVertex(BlitVertex{ xoff + w, yoff });
+		m_blit_vertex_buf.PushVertexDataUntyped(0, BlitVertex{ xoff, yoff });
+		m_blit_vertex_buf.PushVertexDataUntyped(0, BlitVertex{ xoff + w, yoff + h });
+		m_blit_vertex_buf.PushVertexDataUntyped(0, BlitVertex{ xoff + w, yoff });
 
 		auto gl_ctx = GetCurrentGLContext();
 		gl_ctx->SetTextureSlot(GL_TEXTURE0);
@@ -585,15 +588,15 @@ namespace psx::video {
 
 		m_vram_blit_shader.UpdateUniform("mask_enable", mask_enable);
 
-		m_vram_blit_vertex_buf.Clear();
+		m_vram_blit_vertex_buf.ClearBuffer(0);
 
-		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty, srcx, srcy });
-		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty + h, srcx, srcy + h });
-		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
+		m_vram_blit_vertex_buf.PushVertexDataUntyped(0, VramBlitVertex{ dstx, dsty, srcx, srcy });
+		m_vram_blit_vertex_buf.PushVertexDataUntyped(0, VramBlitVertex{ dstx, dsty + h, srcx, srcy + h });
+		m_vram_blit_vertex_buf.PushVertexDataUntyped(0, VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
 
-		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx, dsty, srcx, srcy });
-		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
-		m_vram_blit_vertex_buf.PushVertex(VramBlitVertex{ dstx + w, dsty, srcx + w, srcy });
+		m_vram_blit_vertex_buf.PushVertexDataUntyped(0, VramBlitVertex{ dstx, dsty, srcx, srcy });
+		m_vram_blit_vertex_buf.PushVertexDataUntyped(0, VramBlitVertex{ dstx + w, dsty + h, srcx + w, srcy + h });
+		m_vram_blit_vertex_buf.PushVertexDataUntyped(0, VramBlitVertex{ dstx + w, dsty, srcx + w, srcy });
 
 		gl_ctx->SetTextureSlot(GL_TEXTURE0);
 		gl_ctx->BindTexture({ .type = GL_TEXTURE_2D, .handle = m_vram.GetTextureHandle() });
