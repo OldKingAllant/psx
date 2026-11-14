@@ -19,8 +19,6 @@ namespace psx::video {
 		m_processing_cmd{false},
 		m_update_ubo{false},
 		m_update_scissor{false},
-		m_untextured_opaque_flat_pipeline(std::string("../shaders"), std::string("flat_untextured_opaque_triangle")),
-		m_basic_gouraud_pipeline(std::string("../shaders"), std::string("basic_gouraud")),
 		m_textured_pipeline(std::string("../shaders"), std::string("textured_triangle")),
 		m_blit_vertex_buf{std::move(VertexBuffer::CreateVertexBuffer().value())},
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
@@ -40,8 +38,6 @@ namespace psx::video {
 		m_framebuffer.SetLabel("output_vram_fb");
 		m_framebuffer.RebuildUpscaledFbo(m_resolution_multiplier);
 		m_blit_shader.SetLabel("vram_blit_shader");
-		m_untextured_opaque_flat_pipeline.SetLabel("untextured_opaque_flat_pipeline");
-		m_basic_gouraud_pipeline.SetLabel("basic_gouraud_pipeline");
 		m_textured_pipeline.SetLabel("textured_pipeline");
 		m_blit_vertex_buf.SetLabel(std::string_view{ "vram_blit_vertex_buf" });
 		m_uniform_buf.SetLabel("global_uniform_buffer");
@@ -112,65 +108,10 @@ namespace psx::video {
 		switch (primitive.type)
 		{
 		case PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE: {
-			if (m_untextured_opaque_flat_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
-				FlushCommands();
-			}
-			UntexturedOpaqueFlatVertex v0{}, v1{}, v2{};
-
-			v0.x = primitive.vertices[0].x;
-			v0.y = primitive.vertices[0].y;
-
-			v1.x = primitive.vertices[1].x;
-			v1.y = primitive.vertices[1].y;
-
-			v2.x = primitive.vertices[2].x;
-			v2.y = primitive.vertices[2].y;
-
-			u32 r = primitive.vertices[0].color & 0xFF;
-			u32 g = (primitive.vertices[0].color >> 8) & 0xFF;
-			u32 b = (primitive.vertices[0].color >> 16) & 0xFF;
-
-			v0.r = r;
-			v0.g = g;
-			v0.b = b;
-
-			v1.r = r;
-			v1.g = g;
-			v1.b = b;
-
-			v2.r = r;
-			v2.g = g;
-			v2.b = b;
-
-			m_untextured_opaque_flat_pipeline.PushVertex(v0);
-			m_untextured_opaque_flat_pipeline.PushVertex(v1);
-			m_untextured_opaque_flat_pipeline.PushVertex(v2);
-			m_untextured_opaque_flat_pipeline.AddPrimitiveData({});
+			error::DebugBreak();
 		} break;
 		case PipelineType::BASIC_GOURAUD_TRIANGLE: {
-			if (m_basic_gouraud_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
-				FlushCommands();
-			}
-			BasicGouraudVertex v0{}, v1{}, v2{};
-
-			v0.x = primitive.vertices[0].x;
-			v0.y = primitive.vertices[0].y;
-
-			v1.x = primitive.vertices[1].x;
-			v1.y = primitive.vertices[1].y;
-
-			v2.x = primitive.vertices[2].x;
-			v2.y = primitive.vertices[2].y;
-
-			v0.color = primitive.vertices[0].color;
-			v1.color = primitive.vertices[1].color;
-			v2.color = primitive.vertices[2].color;
-
-			m_basic_gouraud_pipeline.PushVertex(v0);
-			m_basic_gouraud_pipeline.PushVertex(v1);
-			m_basic_gouraud_pipeline.PushVertex(v2);
-
-			m_basic_gouraud_pipeline.AddPrimitiveData({});
+			error::DebugBreak();
 		} break;
 		case PipelineType::TEXTURED_TRIANGLE: {
 			if (m_textured_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
@@ -345,7 +286,7 @@ namespace psx::video {
 			if (cmd.semi_transparent) {
 				gl_ctx->BlendEnable();
 
-				if(cmd.semi_transparency_type == 2 /*&& cmd.type != PipelineType::TEXTURED_TRIANGLE*/)
+				if(cmd.semi_transparency_type == 2)
 					glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
 				else 
 					glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
@@ -353,7 +294,7 @@ namespace psx::video {
 				glBlendColor(0.25f, 0.25f, 0.25f, 0.5f);
 
 				//glBlendFuncSeparate order: src dst src dst
-				if (cmd.type == PipelineType::TEXTURED_TRIANGLE) {
+				if (cmd.type != PipelineType::MONO_LINE && cmd.type != PipelineType::SHADED_LINE) {
 					glBlendFuncSeparate(GL_SRC1_ALPHA, GL_SRC1_COLOR, GL_ONE, GL_ZERO);
 				}
 				else {
@@ -389,32 +330,25 @@ namespace psx::video {
 			switch (pipeline_id)
 			{
 			case psx::video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE: {
-				m_untextured_opaque_flat_pipeline.Draw(curr_offset, count);
-				curr_primitive_index[(u32)pipeline_id] += count / 3;
-			}
-				break;
+				error::DebugBreak();
+			} break;
 			case psx::video::PipelineType::BASIC_GOURAUD_TRIANGLE: {
-				m_basic_gouraud_pipeline.Draw(curr_offset, count);
-				curr_primitive_index[(u32)pipeline_id] += count / 3;
-			}
-				break;
+				error::DebugBreak();
+			} break;
 			case psx::video::PipelineType::TEXTURED_TRIANGLE: {
 				m_textured_pipeline.Draw(curr_offset, count);
 				curr_primitive_index[(u32)pipeline_id] += count / 3;
-			}
-				break;
+			} break;
 			case psx::video::PipelineType::MONO_LINE: {
 				m_mono_line_pipeline.Draw(curr_offset, count);
 				curr_primitive_index[(u32)pipeline_id] += count / 2;
-			}
-				break;
+			} break;
 			case psx::video::PipelineType::SHADED_LINE: {
 				m_shaded_line_pipeline.Draw(curr_offset, count);
 				curr_primitive_index[(u32)pipeline_id] += count / 2;
-			}
-				break;
+			} break;
 			case psx::video::PipelineType::ENUM_MAX:
-				error::DebugBreak();
+				error::DebugBreak(); 
 				break;
 			default:
 				error::Unreachable();
@@ -429,12 +363,6 @@ namespace psx::video {
 				glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 			}
 		}
-
-		m_basic_gouraud_pipeline.ClearPrimitiveData();
-		m_basic_gouraud_pipeline.ClearVertices();
-
-		m_untextured_opaque_flat_pipeline.ClearPrimitiveData();
-		m_untextured_opaque_flat_pipeline.ClearVertices();
 
 		m_textured_pipeline.ClearPrimitiveData();
 		m_textured_pipeline.ClearVertices();

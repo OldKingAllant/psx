@@ -46,7 +46,8 @@ namespace psx::video {
 	enum TexturedVertexFlags : uint32_t {
 		GOURAUD = 1,
 		SEMI_TRANSPARENT = 2,
-		RAW_TEXTURE = 4
+		RAW_TEXTURE = 4,
+		TEXTURED = 8
 	};
 
 #pragma pack(push, 1)
@@ -274,26 +275,19 @@ namespace psx::video {
 		bool m_processing_cmd;
 		bool m_update_ubo;
 		bool m_update_scissor;
-		Pipeline<Primitive::TRIANGLES,
-			UntexturedOpaqueFlatVertex, NullData> m_untextured_opaque_flat_pipeline;
-		Pipeline<Primitive::TRIANGLES,
-			BasicGouraudVertex, NullData> m_basic_gouraud_pipeline;
-		Pipeline<Primitive::TRIANGLES,
-			TexturedVertex, NullData> m_textured_pipeline;
-		VertexBuffer m_blit_vertex_buf;
-		Shader m_blit_shader;
-		UniformBuffer<GlobalUniforms> m_uniform_buf;
-		ScissorBox m_scissor;
-		std::list<DrawCommand> m_commands;
-		Renderdoc* m_renderdoc;
-		VertexBuffer m_vram_blit_vertex_buf;
-		Shader m_vram_blit_shader;
-		Pipeline<Primitive::LINES,
-			UntexturedOpaqueFlatVertex, NullData> m_mono_line_pipeline;
-		Pipeline<Primitive::LINES,
-			BasicGouraudVertex, NullData> m_shaded_line_pipeline;
-		bool m_draw_over_mask_disable;
-		std::vector<u8> m_blank_image;
-		GLContext* m_gl_ctx;
+		Pipeline<Primitive::TRIANGLES, TexturedVertex, NullData>         m_textured_pipeline;
+		VertexBuffer                                                     m_blit_vertex_buf;
+		Shader                                                           m_blit_shader;
+		UniformBuffer<GlobalUniforms>                                    m_uniform_buf;
+		ScissorBox                                                       m_scissor;
+		std::list<DrawCommand>                                           m_commands;
+		Renderdoc*                                                       m_renderdoc;
+		VertexBuffer                                                     m_vram_blit_vertex_buf;
+		Shader                                                           m_vram_blit_shader;
+		Pipeline<Primitive::LINES, UntexturedOpaqueFlatVertex, NullData> m_mono_line_pipeline;
+		Pipeline<Primitive::LINES, BasicGouraudVertex, NullData>         m_shaded_line_pipeline;
+		bool                                                             m_draw_over_mask_disable;
+		std::vector<u8>                                                  m_blank_image;
+		GLContext*                                                       m_gl_ctx;
 	};
 }

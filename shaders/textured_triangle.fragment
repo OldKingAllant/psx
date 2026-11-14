@@ -15,6 +15,7 @@ in flat uint clut_y;
 const uint GOURAUD_SHADED = 0x1;
 const uint SEMI_TRANSPARENT = 0x2;
 const uint RAW_TEXTURE = 0x4;
+const uint TEXTURED = 0x8;
 
 layout(binding = 0) uniform sampler2D vram_tex;
 layout(binding = 3, r8) uniform restrict coherent image2D mask_image;
@@ -133,81 +134,95 @@ void main() {
 		}
 	}
 
-	vec2 final_uv;
-	compute_uv(out_uv, final_uv);
-	uint u = uint(final_uv.x);
-	uint v = uint(final_uv.y);
+	if((flags & TEXTURED) == TEXTURED) {
+		vec2 final_uv;
+		compute_uv(out_uv, final_uv);
+		uint u = uint(final_uv.x);
+		uint v = uint(final_uv.y);
 
-	uint texpage_x = x_base;
-	uint texpage_y = y_base;
+		uint texpage_x = x_base;
+		uint texpage_y = y_base;
 
-	uint clut_base_x = clut_x;
-	uint clut_base_y = clut_y;
+		uint clut_base_x = clut_x;
+		uint clut_base_y = clut_y;
 
-	uint clut_index_affine = 0;
+		uint clut_index_affine = 0;
 
-	if(texpage_colors == 0) {
-		clut4(texpage_x, texpage_y, u, v, 
-			clut_index_affine);
-		uint effective_clut_x = clut_base_x + clut_index_affine;
-		vram_fetch(effective_clut_x, clut_base_y, color);
-	} else if(texpage_colors == 1) {
-		clut8(texpage_x, texpage_y, u, v, 
-			clut_index_affine);
-		uint effective_clut_x = clut_base_x + clut_index_affine;
-		vram_fetch(effective_clut_x, clut_base_y, color);
-	} else if(texpage_colors == 2) {
-		uint effective_u = texpage_x + u;
-		uint effective_v = texpage_y + v;
-		vram_fetch(effective_u, effective_v, color);
-	} else {
-		color = vec4(1.0, 1.0, 0.0, 0.0);
+		if(texpage_colors == 0) {
+			clut4(texpage_x, texpage_y, u, v, 
+				clut_index_affine);
+			uint effective_clut_x = clut_base_x + clut_index_affine;
+			vram_fetch(effective_clut_x, clut_base_y, color);
+		} else if(texpage_colors == 1) {
+			clut8(texpage_x, texpage_y, u, v, 
+				clut_index_affine);
+			uint effective_clut_x = clut_base_x + clut_index_affine;
+			vram_fetch(effective_clut_x, clut_base_y, color);
+		} else if(texpage_colors == 2) {
+			uint effective_u = texpage_x + u;
+			uint effective_v = texpage_y + v;
+			vram_fetch(effective_u, effective_v, color);
+		} else {
+			color = vec4(1.0, 1.0, 0.0, 0.0);
+		}
+
+		if(is_fully_transparent(color))
+			discard;
+
+		if((flags & RAW_TEXTURE) == 0) {
+		   vec3 selected_vertex_color;
+
+		   if((flags & GOURAUD_SHADED) != 0) {
+				selected_vertex_color = interpolated_color;
+		   } else {
+			    selected_vertex_color = base_color;
+		   }
+
+		   float a_channel = color.a;
+
+		   //Modulation
+		   uvec3 vert_color = uvec3(
+		        uint(selected_vertex_color.r),
+				uint(selected_vertex_color.g),
+				uint(selected_vertex_color.b)
+		   );
+
+		   vec3 modulated;
+
+		   uvec3 texel_color = uvec3(
+		        uint(color.r * 255.0),
+				uint(color.g * 255.0),
+				uint(color.b * 255.0)
+			);
+
+		   modulate(texel_color, vert_color, modulated);
+
+		   //Apply dithering only if modulated
+
+		   if(use_dither) {
+		       dither(coords, vec4(modulated, 0.0), color);
+		   } else {
+			   color.rgb = modulated;
+		   }
+
+			color = vec4(color.rgb / 255.0, a_channel);
+		}
 	}
+	else if((flags & GOURAUD_SHADED) == GOURAUD_SHADED) {
+		color = vec4(interpolated_color, 0.0);
 
-	if(is_fully_transparent(color))
-		discard;
+		if(use_dither) {
+			dither(coords, color, color);
+		}
 
-	if((flags & RAW_TEXTURE) == 0) {
-	   vec3 selected_vertex_color;
-
-	   if((flags & GOURAUD_SHADED) != 0) {
-			selected_vertex_color = interpolated_color;
-	   } else {
-		    selected_vertex_color = base_color;
-	   }
-
-	   float a_channel = color.a;
-
-	   //Modulation
-	   uvec3 vert_color = uvec3(
-	        uint(selected_vertex_color.r),
-			uint(selected_vertex_color.g),
-			uint(selected_vertex_color.b)
-	   );
-
-	   vec3 modulated;
-
-	   uvec3 texel_color = uvec3(
-	        uint(color.r * 255.0),
-			uint(color.g * 255.0),
-			uint(color.b * 255.0)
-		);
-
-	   modulate(texel_color, vert_color, modulated);
-
-	   //Apply dithering only if modulated
-
-	   if(use_dither) {
-	       dither(coords, vec4(modulated, 0.0), color);
-	   } else {
-		   color.rgb = modulated;
-	   }
-
-		color = vec4(color.rgb / 255.0, a_channel);
+		color = vec4(color.rgb / 255.0, 0.0);
+	}
+	else {
+		color = vec4(base_color.rgb / 255.0, 0.0);
 	}
 
 	blend_color = vec4(0.0, 0.0, 0.0, 1.0);
-	if((flags & SEMI_TRANSPARENT) != 0 && color.a != 0) {
+	if((flags & SEMI_TRANSPARENT) != 0 && (color.a != 0 || (flags & TEXTURED) == 0)) {
 		blend_color = transparency_coeffs[blend_func];
 	}
 

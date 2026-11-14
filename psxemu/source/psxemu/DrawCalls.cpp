@@ -43,7 +43,15 @@ namespace psx {
 			flags |= u32(video::TexturedVertexFlags::RAW_TEXTURE);
 		}
 
+		if constexpr (Textured) {
+			flags |= u32(video::TexturedVertexFlags::TEXTURED);
+		}
+
 		u32 clut_and_page = 0;
+		if constexpr (!Textured && Transparent) {
+			auto& gpu_stat = gpu.GetStat();
+			clut_and_page |= ((u16)gpu_stat.semi_transparency << 5);
+		}
 
 		/*
 		*
@@ -86,8 +94,9 @@ namespace psx {
 				u32 v = uv.v();
 
 				vertices[curr_vertex].uv = (v << 16) | u;
-				vertices[curr_vertex].flags = flags;
 			}
+
+			vertices[curr_vertex].flags = flags;
 		}
 
 		vertices[0].clut_page = clut_and_page;
@@ -109,10 +118,10 @@ namespace psx {
 			prim.type = video::PipelineType::TEXTURED_TRIANGLE;
 		}
 		else if constexpr (Gouraud) {
-			prim.type = video::PipelineType::BASIC_GOURAUD_TRIANGLE;
+			prim.type = video::PipelineType::TEXTURED_TRIANGLE;
 		}
 		else {
-			prim.type = video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
+			prim.type = video::PipelineType::TEXTURED_TRIANGLE;
 		}
 		
 		if constexpr (Transparent) {
@@ -213,6 +222,10 @@ namespace psx {
 			texpage |= ((u16)gpu_stat.tex_page_colors << 7);
 			texpage |= ((u16)gpu_stat.texture_page_y_base2 << 11);
 		}
+		else if constexpr (Transparent) {
+			auto& gpu_stat = gpu.GetStat();
+			texpage |= ((u16)gpu_stat.semi_transparency << 5);
+		}
 
 		u32 flags{ 0 };
 
@@ -224,12 +237,16 @@ namespace psx {
 			flags |= video::TexturedVertexFlags::RAW_TEXTURE;
 		}
 
+		if constexpr (Textured) {
+			flags |= u32(video::TexturedVertexFlags::TEXTURED);
+		}
+
 		auto vertex1 = PositionAttribute{ cmd_fifo.deque() };
 
 		auto x1 = vertex1.x();
 		auto y1 = vertex1.y();
 
-		u32 tex_and_clut{};
+		u32 tex_and_clut = (u32)texpage;
 		u32 u1{}, v1{};
 
 		if constexpr (Textured) {
@@ -341,7 +358,7 @@ namespace psx {
 			triangle2.type = triangle1.type = video::PipelineType::TEXTURED_TRIANGLE;
 		}
 		else {
-			triangle2.type = triangle1.type = video::PipelineType::UNTEXTURED_OPAQUE_FLAT_TRIANGLE;
+			triangle2.type = triangle1.type = video::PipelineType::TEXTURED_TRIANGLE;
 		}
 
 		renderer->DrawPrimitive(triangle1);

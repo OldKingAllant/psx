@@ -6,6 +6,7 @@
 #include <common/Errors.hpp>
 
 #include <typeinfo>
+#include <string>
 
 namespace psx::video {
 	namespace detail {
@@ -340,9 +341,17 @@ namespace psx::video {
 
 	void VertexBuffer::SetLabel(std::string const& _label) const {
 		glObjectLabel(GL_VERTEX_ARRAY, m_vao, (GLsizei)_label.size(), _label.c_str());
+		for (size_t curr_buf = 0; auto const& buf : m_buffers) {
+			buf.SetLabel(_label + "_buf_" + std::to_string(curr_buf));
+			curr_buf++;
+		}
 	}
 
 	void VertexBuffer::SetLabel(std::string_view _label) const {
 		glObjectLabel(GL_VERTEX_ARRAY, m_vao, (GLsizei)_label.size(), _label.data());
+		for (size_t curr_buf = 0; auto const& buf : m_buffers) {
+			buf.SetLabel(std::string{ _label } + "_buf_" + std::to_string(curr_buf));
+			curr_buf++;
+		}
 	}
 }
