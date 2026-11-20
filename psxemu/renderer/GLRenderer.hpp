@@ -331,17 +331,17 @@ namespace psx::video {
 		////////////////////////////////////////////////////
 
 		void SetScissorTop(uint32_t x, uint32_t y) {
+			DrawBatch();
 			m_scissor.top_x = x;
 			m_scissor.top_y = y;
 			m_update_scissor = true;
-			DrawBatch();
 		}
 
 		void SetScissorBottom(uint32_t x, uint32_t y) {
+			DrawBatch();
 			m_scissor.bottom_x = x;
 			m_scissor.bottom_y = y;
 			m_update_scissor = true;
-			DrawBatch();
 		}
 
 		void SetRenderdocAPI(Renderdoc* renderdoc) {
