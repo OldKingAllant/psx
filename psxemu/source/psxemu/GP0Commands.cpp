@@ -88,9 +88,11 @@ namespace psx {
 		LOG_DEBUG("GPU", "          Texture X flip    {}", m_tex_x_flip);
 		LOG_DEBUG("GPU", "          Texture Y flip    {}", m_tex_y_flip);
 
-		m_renderer->GetUniformBuffer()
-			.use_dither = m_stat.dither;
-		m_renderer->RequestUniformBufferUpdate();
+		//m_renderer->GetUniformBuffer()
+		//	.use_dither = m_stat.dither;
+		//m_renderer->RequestUniformBufferUpdate();
+
+		m_renderer->SetDitherEnable(m_stat.dither);
 	}
 
 	void Gpu::MiscCommand(u32 cmd) {
@@ -303,7 +305,7 @@ namespace psx {
 		if (m_raw_conf.draw_top_left == cmd)
 			return;
 
-		FlushDrawOps();
+		//FlushDrawOps();
 
 		m_raw_conf.draw_top_left = cmd;
 
@@ -336,7 +338,7 @@ namespace psx {
 		if (m_raw_conf.draw_bottom_right == cmd)
 			return;
 
-		FlushDrawOps();
+		//FlushDrawOps();
 
 		m_raw_conf.draw_bottom_right = cmd;
 
@@ -371,7 +373,7 @@ namespace psx {
 
 		m_raw_conf.draw_offset = cmd;
 
-		FlushDrawOps();
+		//FlushDrawOps();
 
 		m_x_off = cmd & 0x7FF;
 		m_y_off = (cmd >> 11) & 0x7FF;
@@ -382,11 +384,14 @@ namespace psx {
 		LOG_DEBUG("GPU", "      X = {}, Y = {}", (i32)m_x_off,
 			(i32)m_y_off);
 
-		m_renderer->GetUniformBuffer()
-			.draw_x_off = m_x_off;
-		m_renderer->GetUniformBuffer()
-			.draw_y_off = m_y_off;
-		m_renderer->RequestUniformBufferUpdate();
+		// m_renderer->GetUniformBuffer()
+		// 	.draw_x_off = m_x_off;
+		// m_renderer->GetUniformBuffer()
+		// 	.draw_y_off = m_y_off;
+		// m_renderer->RequestUniformBufferUpdate();
+
+		m_renderer->SetDrawOffX(m_x_off);
+		m_renderer->SetDrawOffY(m_y_off);
 	}
 
 	void Gpu::TexWindow(u32 cmd) {
@@ -411,7 +416,7 @@ namespace psx {
 
 		m_raw_conf.tex_window = cmd;
 
-		FlushDrawOps();
+		//FlushDrawOps();
 
 		m_tex_win.mask_x = cmd & 0x1F;
 		m_tex_win.mask_y = (cmd >> 5) & 0x1F;
@@ -423,12 +428,17 @@ namespace psx {
 		LOG_DEBUG("GPU", "     Offset X = {}", m_tex_win.offset_x);
 		LOG_DEBUG("GPU", "     Offset Y = {}", m_tex_win.offset_y);
 
-		video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
-		uniforms.tex_window_mask_x = m_tex_win.mask_x;
-		uniforms.tex_window_mask_y = m_tex_win.mask_y;
-		uniforms.tex_window_off_x = m_tex_win.offset_x;
-		uniforms.tex_window_off_y = m_tex_win.offset_y;
-		m_renderer->RequestUniformBufferUpdate();
+		m_renderer->SetTextureWindowMaskX(m_tex_win.mask_x);
+		m_renderer->SetTextureWindowMaskY(m_tex_win.mask_y);
+		m_renderer->SetTextureWindowOffX(m_tex_win.offset_x);
+		m_renderer->SetTextureWindowOffY(m_tex_win.offset_y);
+
+		//video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
+		//uniforms.tex_window_mask_x = m_tex_win.mask_x;
+		//uniforms.tex_window_mask_y = m_tex_win.mask_y;
+		//uniforms.tex_window_off_x = m_tex_win.offset_x;
+		//uniforms.tex_window_off_y = m_tex_win.offset_y;
+		//m_renderer->RequestUniformBufferUpdate();
 	}
 
 	void Gpu::MaskSetting(u32 cmd) {
@@ -454,19 +464,23 @@ namespace psx {
 		m_stat.set_mask = (bool)(cmd & 1);
 		m_stat.draw_over_mask_disable = (bool)((cmd >> 1) & 1);
 
-		FlushDrawOps();
+		//FlushDrawOps();
 
 		LOG_DEBUG("GPU", "      Force bit 15 to 1      = {}", m_stat.set_mask);
 		LOG_DEBUG("GPU", "      Check mask before draw = {}", m_stat.draw_over_mask_disable);
 
-		video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
-		uniforms.set_mask = m_stat.set_mask;
-		uniforms.check_mask = m_stat.draw_over_mask_disable;
-		m_renderer->RequestUniformBufferUpdate();
-		m_renderer->SetDrawOverMaskDisable(m_stat.draw_over_mask_disable);
+		m_renderer->SetMaskEnable(m_stat.set_mask);
+		m_renderer->SetCheckMaskEnable(m_stat.draw_over_mask_disable);
 
-		if (m_stat.set_mask || m_stat.draw_over_mask_disable)
+		//video::GlobalUniforms& uniforms = m_renderer->GetUniformBuffer();
+		//uniforms.set_mask = m_stat.set_mask;
+		//uniforms.check_mask = m_stat.draw_over_mask_disable;
+		//m_renderer->RequestUniformBufferUpdate();
+		//m_renderer->SetDrawOverMaskDisable(m_stat.draw_over_mask_disable);
+
+		if (m_stat.set_mask || m_stat.draw_over_mask_disable) {
 			LOG_DEBUG("GPU", "[GPU] Mask enabled in one way or another");
+		}
 	}
 
 	void Gpu::CommandEnd() {

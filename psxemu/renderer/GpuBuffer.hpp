@@ -40,7 +40,8 @@ namespace psx::video {
 		READ = 2,       // Allow CPU read
 		WRITE = 4,      // Allow CPU write
 		PERSISTENT = 8, // Allow GPU read/write while the buffer is CPU mapped
-		COHERENT = 16   // "Automatically" flush the buffer when either CPU/GPU write to it
+		COHERENT = 16,  // "Automatically" flush the buffer when either CPU/GPU write to it
+		FLUSH_EXPLICIT = 32 // Manually flush buffer mapping to make changes coherent
 	};
 
 	// Declare logical operators for the enum

@@ -4,7 +4,11 @@ layout(location = 0) in int vram_coords_x;
 layout(location = 1) in int vram_coords_y;
 layout(location = 2) in uvec3 color;
 
-layout(std140, binding = 2) uniform globals {
+layout(location = 3) in uint config_slot_id;
+
+const uint NUM_RINGBUFFER_SLOTS = 64;
+
+struct UniformBufferSlot {
 	bool use_dither;
 	uint tex_window_mask_x;
 	uint tex_window_mask_y;
@@ -17,18 +21,25 @@ layout(std140, binding = 2) uniform globals {
 	uint resolution_multiplier;
 };
 
-flat out uvec3 in_color; 
+layout(std140, binding = 2) uniform globals {
+	UniformBufferSlot draw_config_buffer[NUM_RINGBUFFER_SLOTS];
+};
+
+out flat uvec3 in_color; 
 out vec2 coords;
+out flat uint conf_slot_id;
 
 void main() {
-	float x = float(vram_coords_x + draw_x_off) / 1024.0;
-	float y = float(vram_coords_y + draw_y_off) / 512.0;
+	conf_slot_id = config_slot_id;
+
+	float x = float(vram_coords_x + draw_config_buffer[config_slot_id].draw_x_off) / 1024.0;
+	float y = float(vram_coords_y + draw_config_buffer[config_slot_id].draw_y_off) / 512.0;
 
 	x = x * 2 - 1;
 	y = y * 2 - 1;
 
 	gl_Position = vec4(x, y, 0.0, 1.0);
 	in_color = color;
-	coords = vec2(float(vram_coords_x + draw_x_off), 
-				  float(vram_coords_y + draw_y_off));
+	coords = vec2(float(vram_coords_x + draw_config_buffer[config_slot_id].draw_x_off), 
+				  float(vram_coords_y + draw_config_buffer[config_slot_id].draw_y_off));
 }

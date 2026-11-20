@@ -1,6 +1,8 @@
 #version 430 core
 
-layout(std140, binding = 2) uniform globals {
+const uint NUM_RINGBUFFER_SLOTS = 64;
+
+struct UniformBufferSlot {
 	bool use_dither;
 	uint tex_window_mask_x;
 	uint tex_window_mask_y;
@@ -13,10 +15,15 @@ layout(std140, binding = 2) uniform globals {
 	uint resolution_multiplier;
 };
 
+layout(std140, binding = 2) uniform globals {
+	UniformBufferSlot draw_config_buffer[NUM_RINGBUFFER_SLOTS];
+};
+
 layout(binding = 3, r8) uniform restrict coherent image2D mask_image;
 
-flat in uvec3 in_color;
+in flat uvec3 in_color;
 in vec2 coords;
+in flat uint conf_slot_id;
 
 layout(location = 0) out vec4 out_color;
 
@@ -24,7 +31,7 @@ void main() {
 	uint x = uint(coords.x); 
 	uint y = uint(coords.y); 
 
-	if(check_mask) {
+	if(draw_config_buffer[conf_slot_id].check_mask) {
 		if(imageLoad(mask_image, ivec2(x, y)).r == 1.0) {
 			discard;
 		}
@@ -37,7 +44,7 @@ void main() {
 		0.0
 	);
 
-	if(set_mask) {
+	if(draw_config_buffer[conf_slot_id].set_mask) {
 		out_color.a = 1.0;
 	}
 

@@ -245,6 +245,7 @@
     <ClInclude Include="renderer\SdlWindow.hpp" />
     <ClInclude Include="renderer\Shader.hpp" />
     <ClInclude Include="renderer\UniformBuffer.hpp" />
+    <ClInclude Include="renderer\UniformRingBuffer.hpp" />
     <ClInclude Include="renderer\VertexBuffer.hpp" />
     <ClInclude Include="renderer\Vram.hpp" />
     <ClInclude Include="renderer\WindowManager.hpp" />
@@ -265,6 +266,7 @@
     <ClCompile Include="renderer\SdlWindow.cpp" />
     <ClCompile Include="renderer\Shader.cpp" />
     <ClCompile Include="renderer\UniformBuffer.cpp" />
+    <ClCompile Include="renderer\UniformRingBuffer.cpp" />
     <ClCompile Include="renderer\VertexBuffer.cpp" />
     <ClCompile Include="renderer\Vram.cpp" />
     <ClCompile Include="renderer\WindowManager.cpp" />

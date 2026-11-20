@@ -2,8 +2,11 @@
 
 in vec2 vram_coords;
 in vec3 vertex_color;
+in flat uint conf_slot_id;
 
-layout(std140, binding = 2) uniform globals {
+const uint NUM_RINGBUFFER_SLOTS = 64;
+
+struct UniformBufferSlot {
 	bool use_dither;
 	uint tex_window_mask_x;
 	uint tex_window_mask_y;
@@ -14,6 +17,10 @@ layout(std140, binding = 2) uniform globals {
 	bool set_mask;
 	bool check_mask;
 	uint resolution_multiplier;
+};
+
+layout(std140, binding = 2) uniform globals {
+	UniformBufferSlot draw_config_buffer[NUM_RINGBUFFER_SLOTS];
 };
 
 layout(binding = 3, r8) uniform restrict coherent image2D mask_image;
@@ -34,13 +41,13 @@ void main() {
 	uint x = uint(vram_coords.x);
 	uint y = uint(vram_coords.y);
 
-	if(check_mask) {
+	if(draw_config_buffer[conf_slot_id].check_mask) {
 		if(imageLoad(mask_image, ivec2(x, y)).r == 1.0) {
 			discard;
 		}
 	}
 
-	if(use_dither) {
+	if(draw_config_buffer[conf_slot_id].use_dither) {
 	    uint dither_x = x % 4;
 		uint dither_y = y % 4;
 		int dither_coeff = int(dither_table[dither_y][dither_x]);
@@ -59,7 +66,7 @@ void main() {
 		0.0
 	);
 
-	if(set_mask) {
+	if(draw_config_buffer[conf_slot_id].set_mask) {
 		color.a = 1.0;
 	}
 

@@ -17,12 +17,17 @@ namespace psx::video {
 		m_need_gpu_to_host_copy{false},
 		m_need_host_to_gpu_copy{false}, 
 		m_processing_cmd{false},
-		m_update_ubo{false},
 		m_update_scissor{false},
 		m_textured_pipeline(std::string("../shaders"), std::string("textured_triangle")),
 		m_blit_vertex_buf{std::move(VertexBuffer::CreateVertexBuffer().value())},
 		m_blit_shader(std::string("../shaders"), std::string("vram_blit")),
 		m_uniform_buf{},
+		m_temp_uniforms{},
+		m_update_ubo{false},
+		m_pushed_new_commands{false},
+		m_last_synced_id{},
+		m_last_flushed_buf_id{},
+		m_curr_buffer_id{},
 		m_scissor{},
 		m_commands{}, m_renderdoc{nullptr},
 		m_vram_blit_vertex_buf(std::move(VertexBuffer::CreateVertexBuffer().value())),
@@ -40,11 +45,14 @@ namespace psx::video {
 		m_blit_shader.SetLabel("vram_blit_shader");
 		m_textured_pipeline.SetLabel("textured_pipeline");
 		m_blit_vertex_buf.SetLabel(std::string_view{ "vram_blit_vertex_buf" });
+
+		m_temp_uniforms.resolution_multiplier = m_resolution_multiplier;
+		m_uniform_buf = UniformRingBuffer::CreateRingBuffer(sizeof(m_temp_uniforms), NUM_RINGBUFFER_SLOTS).value();
 		m_uniform_buf.SetLabel("global_uniform_buffer");
-		m_uniform_buf.buffer.resolution_multiplier = m_resolution_multiplier;
-		m_uniform_buf.Bind();
-		m_uniform_buf.Upload();
-		m_uniform_buf.BindRange(2);
+		m_uniform_buf.BindTo(2);
+		m_uniform_buf.WriteSlot(0, m_temp_uniforms);
+		m_uniform_buf.FlushSlotWrites(0);
+
 		m_vram_blit_vertex_buf.SetLabel(std::string_view{ "vram_vram_blit_vertex_buf" });
 		m_vram_blit_shader.SetLabel("vram_vram_blit_shader");
 		m_mono_line_pipeline.SetLabel("mono_line_pipeline");
@@ -147,7 +155,9 @@ namespace psx::video {
 			m_textured_pipeline.PushVertex(v0);
 			m_textured_pipeline.PushVertex(v1);
 			m_textured_pipeline.PushVertex(v2);
-			m_textured_pipeline.AddPrimitiveData({});
+			m_textured_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
+			m_textured_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
+			m_textured_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
 		} break;
 		case PipelineType::MONO_LINE: {
 			if (m_mono_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
@@ -177,7 +187,8 @@ namespace psx::video {
 
 			m_mono_line_pipeline.PushVertex(v0);
 			m_mono_line_pipeline.PushVertex(v1);
-			m_mono_line_pipeline.AddPrimitiveData({});
+			m_mono_line_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
+			m_mono_line_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
 		} break;
 		case PipelineType::SHADED_LINE: {
 			if (m_shaded_line_pipeline.VertexCount() >= MAX_VERTEX_COUNT) {
@@ -198,7 +209,8 @@ namespace psx::video {
 			
 			m_shaded_line_pipeline.PushVertex(v0);
 			m_shaded_line_pipeline.PushVertex(v1);
-			m_shaded_line_pipeline.AddPrimitiveData({});
+			m_mono_line_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
+			m_mono_line_pipeline.AddAdditionalData({ .uniform_buffer_index = (u32)(m_curr_buffer_id % NUM_RINGBUFFER_SLOTS) });
 		} break;
 		default:
 			error::Unreachable();
@@ -217,11 +229,14 @@ namespace psx::video {
 		cmd.type = primitive.type;
 		cmd.semi_transparent = primitive.semi_transparent;
 		cmd.semi_transparency_type = primitive.semi_transparency_type;
+		cmd.uniform_buffer_index = m_curr_buffer_id % NUM_RINGBUFFER_SLOTS;
 
 		AppendCommand(cmd);
 	}
 
 	void Renderer::AppendCommand(DrawCommand cmd) {
+		m_pushed_new_commands = true;
+
 		if (m_commands.empty()) {
 			m_commands.push_back(cmd);
 		}
@@ -239,16 +254,16 @@ namespace psx::video {
 					m_commands.push_back(cmd);
 				}
 			}
-			else
+			else {
 				m_commands.push_back(cmd);
+			}
 		}
 	}
 
 	void Renderer::DrawBatch() {
-		if (m_commands.empty())
+		if (m_commands.empty()) {
 			return;
-
-		UpdateUbo();
+		}
 
 		auto gl_ctx = GetCurrentGLContext();
 		gl_ctx->SetViewport(0, 0, 1024ULL * m_resolution_multiplier, 512ULL * m_resolution_multiplier);
@@ -282,6 +297,9 @@ namespace psx::video {
 
 		while (!m_commands.empty()) {
 			auto const& cmd = m_commands.front();
+
+			// If not done already, upload slot here
+			CheckUboSlot(cmd.uniform_buffer_index);
 
 			if (cmd.semi_transparent) {
 				gl_ctx->BlendEnable();
@@ -364,13 +382,13 @@ namespace psx::video {
 			}
 		}
 
-		m_textured_pipeline.ClearPrimitiveData();
+		m_textured_pipeline.ClearAdditionalData();
 		m_textured_pipeline.ClearVertices();
 
-		m_mono_line_pipeline.ClearPrimitiveData();
+		m_mono_line_pipeline.ClearAdditionalData();
 		m_mono_line_pipeline.ClearVertices();
 
-		m_shaded_line_pipeline.ClearPrimitiveData();
+		m_shaded_line_pipeline.ClearAdditionalData();
 		m_shaded_line_pipeline.ClearVertices();
 
 		m_processing_cmd = true;
@@ -404,6 +422,7 @@ namespace psx::video {
 
 		m_processing_cmd = false;
 		m_need_gpu_to_host_copy = true;
+		m_last_synced_id = m_curr_buffer_id;
 	}
 
 	//Before ANY blit, flush commands, wait 
@@ -440,7 +459,7 @@ namespace psx::video {
 		//after calling this method, CPU fills unmasked buffer 
 		//therefore, we need to issue all draw commands
 		//right now, but we don't want to wait for completion, yet
-		UpdateUbo();
+		CheckUboSlot(m_curr_buffer_id);
 		DrawBatch();
 	}
 
@@ -546,17 +565,41 @@ namespace psx::video {
 	}
 
 	void Renderer::FlushCommands() {
-		UpdateUbo();
 		DrawBatch();
 		CommandFenceSync();
 	}
 
-	void Renderer::UpdateUbo() {
-		if (!m_update_ubo)
-			return;
+	void Renderer::CopyUboToSlotAndVerifyPreemption() {
+		auto next_buffer_id = m_curr_buffer_id + 1;
+		auto curr_slot_id = (m_curr_buffer_id % NUM_RINGBUFFER_SLOTS);
+		auto next_slot_id = (next_buffer_id % NUM_RINGBUFFER_SLOTS);
 
-		m_update_ubo = false;
-		m_uniform_buf.Upload();
+		if (m_pushed_new_commands) {
+			m_pushed_new_commands = false;
+			if (m_last_synced_id == next_slot_id) {
+				if (!m_commands.empty()) { // There are previously requested render commands
+					CheckUboSlot(next_buffer_id); // Flush previously written config
+					DrawBatch(); // Drain all render commands
+				}
+				if (m_processing_cmd) {  // Overwriting head of buffer
+					CommandFenceSync();  // Make sure that previous commands have completed
+				}
+			}
+			// Previous slots have been used, goto next
+			m_uniform_buf.WriteSlot(next_slot_id, m_temp_uniforms);
+			m_curr_buffer_id++;
+		}
+		else {
+			// No new commands added since last UBO write, keep same slot
+			m_uniform_buf.WriteSlot(curr_slot_id, m_temp_uniforms);
+		}
+	}
+
+	void Renderer::CheckUboSlot(uint64_t _buf_id) {
+		while (m_last_flushed_buf_id <= _buf_id) {
+			m_uniform_buf.FlushSlotWrites(m_last_flushed_buf_id % NUM_RINGBUFFER_SLOTS);
+			m_last_flushed_buf_id++;
+		}
 	}
 
 	void Renderer::Fill(i32 xoff, i32 yoff, u32 w, u32 h, u32 color) {
@@ -660,6 +703,6 @@ namespace psx::video {
 	}
 
 	Renderer::~Renderer() {
-		m_uniform_buf.Unbind();
+		m_uniform_buf.UnbindBuffer();
 	}
 }

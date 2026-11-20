@@ -447,6 +447,9 @@
     <ClInclude Include="renderer\GpuBuffer.hpp">
       <Filter>Header Files\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="renderer\UniformRingBuffer.hpp">
+      <Filter>Header Files\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\psxemu\MemoryMapper.cpp">
@@ -684,6 +687,9 @@
       <Filter>Resource Files\gdbstub</Filter>
     </ClCompile>
     <ClCompile Include="renderer\GpuBuffer.cpp">
+      <Filter>Resource Files\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer\UniformRingBuffer.cpp">
       <Filter>Resource Files\renderer</Filter>
     </ClCompile>
   </ItemGroup>

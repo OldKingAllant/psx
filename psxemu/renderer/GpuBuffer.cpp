@@ -34,6 +34,10 @@ namespace psx::video {
 			flags |= GL_MAP_COHERENT_BIT;
 		}
 
+		if (to_bool(_prots & BufferMapping::FLUSH_EXPLICIT)) {
+			flags |= GL_MAP_FLUSH_EXPLICIT_BIT;
+		}
+
 		return flags;
 	}
 

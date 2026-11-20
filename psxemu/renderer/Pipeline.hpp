@@ -37,13 +37,15 @@ namespace psx::video {
 
 	void PerformDraw(Primitive primitive_type, u32 offset, u32 count);
 
-	template <Primitive Prim, detail::Vertex Vert, typename PrimitiveData, typename... Uniforms>
+	template <Primitive Prim, detail::Vertex Vert, typename AdditionalData, typename... Uniforms>
 	class Pipeline {
 	public :
 		Pipeline(std::string const& shader_loc, std::string const& shader_name) :
-			m_buffer{ VertexBuffer::CreateVertexBuffer().value() }, m_shader(shader_loc, shader_name),
-			m_per_primitive_data{}, m_curr_primitive{}, m_label{} {
+			m_buffer{ VertexBuffer::CreateVertexBuffer().value() }, 
+			m_shader(shader_loc, shader_name),
+			m_label{} {
 			m_buffer.AddBuffer<Vert>(0, MAX_VERTEX_COUNT);
+			m_buffer.AddBuffer<AdditionalData>(0, MAX_VERTEX_COUNT);
 		}
 
 		void Draw(u32 offset, u32 vertex_count, std::pair<std::string_view, Uniforms>... uniforms) {
@@ -52,8 +54,6 @@ namespace psx::video {
 			m_buffer.Bind();
 
 			PerformDraw(Prim, offset, vertex_count);
-			
-			//m_buffer.Unbind();
 		}
 
 		void PushVertex(Vert vertex) {
@@ -68,19 +68,12 @@ namespace psx::video {
 			return (u32)m_buffer.GetBufferSize(0).value();
 		}
 
-		void AddPrimitiveData(PrimitiveData data) {
-			if (m_curr_primitive >= MAX_PRIMITIVE_COUNT)
-				return;
-
-			m_per_primitive_data[m_curr_primitive++] = data;
+		void AddAdditionalData(AdditionalData data) {
+			m_buffer.PushVertexDataUntyped(1, data);
 		}
 
-		PrimitiveData GetPrimitiveData(u32 primitive_index) const {
-			return m_per_primitive_data[primitive_index];
-		}
-
-		void ClearPrimitiveData() {
-			m_curr_primitive = 0;
+		void ClearAdditionalData() {
+			m_buffer.ClearBuffer(1);
 		}
 
 		void SetLabel(std::string_view label) {
@@ -96,10 +89,8 @@ namespace psx::video {
 		static constexpr u32 VERTEX_COUNT_PER_PRIMITIVE = vertex_count_per_primitive(Prim);
 
 	private :
-		VertexBuffer m_buffer;
-		Shader m_shader;
-		PrimitiveData m_per_primitive_data[MAX_PRIMITIVE_COUNT];
-		u32 m_curr_primitive;
-		std::string m_label;
+		VertexBuffer  m_buffer;
+		Shader        m_shader;
+		std::string   m_label;
 	};
 }

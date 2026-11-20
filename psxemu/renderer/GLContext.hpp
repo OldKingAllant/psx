@@ -51,6 +51,14 @@ namespace psx::video {
 			l.access == r.access && l.format == r.format;
 	}
 
+	 struct BufferRangeBinding {
+		 uint32_t target{};  // The OpenGL target buffer name (e.g. GL_UNIFORM_BUFFER, ...)
+		 uint32_t index{};   // The bind point
+		 uint32_t buffer{};  // The buffer to bind
+		 size_t offset{};    // Offset inside buffer 
+		 size_t extent{};    // Size of the bound data
+	 };
+
 	struct GLContext {
 		static GLContext Create(void* window);
 
@@ -91,20 +99,26 @@ namespace psx::video {
 
 		void BindFramebuffer(u32 target, u32 fbo);
 
+		void BindBufferRange(BufferRangeBinding const& _binding);
+
 		~GLContext();
 
-		void* m_handle;
-		GLViewport m_viewport;
-		u32 m_texture_slot;
-		std::unordered_map<u32, GLTextureBinding> m_texture_bindings;
-		u32 m_program_id;
-		u32 m_vao;
-		std::unordered_map<u32, u32> m_buffer_bindings;
-		GLScissor m_scissor;
-		bool m_enable_scissor;
-		bool m_enable_blend;
-		std::unordered_map<u32, GLImageBinding> m_image_bindings;
-		std::unordered_map<u32, u32> m_framebuffer_bindings;
+		template <typename Key, typename Value>
+		using Map = std::unordered_map<Key, Value>;
+
+		void*                                            m_handle;
+		GLViewport                                       m_viewport;
+		u32                                              m_texture_slot;
+		Map<u32, GLTextureBinding>                       m_texture_bindings;
+		u32                                              m_program_id;
+		u32                                              m_vao;
+		Map<u32, u32>                                    m_buffer_bindings;
+		GLScissor                                        m_scissor;
+		bool                                             m_enable_scissor;
+		bool                                             m_enable_blend;
+		Map<u32, GLImageBinding>                         m_image_bindings;
+		Map<u32, u32>                                    m_framebuffer_bindings;
+		Map<u32, Map<u32, BufferRangeBinding>>           m_range_bindings;
 	};
 
 	extern thread_local GLContext* g_curr_context;

@@ -6,6 +6,7 @@
 #include "VertexBuffer.hpp"
 #include "Shader.hpp"
 #include "UniformBuffer.hpp"
+#include "UniformRingBuffer.hpp"
 #include "Renderdoc.hpp"
 #include "GLContext.hpp"
 
@@ -153,16 +154,27 @@ namespace psx::video {
 
 	struct DrawCommand {
 		PipelineType type;
-		u32 vertex_count;
-		bool semi_transparent;
-		u8 semi_transparency_type;
+		u32          vertex_count;
+		bool         semi_transparent;
+		u8           semi_transparency_type;
+		u64          uniform_buffer_index;
 	};
 
 	struct Color {
 		u32 r, g, b;
 	};
 
-	struct NullData {};
+	struct PerPrimitiveData {
+#pragma pack(push, 1)
+		u32 uniform_buffer_index;
+#pragma pack(pop)
+
+		std::vector<VertexAttribute> attributes() const {
+			return {
+				VertexAttribute{ VertexAttributeType::UNSIGNED_INT, (u8*)&uniform_buffer_index - (u8*)this }
+			};
+		}
+	};
 
 	struct GlobalUniforms {
 #pragma pack(push, 1)
@@ -176,6 +188,8 @@ namespace psx::video {
 		uint32_t set_mask;
 		uint32_t check_mask;
 		uint32_t resolution_multiplier;
+		uint32_t _unused1;
+		uint32_t _unused2;
 #pragma pack(pop)
 	};
 
@@ -205,7 +219,9 @@ namespace psx::video {
 
 		void FlushCommands();
 		void SyncTextures();
-		void UpdateUbo();
+
+		void CopyUboToSlotAndVerifyPreemption();
+		void CheckUboSlot(uint64_t _buf_id);
 
 		u8* GetVramPtr() const {
 			return m_vram.Get();
@@ -226,32 +242,110 @@ namespace psx::video {
 
 		void CommandFenceSync();
 
-		GlobalUniforms& GetUniformBuffer() {
-			return m_uniform_buf.buffer;
-		}
+		/////////////////////////////////////////////////////
 
-		void RequestUniformBufferUpdate() {
+		static constexpr size_t NUM_RINGBUFFER_SLOTS = 64;
+
+		void SetDitherEnable(bool _enable_dither) {
+			if (m_temp_uniforms.use_dither == (u32)_enable_dither) {
+				return;
+			}
+			m_temp_uniforms.use_dither = _enable_dither;
+			CopyUboToSlotAndVerifyPreemption();
 			m_update_ubo = true;
 		}
+
+		void SetMaskEnable(bool _enable_set_mask) {
+			if (m_temp_uniforms.set_mask == (u32)_enable_set_mask) {
+				return;
+			}
+			m_temp_uniforms.set_mask = _enable_set_mask;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetCheckMaskEnable(bool _enable_check_mask) {
+			if (m_temp_uniforms.check_mask == (u32)_enable_check_mask) {
+				return;
+			}
+			m_temp_uniforms.check_mask = _enable_check_mask;
+			m_draw_over_mask_disable = _enable_check_mask;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetTextureWindowMaskX(uint32_t _tex_window_mask_x) {
+			if (m_temp_uniforms.tex_window_mask_x == _tex_window_mask_x) {
+				return;
+			}
+			m_temp_uniforms.tex_window_mask_x = _tex_window_mask_x;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetTextureWindowMaskY(uint32_t _tex_window_mask_y) {
+			if (m_temp_uniforms.tex_window_mask_y == _tex_window_mask_y) {
+				return;
+			}
+			m_temp_uniforms.tex_window_mask_y = _tex_window_mask_y;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetTextureWindowOffX(uint32_t _tex_window_off_x) {
+			if (m_temp_uniforms.tex_window_off_x == _tex_window_off_x) {
+				return;
+			}
+			m_temp_uniforms.tex_window_off_x = _tex_window_off_x;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetTextureWindowOffY(uint32_t _tex_window_off_y) {
+			if (m_temp_uniforms.tex_window_off_y == _tex_window_off_y) {
+				return;
+			}
+			m_temp_uniforms.tex_window_off_y = _tex_window_off_y;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetDrawOffX(uint32_t _draw_x_off) {
+			if (m_temp_uniforms.draw_x_off == _draw_x_off) {
+				return;
+			}
+			m_temp_uniforms.draw_x_off = _draw_x_off;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		void SetDrawOffY(uint32_t _draw_y_off) {
+			if (m_temp_uniforms.draw_y_off == _draw_y_off) {
+				return;
+			}
+			m_temp_uniforms.draw_y_off = _draw_y_off;
+			CopyUboToSlotAndVerifyPreemption();
+			m_update_ubo = true;
+		}
+
+		////////////////////////////////////////////////////
 
 		void SetScissorTop(uint32_t x, uint32_t y) {
 			m_scissor.top_x = x;
 			m_scissor.top_y = y;
 			m_update_scissor = true;
+			DrawBatch();
 		}
 
 		void SetScissorBottom(uint32_t x, uint32_t y) {
 			m_scissor.bottom_x = x;
 			m_scissor.bottom_y = y;
 			m_update_scissor = true;
+			DrawBatch();
 		}
 
 		void SetRenderdocAPI(Renderdoc* renderdoc) {
 			m_renderdoc = renderdoc;
-		}
-
-		void SetDrawOverMaskDisable(bool disable) {
-			m_draw_over_mask_disable = disable;
 		}
 
 		FORCE_INLINE Renderdoc* GetRenderDoc() const {
@@ -267,25 +361,30 @@ namespace psx::video {
 		~Renderer();
 
 	private :
-		u32 m_resolution_multiplier;
-		Vram m_vram;
-		FrameBuffer m_framebuffer;
-		bool m_need_gpu_to_host_copy;
-		bool m_need_host_to_gpu_copy;
-		bool m_processing_cmd;
-		bool m_update_ubo;
-		bool m_update_scissor;
-		Pipeline<Primitive::TRIANGLES, TexturedVertex, NullData>         m_textured_pipeline;
+		u32                                                              m_resolution_multiplier;
+		Vram                                                             m_vram;
+		FrameBuffer                                                      m_framebuffer;
+		bool                                                             m_need_gpu_to_host_copy;
+		bool                                                             m_need_host_to_gpu_copy;
+		bool                                                             m_processing_cmd;
+		bool                                                             m_update_scissor;
+		Pipeline<Primitive::TRIANGLES, TexturedVertex, PerPrimitiveData> m_textured_pipeline;
 		VertexBuffer                                                     m_blit_vertex_buf;
 		Shader                                                           m_blit_shader;
-		UniformBuffer<GlobalUniforms>                                    m_uniform_buf;
+		UniformRingBuffer                                                m_uniform_buf;
+		GlobalUniforms                                                   m_temp_uniforms;
+		uint64_t                                                         m_curr_buffer_id;
+		bool                                                             m_update_ubo;
+		bool                                                             m_pushed_new_commands;
+		uint64_t                                                         m_last_synced_id;
+		uint64_t                                                         m_last_flushed_buf_id;
 		ScissorBox                                                       m_scissor;
 		std::list<DrawCommand>                                           m_commands;
 		Renderdoc*                                                       m_renderdoc;
 		VertexBuffer                                                     m_vram_blit_vertex_buf;
 		Shader                                                           m_vram_blit_shader;
-		Pipeline<Primitive::LINES, UntexturedOpaqueFlatVertex, NullData> m_mono_line_pipeline;
-		Pipeline<Primitive::LINES, BasicGouraudVertex, NullData>         m_shaded_line_pipeline;
+		Pipeline<Primitive::LINES, UntexturedOpaqueFlatVertex, PerPrimitiveData> m_mono_line_pipeline;
+		Pipeline<Primitive::LINES, BasicGouraudVertex, PerPrimitiveData>         m_shaded_line_pipeline;
 		bool                                                             m_draw_over_mask_disable;
 		std::vector<u8>                                                  m_blank_image;
 		GLContext*                                                       m_gl_ctx;
